@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.electron-builder-cache/
+.eb-cache/
+electron-cache/
+
+# mobile build outputs
+mobile/android/build/
+mobile/android/app/build/
+mobile/android/.gradle/
+mobile/android/local.properties
+mobile/android-sdk/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,20 @@
+{
+  "name": "retro-radio-mobile",
+  "version": "1.0.0",
+  "description": "复古网络收音机 - 移动端",
+  "main": "index.html",
+  "scripts": {
+    "build": "echo 'Build completed'",
+    "cap:add": "npx cap add android",
+    "cap:copy": "npx cap copy",
+    "cap:sync": "npx cap sync",
+    "cap:open": "npx cap open android"
+  },
+  "dependencies": {
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/android": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}

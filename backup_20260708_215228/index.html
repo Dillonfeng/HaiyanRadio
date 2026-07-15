@@ -1,0 +1,1171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>复古网络收音机 &amp; 电视机</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.12/dist/hls.min.js"></script>
+<script>
+</script>
+</head>
+<body>
+
+<!-- ============ 顶部设备切换器 ============ -->
+<header class="top-bar">
+  <div class="top-bar-inner">
+    <h1 class="brand">
+      <span class="brand-icon">📻</span>
+      <span class="brand-text">RETRO <em>&amp;</em> VINTAGE</span>
+    </h1>
+    <nav class="device-switch">
+      <button class="device-btn active" data-device="radio">
+        <span class="device-ico">🎙️</span>
+        <span>RADIO</span>
+      </button>
+      <button class="device-btn" data-device="tv">
+        <span class="device-ico">📺</span>
+        <span>TELEVISION</span>
+      </button>
+      <button class="device-btn manage-btn" id="openManagerBtn">
+        <span class="device-ico">⚙️</span>
+        <span>CHANNELS</span>
+      </button>
+      <button class="device-btn menu-btn" id="stationMenuBtn">
+        <span class="device-ico">☰</span>
+        <span>MENU</span>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<!-- ============ 主体区域 ============ -->
+<main class="stage">
+
+  <!-- ===== 收音机 ===== -->
+  <section class="device radio-device active" id="radioDevice">
+
+    <!-- 提手 -->
+    <div class="radio-clock">
+      <div class="clock-face">
+        <div class="clock-ticks">
+        </div>
+        <div class="clock-hour-numbers">
+          <span class="clock-number" style="top:6px;left:53px">12</span>
+          <span class="clock-number" style="top:15px;left:75px">1</span>
+          <span class="clock-number" style="top:28px;left:91px">2</span>
+          <span class="clock-number" style="top:46px;left:100px">3</span>
+          <span class="clock-number" style="top:64px;left:95px">4</span>
+          <span class="clock-number" style="top:78px;left:79px">5</span>
+          <span class="clock-number" style="top:84px;left:53px">6</span>
+          <span class="clock-number" style="top:78px;left:27px">7</span>
+          <span class="clock-number" style="top:64px;left:11px">8</span>
+          <span class="clock-number" style="top:46px;left:6px">9</span>
+          <span class="clock-number" style="top:28px;left:15px">10</span>
+          <span class="clock-number" style="top:15px;left:31px">11</span>
+        </div>
+        <div class="clock-hands">
+          <div class="clock-hour-hand" id="clockHour"></div>
+          <div class="clock-minute-hand" id="clockMinute"></div>
+          <div class="clock-second-hand" id="clockSecond"></div>
+          <div class="clock-center"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 主外壳 -->
+    <div class="radio-body">
+
+      <!-- 左侧扬声器 -->
+      <div class="speaker speaker-left">
+        <div class="speaker-grille">
+          <div class="speaker-spectrum">
+            <div class="speaker-spectrum-bar"></div>
+          </div>
+        </div>
+        <div class="speaker-led"></div>
+      </div>
+
+      <!-- 中央控制区 -->
+      <div class="radio-center">
+
+        <!-- 发光调频屏 -->
+        <div class="dial-panel">
+          <div class="dial-window">
+            <div class="dial-inner">
+              <div class="freq-scales">
+                <span>FM · 88</span>
+                <span>90</span><span>92</span><span>94</span>
+                <span>96</span><span>98</span><span>100</span>
+                <span>102</span><span>104</span><span>106</span><span>108</span>
+              </div>
+              <div class="freq-scales am-row">
+                <span>AM · 540</span><span>600</span><span>700</span><span>800</span>
+                <span>900</span><span>1000</span><span>1200</span><span>1400</span><span>1600</span>
+              </div>
+              <!-- 指针 -->
+              <div class="dial-needle" id="dialNeedle"></div>
+            </div>
+          </div>
+
+          <!-- 当前频道信息显示屏 -->
+          <div class="info-display" id="radioInfoDisplay">
+            <span class="display-label">NOW TUNED</span>
+            <span class="display-name" id="radioChannelName">— — —</span>
+            <span class="display-freq" id="radioChannelFreq">— FM</span>
+          </div>
+
+          <!-- VU 电平表显示区（多种 VU 样式切换） -->
+          <div class="viz-panel" id="vizPanel" data-active-style="classic">
+            <!-- 样式切换按钮 -->
+            <div class="viz-style-switch" id="vizStyleSwitch">
+              <button class="viz-style-btn active" data-style="classic">经典</button>
+              <button class="viz-style-btn" data-style="black">黑底</button>
+              <button class="viz-style-btn" data-style="round">圆形</button>
+            </div>
+
+            <div class="vu-meters">
+
+              <!-- 左声道 VU 表：经典 -->
+              <div class="vu-meter" data-vu-style="classic">
+                <div class="vu-case">
+                  <div class="vu-face">
+                    <span class="vu-sign-minus">-</span>
+                    <span class="vu-sign-plus">+</span>
+                    <div class="vu-arc">
+                      <span class="vu-num" style="--ang:-78deg">20</span>
+                      <span class="vu-num" style="--ang:-54deg">7</span>
+                      <span class="vu-num" style="--ang:-32deg">3</span>
+                      <span class="vu-num" style="--ang:-10deg">1</span>
+                      <span class="vu-num vu-num-red" style="--ang:16deg">0</span>
+                      <span class="vu-num vu-num-red" style="--ang:40deg">3</span>
+                      <span class="vu-num vu-num-red" style="--ang:70deg">5+</span>
+                    </div>
+                    <div class="vu-ticks">
+                      <span style="--ang:-78deg;--h:14px"></span>
+                      <span style="--ang:-70deg;--h:6px"></span>
+                      <span style="--ang:-62deg;--h:8px"></span>
+                      <span style="--ang:-54deg;--h:14px"></span>
+                      <span style="--ang:-46deg;--h:6px"></span>
+                      <span style="--ang:-38deg;--h:8px"></span>
+                      <span style="--ang:-32deg;--h:14px"></span>
+                      <span style="--ang:-26deg;--h:6px"></span>
+                      <span style="--ang:-20deg;--h:8px"></span>
+                      <span style="--ang:-10deg;--h:14px"></span>
+                      <span style="--ang:-4deg;--h:6px"></span>
+                      <span style="--ang:2deg;--h:8px"></span>
+                      <span style="--ang:10deg;--h:14px"></span>
+                      <span style="--ang:22deg;--h:8px"></span>
+                      <span style="--ang:34deg;--h:6px"></span>
+                      <span style="--ang:46deg;--h:14px"></span>
+                      <span style="--ang:58deg;--h:8px"></span>
+                      <span style="--ang:70deg;--h:14px"></span>
+                    </div>
+                    <div class="vu-red-arc"></div>
+                    <div class="vu-brand">VU</div>
+                    <div class="vu-percents">
+                      <span style="--ang:-48deg">0</span>
+                      <span style="--ang:-20deg">20</span>
+                      <span style="--ang:4deg">40</span>
+                      <span style="--ang:28deg">60</span>
+                      <span style="--ang:52deg">80</span>
+                      <span style="--ang:72deg">100%</span>
+                    </div>
+                    <div class="vu-needle" id="vuNeedleLeft">
+                      <div class="vu-needle-shaft"></div>
+                    </div>
+                    <div class="vu-pivot"></div>
+                    <div class="vu-coil"></div>
+                    <div class="vu-channel">L</div>
+                  </div>
+                  <div class="vu-screw vu-screw-tl"></div>
+                  <div class="vu-screw vu-screw-tr"></div>
+                  <div class="vu-screw vu-screw-bl"></div>
+                  <div class="vu-screw vu-screw-br"></div>
+                </div>
+              </div>
+
+              <!-- 右声道 VU 表：经典 -->
+              <div class="vu-meter" data-vu-style="classic">
+                <div class="vu-case">
+                  <div class="vu-face">
+                    <span class="vu-sign-minus">-</span>
+                    <span class="vu-sign-plus">+</span>
+                    <div class="vu-arc">
+                      <span class="vu-num" style="--ang:-78deg">20</span>
+                      <span class="vu-num" style="--ang:-54deg">7</span>
+                      <span class="vu-num" style="--ang:-32deg">3</span>
+                      <span class="vu-num" style="--ang:-10deg">1</span>
+                      <span class="vu-num vu-num-red" style="--ang:16deg">0</span>
+                      <span class="vu-num vu-num-red" style="--ang:40deg">3</span>
+                      <span class="vu-num vu-num-red" style="--ang:70deg">5+</span>
+                    </div>
+                    <div class="vu-ticks">
+                      <span style="--ang:-78deg;--h:14px"></span>
+                      <span style="--ang:-70deg;--h:6px"></span>
+                      <span style="--ang:-62deg;--h:8px"></span>
+                      <span style="--ang:-54deg;--h:14px"></span>
+                      <span style="--ang:-46deg;--h:6px"></span>
+                      <span style="--ang:-38deg;--h:8px"></span>
+                      <span style="--ang:-32deg;--h:14px"></span>
+                      <span style="--ang:-26deg;--h:6px"></span>
+                      <span style="--ang:-20deg;--h:8px"></span>
+                      <span style="--ang:-10deg;--h:14px"></span>
+                      <span style="--ang:-4deg;--h:6px"></span>
+                      <span style="--ang:2deg;--h:8px"></span>
+                      <span style="--ang:10deg;--h:14px"></span>
+                      <span style="--ang:22deg;--h:8px"></span>
+                      <span style="--ang:34deg;--h:6px"></span>
+                      <span style="--ang:46deg;--h:14px"></span>
+                      <span style="--ang:58deg;--h:8px"></span>
+                      <span style="--ang:70deg;--h:14px"></span>
+                    </div>
+                    <div class="vu-red-arc"></div>
+                    <div class="vu-brand">VU</div>
+                    <div class="vu-percents">
+                      <span style="--ang:-48deg">0</span>
+                      <span style="--ang:-20deg">20</span>
+                      <span style="--ang:4deg">40</span>
+                      <span style="--ang:28deg">60</span>
+                      <span style="--ang:52deg">80</span>
+                      <span style="--ang:72deg">100%</span>
+                    </div>
+                    <div class="vu-needle" id="vuNeedleRight">
+                      <div class="vu-needle-shaft"></div>
+                    </div>
+                    <div class="vu-pivot"></div>
+                    <div class="vu-coil"></div>
+                    <div class="vu-channel">R</div>
+                  </div>
+                  <div class="vu-screw vu-screw-tl"></div>
+                  <div class="vu-screw vu-screw-tr"></div>
+                  <div class="vu-screw vu-screw-bl"></div>
+                  <div class="vu-screw vu-screw-br"></div>
+                </div>
+              </div>
+
+              <!-- 左声道 VU 表：黑底 -->
+              <div class="vu-meter" data-vu-style="black">
+                <div class="vu-case">
+                  <div class="vu-face">
+                    <span class="vu-sign-minus">-</span>
+                    <span class="vu-sign-plus">+</span>
+                    <div class="vu-arc">
+                      <span class="vu-num" style="--ang:-78deg">20</span>
+                      <span class="vu-num" style="--ang:-54deg">7</span>
+                      <span class="vu-num" style="--ang:-32deg">3</span>
+                      <span class="vu-num" style="--ang:-10deg">1</span>
+                      <span class="vu-num vu-num-red" style="--ang:16deg">0</span>
+                      <span class="vu-num vu-num-red" style="--ang:40deg">3</span>
+                      <span class="vu-num vu-num-red" style="--ang:70deg">5+</span>
+                    </div>
+                    <div class="vu-ticks">
+                      <span style="--ang:-78deg;--h:14px"></span>
+                      <span style="--ang:-70deg;--h:6px"></span>
+                      <span style="--ang:-62deg;--h:8px"></span>
+                      <span style="--ang:-54deg;--h:14px"></span>
+                      <span style="--ang:-46deg;--h:6px"></span>
+                      <span style="--ang:-38deg;--h:8px"></span>
+                      <span style="--ang:-32deg;--h:14px"></span>
+                      <span style="--ang:-26deg;--h:6px"></span>
+                      <span style="--ang:-20deg;--h:8px"></span>
+                      <span style="--ang:-10deg;--h:14px"></span>
+                      <span style="--ang:-4deg;--h:6px"></span>
+                      <span style="--ang:2deg;--h:8px"></span>
+                      <span style="--ang:10deg;--h:14px"></span>
+                      <span style="--ang:22deg;--h:8px"></span>
+                      <span style="--ang:34deg;--h:6px"></span>
+                      <span style="--ang:46deg;--h:14px"></span>
+                      <span style="--ang:58deg;--h:8px"></span>
+                      <span style="--ang:70deg;--h:14px"></span>
+                    </div>
+                    <div class="vu-red-arc"></div>
+                    <div class="vu-brand">VU</div>
+                    <div class="vu-percents">
+                      <span style="--ang:-48deg">0</span>
+                      <span style="--ang:-20deg">20</span>
+                      <span style="--ang:4deg">40</span>
+                      <span style="--ang:28deg">60</span>
+                      <span style="--ang:52deg">80</span>
+                      <span style="--ang:72deg">100%</span>
+                    </div>
+                    <div class="vu-needle" id="vuNeedleLeftBlack">
+                      <div class="vu-needle-shaft"></div>
+                    </div>
+                    <div class="vu-pivot"></div>
+                    <div class="vu-coil"></div>
+                    <div class="vu-channel">L</div>
+                  </div>
+                  <div class="vu-screw vu-screw-tl"></div>
+                  <div class="vu-screw vu-screw-tr"></div>
+                  <div class="vu-screw vu-screw-bl"></div>
+                  <div class="vu-screw vu-screw-br"></div>
+                </div>
+              </div>
+
+              <!-- 右声道 VU 表：黑底 -->
+              <div class="vu-meter" data-vu-style="black">
+                <div class="vu-case">
+                  <div class="vu-face">
+                    <span class="vu-sign-minus">-</span>
+                    <span class="vu-sign-plus">+</span>
+                    <div class="vu-arc">
+                      <span class="vu-num" style="--ang:-78deg">20</span>
+                      <span class="vu-num" style="--ang:-54deg">7</span>
+                      <span class="vu-num" style="--ang:-32deg">3</span>
+                      <span class="vu-num" style="--ang:-10deg">1</span>
+                      <span class="vu-num vu-num-red" style="--ang:16deg">0</span>
+                      <span class="vu-num vu-num-red" style="--ang:40deg">3</span>
+                      <span class="vu-num vu-num-red" style="--ang:70deg">5+</span>
+                    </div>
+                    <div class="vu-ticks">
+                      <span style="--ang:-78deg;--h:14px"></span>
+                      <span style="--ang:-70deg;--h:6px"></span>
+                      <span style="--ang:-62deg;--h:8px"></span>
+                      <span style="--ang:-54deg;--h:14px"></span>
+                      <span style="--ang:-46deg;--h:6px"></span>
+                      <span style="--ang:-38deg;--h:8px"></span>
+                      <span style="--ang:-32deg;--h:14px"></span>
+                      <span style="--ang:-26deg;--h:6px"></span>
+                      <span style="--ang:-20deg;--h:8px"></span>
+                      <span style="--ang:-10deg;--h:14px"></span>
+                      <span style="--ang:-4deg;--h:6px"></span>
+                      <span style="--ang:2deg;--h:8px"></span>
+                      <span style="--ang:10deg;--h:14px"></span>
+                      <span style="--ang:22deg;--h:8px"></span>
+                      <span style="--ang:34deg;--h:6px"></span>
+                      <span style="--ang:46deg;--h:14px"></span>
+                      <span style="--ang:58deg;--h:8px"></span>
+                      <span style="--ang:70deg;--h:14px"></span>
+                    </div>
+                    <div class="vu-red-arc"></div>
+                    <div class="vu-brand">VU</div>
+                    <div class="vu-percents">
+                      <span style="--ang:-48deg">0</span>
+                      <span style="--ang:-20deg">20</span>
+                      <span style="--ang:4deg">40</span>
+                      <span style="--ang:28deg">60</span>
+                      <span style="--ang:52deg">80</span>
+                      <span style="--ang:72deg">100%</span>
+                    </div>
+                    <div class="vu-needle" id="vuNeedleRightBlack">
+                      <div class="vu-needle-shaft"></div>
+                    </div>
+                    <div class="vu-pivot"></div>
+                    <div class="vu-coil"></div>
+                    <div class="vu-channel">R</div>
+                  </div>
+                  <div class="vu-screw vu-screw-tl"></div>
+                  <div class="vu-screw vu-screw-tr"></div>
+                  <div class="vu-screw vu-screw-bl"></div>
+                  <div class="vu-screw vu-screw-br"></div>
+                </div>
+              </div>
+
+              <!-- 左声道 VU 表：圆形 -->
+              <div class="vu-meter" data-vu-style="round">
+                <div class="vu-case">
+                  <div class="vu-face">
+                    <span class="vu-sign-minus">-</span>
+                    <span class="vu-sign-plus">+</span>
+                    <div class="vu-arc">
+                      <span class="vu-num" style="--ang:-78deg">20</span>
+                      <span class="vu-num" style="--ang:-54deg">7</span>
+                      <span class="vu-num" style="--ang:-32deg">3</span>
+                      <span class="vu-num" style="--ang:-10deg">1</span>
+                      <span class="vu-num vu-num-red" style="--ang:16deg">0</span>
+                      <span class="vu-num vu-num-red" style="--ang:40deg">3</span>
+                      <span class="vu-num vu-num-red" style="--ang:70deg">5+</span>
+                    </div>
+                    <div class="vu-ticks">
+                      <span style="--ang:-78deg;--h:14px"></span>
+                      <span style="--ang:-70deg;--h:6px"></span>
+                      <span style="--ang:-62deg;--h:8px"></span>
+                      <span style="--ang:-54deg;--h:14px"></span>
+                      <span style="--ang:-46deg;--h:6px"></span>
+                      <span style="--ang:-38deg;--h:8px"></span>
+                      <span style="--ang:-32deg;--h:14px"></span>
+                      <span style="--ang:-26deg;--h:6px"></span>
+                      <span style="--ang:-20deg;--h:8px"></span>
+                      <span style="--ang:-10deg;--h:14px"></span>
+                      <span style="--ang:-4deg;--h:6px"></span>
+                      <span style="--ang:2deg;--h:8px"></span>
+                      <span style="--ang:10deg;--h:14px"></span>
+                      <span style="--ang:22deg;--h:8px"></span>
+                      <span style="--ang:34deg;--h:6px"></span>
+                      <span style="--ang:46deg;--h:14px"></span>
+                      <span style="--ang:58deg;--h:8px"></span>
+                      <span style="--ang:70deg;--h:14px"></span>
+                    </div>
+                    <div class="vu-red-arc"></div>
+                    <div class="vu-brand">VU</div>
+                    <div class="vu-percents">
+                      <span style="--ang:-48deg">0</span>
+                      <span style="--ang:-20deg">20</span>
+                      <span style="--ang:4deg">40</span>
+                      <span style="--ang:28deg">60</span>
+                      <span style="--ang:52deg">80</span>
+                      <span style="--ang:72deg">100%</span>
+                    </div>
+                    <div class="vu-needle" id="vuNeedleLeftRound">
+                      <div class="vu-needle-shaft"></div>
+                    </div>
+                    <div class="vu-pivot"></div>
+                    <div class="vu-coil"></div>
+                    <div class="vu-channel">L</div>
+                  </div>
+                  <div class="vu-screw vu-screw-tl"></div>
+                  <div class="vu-screw vu-screw-tr"></div>
+                  <div class="vu-screw vu-screw-bl"></div>
+                  <div class="vu-screw vu-screw-br"></div>
+                </div>
+              </div>
+
+              <!-- 右声道 VU 表：圆形 -->
+              <div class="vu-meter" data-vu-style="round">
+                <div class="vu-case">
+                  <div class="vu-face">
+                    <span class="vu-sign-minus">-</span>
+                    <span class="vu-sign-plus">+</span>
+                    <div class="vu-arc">
+                      <span class="vu-num" style="--ang:-78deg">20</span>
+                      <span class="vu-num" style="--ang:-54deg">7</span>
+                      <span class="vu-num" style="--ang:-32deg">3</span>
+                      <span class="vu-num" style="--ang:-10deg">1</span>
+                      <span class="vu-num vu-num-red" style="--ang:16deg">0</span>
+                      <span class="vu-num vu-num-red" style="--ang:40deg">3</span>
+                      <span class="vu-num vu-num-red" style="--ang:70deg">5+</span>
+                    </div>
+                    <div class="vu-ticks">
+                      <span style="--ang:-78deg;--h:14px"></span>
+                      <span style="--ang:-70deg;--h:6px"></span>
+                      <span style="--ang:-62deg;--h:8px"></span>
+                      <span style="--ang:-54deg;--h:14px"></span>
+                      <span style="--ang:-46deg;--h:6px"></span>
+                      <span style="--ang:-38deg;--h:8px"></span>
+                      <span style="--ang:-32deg;--h:14px"></span>
+                      <span style="--ang:-26deg;--h:6px"></span>
+                      <span style="--ang:-20deg;--h:8px"></span>
+                      <span style="--ang:-10deg;--h:14px"></span>
+                      <span style="--ang:-4deg;--h:6px"></span>
+                      <span style="--ang:2deg;--h:8px"></span>
+                      <span style="--ang:10deg;--h:14px"></span>
+                      <span style="--ang:22deg;--h:8px"></span>
+                      <span style="--ang:34deg;--h:6px"></span>
+                      <span style="--ang:46deg;--h:14px"></span>
+                      <span style="--ang:58deg;--h:8px"></span>
+                      <span style="--ang:70deg;--h:14px"></span>
+                    </div>
+                    <div class="vu-red-arc"></div>
+                    <div class="vu-brand">VU</div>
+                    <div class="vu-percents">
+                      <span style="--ang:-48deg">0</span>
+                      <span style="--ang:-20deg">20</span>
+                      <span style="--ang:4deg">40</span>
+                      <span style="--ang:28deg">60</span>
+                      <span style="--ang:52deg">80</span>
+                      <span style="--ang:72deg">100%</span>
+                    </div>
+                    <div class="vu-needle" id="vuNeedleRightRound">
+                      <div class="vu-needle-shaft"></div>
+                    </div>
+                    <div class="vu-pivot"></div>
+                    <div class="vu-coil"></div>
+                    <div class="vu-channel">R</div>
+                  </div>
+                  <div class="vu-screw vu-screw-tl"></div>
+                  <div class="vu-screw vu-screw-tr"></div>
+                  <div class="vu-screw vu-screw-bl"></div>
+                  <div class="vu-screw vu-screw-br"></div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+
+        
+
+        <!-- 播放计数器 -->
+        <div class="counter-panel">
+          <div class="reel-deck">
+            <!-- 左侧供带卷盘 -->
+            <div class="reel reel-supply" id="tapeLeft">
+              <div class="reel-rim"></div>
+              <div class="reel-hub">
+                <div class="reel-spoke"></div>
+                <div class="reel-spoke"></div>
+                <div class="reel-spoke"></div>
+                <div class="reel-center"></div>
+                <div class="reel-tape"></div>
+              </div>
+            </div>
+
+            <!-- 中间走带路径 -->
+            <div class="tape-guide">
+              <div class="tape-head"></div>
+              <div class="tape-line"></div>
+              <div class="tape-head"></div>
+            </div>
+
+            <!-- 收带卷盘 -->
+            <div class="reel reel-takeup" id="tapeRight">
+              <div class="reel-rim"></div>
+              <div class="reel-hub">
+                <div class="reel-spoke"></div>
+                <div class="reel-spoke"></div>
+                <div class="reel-spoke"></div>
+                <div class="reel-center"></div>
+                <div class="reel-tape"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 机械式计数器 -->
+          <div class="counter-display">
+            <div class="counter-window">
+              <div class="counter-digits" id="counterDigits">
+                <div class="counter-digit"><div class="digit-strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>0</span></div></div>
+                <div class="counter-digit"><div class="digit-strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>0</span></div></div>
+                <div class="counter-dot">:</div>
+                <div class="counter-digit"><div class="digit-strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>0</span></div></div>
+                <div class="counter-digit"><div class="digit-strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>0</span></div></div>
+                <div class="counter-dot">:</div>
+                <div class="counter-digit"><div class="digit-strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>0</span></div></div>
+                <div class="counter-digit"><div class="digit-strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>0</span></div></div>
+              </div>
+            </div>
+            <div class="counter-label">COUNTER</div>
+          </div>
+        </div>
+
+        <!-- 底部控制面板 -->
+        <div class="bottom-panel">
+          <!-- 左侧预置面板 -->
+          <div class="bottom-left">
+            <div class="panel-header">
+              <span class="panel-title">PRESETS</span>
+              <button class="panel-edit-btn" id="presetEditBtn">EDIT</button>
+            </div>
+            <div class="preset-panel" id="radioPresets">
+              <div class="preset-grid" id="presetGrid">
+                <button class="preset-btn" data-preset="1">1</button>
+                <button class="preset-btn" data-preset="2">2</button>
+                <button class="preset-btn" data-preset="3">3</button>
+                <button class="preset-btn" data-preset="4">4</button>
+                <button class="preset-btn" data-preset="5">5</button>
+                <button class="preset-btn" data-preset="6">6</button>
+                <button class="preset-btn" data-preset="7">7</button>
+                <button class="preset-btn" data-preset="8">8</button>
+                <button class="preset-btn" data-preset="9">9</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bottom-right">
+            <div class="panel-header">
+              <span class="panel-title">EQUALIZER</span>
+              <div class="eq-presets">
+                <button class="eq-preset-btn active" data-eq="flat">FLAT</button>
+                <button class="eq-preset-btn" data-eq="rock">ROCK</button>
+                <button class="eq-preset-btn" data-eq="pop">POP</button>
+                <button class="eq-preset-btn" data-eq="jazz">JAZZ</button>
+                <button class="eq-preset-btn" data-eq="classical">CLS</button>
+              </div>
+            </div>
+            <div class="control-panel">
+              <div class="power-section">
+                <div class="toggle-switch" id="radioPowerSwitch" title="电源开关">
+                  <div class="power-button">
+                    <div class="power-indicator"></div>
+                  </div>
+                  <span class="toggle-label">POWER</span>
+                </div>
+              </div>
+              <div class="eq-fader-grid">
+                <div class="fader-wrap volume-fader-wrap">
+                  <div class="fader" id="volumeFader" data-type="volume" title="音量">
+                    <div class="fader-track">
+                      <div class="fader-ticks">
+                        <span class="fader-tick" style="top: 0%"></span>
+                        <span class="fader-tick" style="top: 16.67%"></span>
+                        <span class="fader-tick" style="top: 33.33%"></span>
+                        <span class="fader-tick" style="top: 50%"></span>
+                        <span class="fader-tick" style="top: 66.67%"></span>
+                        <span class="fader-tick" style="top: 83.33%"></span>
+                        <span class="fader-tick" style="top: 100%"></span>
+                      </div>
+                      <div class="fader-fill"></div>
+                      <div class="fader-slider">
+                        <div class="fader-slider-inner"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="fader-label">VOLUME</span>
+                  <span class="fader-value" id="volumeHint">50%</span>
+                </div>
+                <div class="fader-wrap">
+                  <div class="fader" data-band="60" data-freq="60" title="60Hz">
+                    <div class="fader-track">
+                      <div class="fader-ticks">
+                        <span class="fader-tick fader-tick-major" style="top: 0%"></span>
+                        <span class="fader-tick" style="top: 16.67%"></span>
+                        <span class="fader-tick" style="top: 33.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 50%"></span>
+                        <span class="fader-tick" style="top: 66.67%"></span>
+                        <span class="fader-tick" style="top: 83.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 100%"></span>
+                      </div>
+                      <div class="fader-fill"></div>
+                      <div class="fader-slider">
+                        <div class="fader-slider-inner"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="fader-label">60</span>
+                  <span class="fader-value">0dB</span>
+                </div>
+                <div class="fader-wrap">
+                  <div class="fader" data-band="80" data-freq="80" title="80Hz">
+                    <div class="fader-track">
+                      <div class="fader-ticks">
+                        <span class="fader-tick fader-tick-major" style="top: 0%"></span>
+                        <span class="fader-tick" style="top: 16.67%"></span>
+                        <span class="fader-tick" style="top: 33.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 50%"></span>
+                        <span class="fader-tick" style="top: 66.67%"></span>
+                        <span class="fader-tick" style="top: 83.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 100%"></span>
+                      </div>
+                      <div class="fader-fill"></div>
+                      <div class="fader-slider">
+                        <div class="fader-slider-inner"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="fader-label">80</span>
+                  <span class="fader-value">0dB</span>
+                </div>
+                <div class="fader-wrap">
+                  <div class="fader" data-band="100" data-freq="100" title="100Hz">
+                    <div class="fader-track">
+                      <div class="fader-ticks">
+                        <span class="fader-tick fader-tick-major" style="top: 0%"></span>
+                        <span class="fader-tick" style="top: 16.67%"></span>
+                        <span class="fader-tick" style="top: 33.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 50%"></span>
+                        <span class="fader-tick" style="top: 66.67%"></span>
+                        <span class="fader-tick" style="top: 83.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 100%"></span>
+                      </div>
+                      <div class="fader-fill"></div>
+                      <div class="fader-slider">
+                        <div class="fader-slider-inner"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="fader-label">100</span>
+                  <span class="fader-value">0dB</span>
+                </div>
+                <div class="fader-wrap">
+                  <div class="fader" data-band="200" data-freq="200" title="200Hz">
+                    <div class="fader-track">
+                      <div class="fader-ticks">
+                        <span class="fader-tick fader-tick-major" style="top: 0%"></span>
+                        <span class="fader-tick" style="top: 16.67%"></span>
+                        <span class="fader-tick" style="top: 33.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 50%"></span>
+                        <span class="fader-tick" style="top: 66.67%"></span>
+                        <span class="fader-tick" style="top: 83.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 100%"></span>
+                      </div>
+                      <div class="fader-fill"></div>
+                      <div class="fader-slider">
+                        <div class="fader-slider-inner"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="fader-label">200</span>
+                  <span class="fader-value">0dB</span>
+                </div>
+                <div class="fader-wrap">
+                  <div class="fader" data-band="500" data-freq="500" title="500Hz">
+                    <div class="fader-track">
+                      <div class="fader-ticks">
+                        <span class="fader-tick fader-tick-major" style="top: 0%"></span>
+                        <span class="fader-tick" style="top: 16.67%"></span>
+                        <span class="fader-tick" style="top: 33.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 50%"></span>
+                        <span class="fader-tick" style="top: 66.67%"></span>
+                        <span class="fader-tick" style="top: 83.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 100%"></span>
+                      </div>
+                      <div class="fader-fill"></div>
+                      <div class="fader-slider">
+                        <div class="fader-slider-inner"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="fader-label">500</span>
+                  <span class="fader-value">0dB</span>
+                </div>
+                <div class="fader-wrap">
+                  <div class="fader" data-band="1000" data-freq="1000" title="1kHz">
+                    <div class="fader-track">
+                      <div class="fader-ticks">
+                        <span class="fader-tick fader-tick-major" style="top: 0%"></span>
+                        <span class="fader-tick" style="top: 16.67%"></span>
+                        <span class="fader-tick" style="top: 33.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 50%"></span>
+                        <span class="fader-tick" style="top: 66.67%"></span>
+                        <span class="fader-tick" style="top: 83.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 100%"></span>
+                      </div>
+                      <div class="fader-fill"></div>
+                      <div class="fader-slider">
+                        <div class="fader-slider-inner"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="fader-label">1k</span>
+                  <span class="fader-value">0dB</span>
+                </div>
+                <div class="fader-wrap">
+                  <div class="fader" data-band="1500" data-freq="1500" title="1.5kHz">
+                    <div class="fader-track">
+                      <div class="fader-ticks">
+                        <span class="fader-tick fader-tick-major" style="top: 0%"></span>
+                        <span class="fader-tick" style="top: 16.67%"></span>
+                        <span class="fader-tick" style="top: 33.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 50%"></span>
+                        <span class="fader-tick" style="top: 66.67%"></span>
+                        <span class="fader-tick" style="top: 83.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 100%"></span>
+                      </div>
+                      <div class="fader-fill"></div>
+                      <div class="fader-slider">
+                        <div class="fader-slider-inner"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="fader-label">1.5k</span>
+                  <span class="fader-value">0dB</span>
+                </div>
+                <div class="fader-wrap">
+                  <div class="fader" data-band="2500" data-freq="2500" title="2.5kHz">
+                    <div class="fader-track">
+                      <div class="fader-ticks">
+                        <span class="fader-tick fader-tick-major" style="top: 0%"></span>
+                        <span class="fader-tick" style="top: 16.67%"></span>
+                        <span class="fader-tick" style="top: 33.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 50%"></span>
+                        <span class="fader-tick" style="top: 66.67%"></span>
+                        <span class="fader-tick" style="top: 83.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 100%"></span>
+                      </div>
+                      <div class="fader-fill"></div>
+                      <div class="fader-slider">
+                        <div class="fader-slider-inner"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="fader-label">2.5k</span>
+                  <span class="fader-value">0dB</span>
+                </div>
+                <div class="fader-wrap">
+                  <div class="fader" data-band="5000" data-freq="5000" title="5kHz">
+                    <div class="fader-track">
+                      <div class="fader-ticks">
+                        <span class="fader-tick fader-tick-major" style="top: 0%"></span>
+                        <span class="fader-tick" style="top: 16.67%"></span>
+                        <span class="fader-tick" style="top: 33.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 50%"></span>
+                        <span class="fader-tick" style="top: 66.67%"></span>
+                        <span class="fader-tick" style="top: 83.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 100%"></span>
+                      </div>
+                      <div class="fader-fill"></div>
+                      <div class="fader-slider">
+                        <div class="fader-slider-inner"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="fader-label">5k</span>
+                  <span class="fader-value">0dB</span>
+                </div>
+                <div class="fader-wrap">
+                  <div class="fader" data-band="10000" data-freq="10000" title="10kHz">
+                    <div class="fader-track">
+                      <div class="fader-ticks">
+                        <span class="fader-tick fader-tick-major" style="top: 0%"></span>
+                        <span class="fader-tick" style="top: 16.67%"></span>
+                        <span class="fader-tick" style="top: 33.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 50%"></span>
+                        <span class="fader-tick" style="top: 66.67%"></span>
+                        <span class="fader-tick" style="top: 83.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 100%"></span>
+                      </div>
+                      <div class="fader-fill"></div>
+                      <div class="fader-slider">
+                        <div class="fader-slider-inner"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="fader-label">10k</span>
+                  <span class="fader-value">0dB</span>
+                </div>
+                <div class="fader-wrap">
+                  <div class="fader" data-band="15000" data-freq="15000" title="15kHz">
+                    <div class="fader-track">
+                      <div class="fader-ticks">
+                        <span class="fader-tick fader-tick-major" style="top: 0%"></span>
+                        <span class="fader-tick" style="top: 16.67%"></span>
+                        <span class="fader-tick" style="top: 33.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 50%"></span>
+                        <span class="fader-tick" style="top: 66.67%"></span>
+                        <span class="fader-tick" style="top: 83.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 100%"></span>
+                      </div>
+                      <div class="fader-fill"></div>
+                      <div class="fader-slider">
+                        <div class="fader-slider-inner"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="fader-label">15k</span>
+                  <span class="fader-value">0dB</span>
+                </div>
+                <div class="fader-wrap">
+                  <div class="fader" data-band="17500" data-freq="17500" title="17.5kHz">
+                    <div class="fader-track">
+                      <div class="fader-ticks">
+                        <span class="fader-tick fader-tick-major" style="top: 0%"></span>
+                        <span class="fader-tick" style="top: 16.67%"></span>
+                        <span class="fader-tick" style="top: 33.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 50%"></span>
+                        <span class="fader-tick" style="top: 66.67%"></span>
+                        <span class="fader-tick" style="top: 83.33%"></span>
+                        <span class="fader-tick fader-tick-major" style="top: 100%"></span>
+                      </div>
+                      <div class="fader-fill"></div>
+                      <div class="fader-slider">
+                        <div class="fader-slider-inner"></div>
+                      </div>
+                    </div>
+                  </div>
+                  <span class="fader-label">17.5k</span>
+                  <span class="fader-value">0dB</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /radio-center -->
+
+      <!-- 右侧扬声器 -->
+      <div class="speaker speaker-right">
+        <div class="speaker-grille">
+          <div class="speaker-spectrum">
+            <div class="speaker-spectrum-bar"></div>
+          </div>
+        </div>
+        <div class="speaker-led"></div>
+      </div>
+
+      <!-- 侧边栏电台菜单 -->
+      <div class="station-menu-sidebar" id="stationMenuSidebar">
+        <div class="station-menu-header">
+          <div class="station-menu-title">
+            <span class="title-line"></span>
+            <span class="title-text">LIST</span>
+            <span class="title-line"></span>
+          </div>
+          <button class="station-menu-close" id="stationMenuClose">✕</button>
+        </div>
+        <div class="station-menu-content" id="stationMenuContent">
+        </div>
+        <div class="station-menu-footer">
+          <button class="menu-action-btn" data-action="add">添台</button>
+          <button class="menu-action-btn" data-action="group">添组</button>
+          <button class="menu-action-btn" data-action="edit">修改</button>
+          <button class="menu-action-btn" data-action="delete">删除</button>
+          <button class="menu-action-btn" data-action="search">查找</button>
+          <button class="menu-action-btn" data-action="preset">预置</button>
+        </div>
+      </div>
+
+    </div><!-- /radio-body -->
+
+    <!-- 底部支脚 -->
+    <div class="radio-feet">
+      <div class="foot foot-l"></div>
+      <div class="foot foot-r"></div>
+    </div>
+
+    <!-- 隐藏的 audio -->
+    <audio id="radioAudio" preload="none" crossorigin="anonymous">
+    <audio id="radioAudioHLS" preload="none" crossorigin="anonymous">
+  </section>
+
+  <!-- ===== 电视机 ===== -->
+  <section class="device tv-device" id="tvDevice">
+
+    <!-- 天线 -->
+    <div class="tv-antennas">
+      <div class="antenna antenna-left"></div>
+      <div class="antenna antenna-right"></div>
+      <div class="antenna-base">
+        <div class="antenna-dial"></div>
+      </div>
+    </div>
+
+    <!-- 主外壳 -->
+    <div class="tv-body">
+
+      <!-- 品牌牌 -->
+      <div class="tv-brand-plate">
+        <span>◈ VINTAGE-VISION ◈</span>
+      </div>
+
+      <!-- CRT屏幕区 -->
+      <div class="crt-wrapper">
+        <div class="crt-frame">
+          <div class="crt-screen" id="crtScreen">
+            <!-- 视频元素 -->
+            <video id="tvVideo" preload="none" playsinline></video>
+
+            <!-- 关机时显示的噪点/文字 -->
+            <div class="crt-offscreen" id="crtOffscreen">
+              <div class="static-noise"></div>
+              <div class="static-text">NO SIGNAL · 请选择频道</div>
+            </div>
+
+            <!-- 当前频道信息 -->
+            <div class="crt-chinfo" id="crtChInfo">
+              <span class="ch-num" id="tvChNum">CH 01</span>
+              <span class="ch-name" id="tvChName">—</span>
+            </div>
+
+            <!-- 扫描线 -->
+            <div class="scanlines"></div>
+            <!-- 晕光 -->
+            <div class="crt-glow"></div>
+            <!-- 反射 -->
+            <div class="crt-reflection"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 控制区 -->
+      <div class="tv-controls">
+
+        <div class="tv-control-col">
+          <div class="power-indicator tv-power" id="tvPowerLight">
+            <div class="lamp"></div>
+            <span class="lamp-label">POWER</span>
+          </div>
+
+          <button class="power-toggle" id="tvPowerBtn" title="电源">
+            <span class="power-icon">⏻</span>
+            <span class="power-text">ON / OFF</span>
+          </button>
+        </div>
+
+        <div class="tv-control-col">
+          <div class="knob-wrap">
+            <div class="knob" id="tvChKnob" data-type="channel" title="频道">
+              <div class="knob-pointer"></div>
+              <div class="knob-marks"></div>
+            </div>
+            <span class="knob-label">CHANNEL</span>
+          </div>
+        </div>
+
+        <div class="tv-control-col">
+          <div class="knob-wrap">
+            <div class="knob knob-sm" id="tvVolKnob" data-type="tvvolume" title="音量">
+              <div class="knob-pointer"></div>
+              <div class="knob-marks"></div>
+            </div>
+            <span class="knob-label">VOLUME</span>
+            <span class="knob-hint" id="tvVolHint">50%</span>
+          </div>
+        </div>
+
+        <div class="tv-control-col">
+          <div class="knob-wrap">
+            <div class="knob knob-sm" id="tvFineKnob" data-type="fine" title="微调">
+              <div class="knob-pointer"></div>
+              <div class="knob-marks"></div>
+            </div>
+            <span class="knob-label">FINE</span>
+            <span class="knob-hint">TUNING</span>
+          </div>
+        </div>
+
+        <div class="tv-control-col speaker-col">
+          <div class="tv-speaker">
+            <div class="speaker-grille"></div>
+          </div>
+          <span class="knob-label">SPEAKER</span>
+        </div>
+
+      </div><!-- /tv-controls -->
+
+      <!-- 底部频道预设 -->
+      <div class="tv-preset-row" id="tvPresets">
+        <div class="preset-tabs"></div>
+        <div class="preset-channels"></div>
+      </div>
+
+    </div><!-- /tv-body -->
+
+    <!-- 支脚 -->
+    <div class="tv-feet">
+      <div class="foot foot-l"></div>
+      <div class="foot foot-r"></div>
+    </div>
+
+  </section>
+
+</main>
+
+<!-- ============ 频道管理弹窗 ============ -->
+<div class="modal" id="channelModal">
+  <div class="modal-inner">
+    <div class="modal-header">
+      <h2>◆ 频道管理 · CHANNEL MANAGER ◆</h2>
+      <button class="close-btn" id="closeModalBtn">✕</button>
+    </div>
+
+    <!-- 标签切换 -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="radio">📻 广播电台 (Radio)</button>
+      <button class="tab-btn" data-tab="tv">📺 电视台 (TV)</button>
+    </div>
+
+    <!-- 工具栏 -->
+    <div class="manager-toolbar">
+      <button class="btn btn-primary" id="addChannelBtn">＋ 添加频道</button>
+      <span class="tool-filter" id="managerFilterTabs"></span>
+      <button class="btn" id="exportBtn">⬇ 导出 JSON</button>
+      <label class="btn" for="importFile">⬆ 导入 JSON</label>
+      <input type="file" id="importFile" accept="application/json" hidden />
+      <button class="btn btn-warn" id="resetBtn">↺ 恢复默认</button>
+    </div>
+
+    <!-- 频道列表 -->
+    <div class="channel-list-wrap">
+      <table class="channel-table">
+        <thead>
+          <tr>
+            <th style="width:48px">#</th>
+            <th>名称</th>
+            <th>频率 / 频道号</th>
+            <th class="url-col">流 URL</th>
+            <th style="width:130px">操作</th>
+          </tr>
+        </thead>
+        <tbody id="channelTableBody"></tbody>
+      </table>
+      <div class="empty-hint" id="emptyHint">暂无频道，请点击"添加频道"。</div>
+    </div>
+
+    <div class="modal-footer">
+      <small>提示：数据保存在应用本地（localStorage）。支持的格式：MP3/AAC/OGG (音频)，MP4/HLS/WebM (视频)。</small>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 频道编辑弹窗 ============ -->
+<div class="modal small" id="editModal">
+  <div class="modal-inner">
+    <div class="modal-header">
+      <h2 id="editModalTitle">◆ 添加频道 ◆</h2>
+      <button class="close-btn" id="closeEditBtn">✕</button>
+    </div>
+
+    <form id="editForm" class="edit-form">
+      <label>
+        <span>类型</span>
+        <select name="type" required>
+          <option value="radio">📻 广播电台 (Radio)</option>
+          <option value="tv">📺 电视台 (TV)</option>
+        </select>
+      </label>
+      <label>
+        <span>分类</span>
+        <select name="category" required>
+          <option value="news">📰 新闻 & 资讯</option>
+          <option value="music-classical">🎼 古典音乐</option>
+          <option value="music-jazz">🎷 爵士 & 蓝调</option>
+          <option value="music-pop">🎵 流行 & 轻松</option>
+          <option value="music-lofi">🎧 Lo-Fi / 氛围</option>
+          <option value="tv-documentary">🎬 纪录片</option>
+          <option value="tv-movie">🎥 电影</option>
+          <option value="tv-educational">📚 教育 & 文化</option>
+          <option value="other">⭐ 其它</option>
+        </select>
+      </label>
+      <label>
+        <span>名称</span>
+        <input type="text" name="name" required maxlength="60" placeholder="例如：BBC World Service" />
+      </label>
+      <label>
+        <span>频率 / 频道号（可选）</span>
+        <input type="text" name="frequency" maxlength="20" placeholder="例如：88.5 FM 或 CH 05" />
+      </label>
+      <label>
+        <span>流媒体 URL</span>
+        <input type="url" name="url" required placeholder="https://.../stream.mp3 或 .m3u8" />
+      </label>
+      <label>
+        <span>描述（可选）</span>
+        <input type="text" name="description" maxlength="100" placeholder="简短描述" />
+      </label>
+      <label>
+        <span>配色（可选）</span>
+        <input type="color" name="color" value="#d4af37" />
+      </label>
+      <div class="form-actions">
+        <button type="button" class="btn" id="cancelEditBtn">取消</button>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ============ 预置频道选择弹窗 ============ -->
+<div class="modal" id="presetModal">
+  <div class="modal-inner">
+    <div class="modal-header">
+      <h2 id="presetModalTitle">◆ 选择频道到预置位 ◆</h2>
+      <button class="close-btn" id="closePresetBtn">✕</button>
+    </div>
+    <div class="preset-modal-body">
+      <div class="preset-modal-info">
+        <span class="preset-modal-label">目标预置位：</span>
+        <span class="preset-modal-number" id="presetModalNumber">1</span>
+      </div>
+      <div class="preset-modal-search">
+        <input type="text" id="presetSearchInput" placeholder="搜索频道名称..." />
+      </div>
+      <div class="preset-channel-list" id="presetChannelList">
+      </div>
+      <div class="preset-modal-actions">
+        <button class="btn btn-warn" id="clearPresetBtn">清除该预置位</button>
+        <button class="btn" id="cancelPresetBtn">取消</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 状态提示条 ============ -->
+<div class="toast" id="toast"></div>
+
+<script src="channels.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

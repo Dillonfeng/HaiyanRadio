@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>复古网络收音机</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=VT323&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css" />
+<script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.12/dist/hls.min.js"></script>
+</head>
+<body>
+
+<div class="app-container">
+
+  <header class="top-bar">
+    <div class="top-bar-inner">
+      <span class="title-text">RETRO RADIO</span>
+      <span class="header-icon">📻</span>
+    </div>
+  </header>
+
+  <main class="main-content">
+
+    <div class="radio-display">
+      <div class="freq-display">
+        <span class="freq-label">NOW TUNED</span>
+        <div class="freq-value" id="radioChannelFreq">— FM</div>
+      </div>
+      <div class="station-name" id="radioChannelName">— POWER OFF —</div>
+    </div>
+
+    <div class="visualizer-section">
+      <div class="visualizer" id="visualizer">
+        <div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div>
+        <div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div>
+        <div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div><div class="v-bar"></div>
+      </div>
+    </div>
+
+    <div class="control-section">
+      <button class="power-btn" id="powerBtn">
+        <span class="power-icon">🔘</span>
+        <span class="power-label" id="powerLabel">OFF</span>
+      </button>
+      
+      <div class="volume-control">
+        <span class="vol-icon">🔊</span>
+        <input type="range" class="vol-slider" id="volumeSlider" min="0" max="100" value="50">
+        <span class="vol-value" id="volumeValue">50%</span>
+      </div>
+    </div>
+
+    <div class="station-list-container">
+      <div class="list-header">
+        <span class="list-title">电台列表</span>
+        <input type="text" class="search-input" id="searchInput" placeholder="搜索电台...">
+      </div>
+      <div class="station-list" id="stationList">
+      </div>
+    </div>
+
+    <div class="eq-section" id="eqSection">
+      <div class="eq-header">
+        <span class="eq-title">均衡器</span>
+        <div class="eq-presets">
+          <button class="eq-preset-btn" data-eq="flat">FLAT</button>
+          <button class="eq-preset-btn" data-eq="rock">ROCK</button>
+          <button class="eq-preset-btn" data-eq="pop">POP</button>
+          <button class="eq-preset-btn" data-eq="jazz">JAZZ</button>
+        </div>
+      </div>
+      <div class="eq-controls">
+        <div class="eq-band"><span class="eq-freq">60</span><input type="range" class="eq-slider" data-band="60" min="-6" max="6" step="1" value="0"><span class="eq-val">0</span></div>
+        <div class="eq-band"><span class="eq-freq">200</span><input type="range" class="eq-slider" data-band="200" min="-6" max="6" step="1" value="0"><span class="eq-val">0</span></div>
+        <div class="eq-band"><span class="eq-freq">500</span><input type="range" class="eq-slider" data-band="500" min="-6" max="6" step="1" value="0"><span class="eq-val">0</span></div>
+        <div class="eq-band"><span class="eq-freq">1k</span><input type="range" class="eq-slider" data-band="1000" min="-6" max="6" step="1" value="0"><span class="eq-val">0</span></div>
+        <div class="eq-band"><span class="eq-freq">5k</span><input type="range" class="eq-slider" data-band="5000" min="-6" max="6" step="1" value="0"><span class="eq-val">0</span></div>
+        <div class="eq-band"><span class="eq-freq">10k</span><input type="range" class="eq-slider" data-band="10000" min="-6" max="6" step="1" value="0"><span class="eq-val">0</span></div>
+      </div>
+    </div>
+
+  </main>
+
+</div>
+
+<script src="channels.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

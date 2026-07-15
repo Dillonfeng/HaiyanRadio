@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">复古网络收音机</string>
+    <string name="title_activity_main">复古网络收音机</string>
+    <string name="package_name">com.retro.radio</string>
+    <string name="custom_url_scheme">com.retro.radio</string>
+</resources>
