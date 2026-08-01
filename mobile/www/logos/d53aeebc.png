@@ -1,0 +1,1091 @@
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head id="Head1"><title>
+	水底山水库复合土工膜土石围堰设计--中国期刊网
+</title><meta http-equiv="Content-Type" content="text/html; charset=gb2312"><meta name="keywords" content="中国期刊网,期刊,杂志,读者服务,电子杂志,论文,文库"><meta name="description" content="中国期刊网,期刊,杂志,读者服务,电子杂志,论文,文库,期刊网,电子刊"><link href="/css/NewsContent.css" rel="stylesheet" type="text/css" /><link href="/pingkan/css/jquery.alerts.css" rel="stylesheet" type="text/css" />
+<script type="text/javascript" src="/Js/jquery-1.3.2.min.js"></script>
+<script type="text/javascript" src="/Js/alert/jquery.alerts.js"></script>
+<script type="text/javascript" src="/Js/search.js"></script>
+<script src="/js/getcss.js" type="text/javascript"></script>
+<script type="text/javascript" language="javascript">
+    var areaId=0;
+    var newsId=3268227;
+    </script>
+<script type="text/javascript" src="/Js/ContentPage.js"></script>
+  
+<style type="text/css">
+/*
+.channl{ width:317px; float:left;}
+.channl_top { width:317px; height:44px; background:url(../images/1_01.jpg) no-repeat right;}
+.channl_top h2 { margin:15px 0 0 5px; font-size:13px; float:left; font:Arial, Helvetica, sans-serif; color:#F7F7F7}
+.channl ul{list-style-type: none; margin:0; padding:0;}
+.channl li{width:317px;height:69px;border-bottom:1px solid #dfdfdf;list-style-type: none; margin:0; padding:0;}
+.channl_img{ float:left; width:63px; margin-top:3px;}
+.channl_img img{ width:63px; height:64px;}
+.channl_nr{ background:url(../images/2_06.jpg) no-repeat right; width:233px; height:69px; float:left; padding-left:11px;}
+.channl_nr h4{ font-size:16px; color:#373737; margin-top:18px; float:left; _height:0px; display:inline;}
+.channl_nr span{ font-size:14px; display:block; float:left; width:233px; margin-top:4px; color:#cecece;}
+*/
+
+.overlay{background-color:#ffffff; filter:Alpha(opacity=5);}
+</style>
+<script type="text/javascript">
+function addvote()
+{
+if ($("input:[name=vote]:radio:checked").length == 0)
+{  
+
+             alert("请选择您想投票的选项");  
+
+            return false;  
+        } 
+        var tvoteid = $("input:[name=vote]:radio:checked").val();  
+        var tid=3268227;
+        
+$.ajax(
+        {
+            type: "get",
+            url: "HAddVote.ashx",
+            cache: false,
+            data: { "id":tid,"voteid":tvoteid},
+            dataType: "html",
+            timeout: 30000,
+            success: function(data) {
+            alert("投票成功！");
+            var url=url='ShowVote.aspx?i=0&voteid=3268227'
+            window.open(url,'_blank','left=10,top=20,width=675,height=360');
+                
+            },
+            error: function() {
+                alert("请求失败或超时，请稍后再试！");
+                return;
+            }
+        });
+
+}
+</script>
+</head>
+
+<body>
+<form method="post" action="./Show5.aspx?newsid=3268227" id="artform">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="/wEPDwULLTIwNjQwODM3NzFkZJJ+NKF6q3j8g0Lr7dNTIn/7zhRmOINLl/C/4qUseyJ+" />
+
+
+<script language="javascript" type="text/javascript">
+var Article = {
+
+"SendEmail": function(id, sender, receiver, to, from, subject, content, clientCallBack) {
+	return Ajax_CallBack('QKing.Controls.ArticleRelated', id, 'SendEmail', [sender,receiver,to,from,subject,content], clientCallBack, false, false, false, false,'/Content/Show5.aspx?newsid=3268227&Ajax_CallBack=true');
+},
+
+"Feedback": function(id, newsId, title, content, userName, userEmail, clientCallBack) {
+	return Ajax_CallBack('QKing.Controls.ArticleRelated', id, 'Feedback', [newsId,title,content,userName,userEmail], clientCallBack, false, false, false, false,'/Content/Show5.aspx?newsid=3268227&Ajax_CallBack=true');
+},
+
+"ReadedFeel": function(id, newsId, title, content, userName, userEmail, clientCallBack) {
+	return Ajax_CallBack('QKing.Controls.ArticleRelated', id, 'ReadedFeel', [newsId,title,content,userName,userEmail], clientCallBack, false, false, false, false,'/Content/Show5.aspx?newsid=3268227&Ajax_CallBack=true');
+},
+
+"VoteArticle": function(id, newsId, voteId, clientCallBack) {
+	return Ajax_CallBack('QKing.Controls.ArticleRelated', id, 'VoteArticle', [newsId,voteId], clientCallBack, false, false, false, false,'/Content/Show5.aspx?newsid=3268227&Ajax_CallBack=true');
+},
+
+"GetFavorOfArticle": function(id, newsId, clientCallBack) {
+	return Ajax_CallBack('QKing.Controls.ArticleRelated', id, 'GetFavorOfArticle', [newsId], clientCallBack, false, false, false, false,'/Content/Show5.aspx?newsid=3268227&Ajax_CallBack=true');
+},
+
+"GetPrize": function(id, newsId, cvalue, kvalue, clientCallBack) {
+	return Ajax_CallBack('QKing.Controls.ArticleRelated', id, 'GetPrize', [newsId,cvalue,kvalue], clientCallBack, false, false, false, false,'/Content/Show5.aspx?newsid=3268227&Ajax_CallBack=true');
+},
+
+"GetAboutNews": function(id, keyword, clientCallBack) {
+	return Ajax_CallBack('QKing.Controls.ArticleRelated', id, 'GetAboutNews', [keyword], clientCallBack, false, false, false, false,'/Content/Show5.aspx?newsid=3268227&Ajax_CallBack=true');
+}
+
+};
+</script><script type="text/javascript">
+
+function IsEmail(mail)
+{
+ 
+return /\w+([-+.]\w+)*@\w+([-.]\w+)*\.\w+([-.]\w+)*/.test(mail);
+}
+			function SendMail(id,sender,receiver,to,from,subject,content)
+			{
+				if ( to.length == 0 )
+				{
+					alert("请输入您朋友的邮件地址");
+					$("frdemail").focus();
+					return;
+				}
+				if ( !IsEmail(to) )
+				{
+				alert("您朋友的邮件地址不正确");
+				$("frdemail").focus();
+				return false;
+				}
+
+				if ( from.length == 0 )
+				{
+					alert("请输入您的邮件地址");
+					$("myemail").focus();
+					return;
+				}	
+
+				if ( !IsEmail(from) )
+				{
+				alert("您的邮件地址不正确");
+				$("myemail").focus();
+				return false;
+				}
+
+
+				if ( subject.length == 0 )
+				{
+					alert("请输入主题");
+					$("mailsubject").focus();
+					return;
+				}
+				if ( content.length == 0 )
+				{
+					alert("请输入推荐理由");
+					$("mailcontent").focus();
+					return;
+				}
+				Article.SendEmail(id,sender,receiver,to,from,subject,content,SendMailCallback);
+				$("frdtip").style.display = "inline";
+			}
+
+			function SendMailCallback(res)
+			{
+				$("frdtip").style.display = "none";
+				if ( res != null && res.value != null && res.value == "1" )
+				{
+					alert("发送成功");
+					closeDiv($("email2fan"));
+					$('mynick').value = "";
+					$('frdnick').value = "";
+					$('frdemail').value = "";
+					$('myemail').value = "";
+					$('mailsubject').value = "";
+					$('mailcontent').value = "";
+					
+				}
+				else
+				{
+					alert("发送失败");
+				}
+			}
+
+function WriteFeedback(id,newsid,title,content,nick,email)
+{
+	if ( title.length == 0 )
+	{
+	alert("请填写标题");
+	$("fbtitle").focus();
+	return;
+	}
+	if ( content.length == 0 )
+	{
+	alert("请填写内容");
+	$("fbcontent").focus();
+	return;
+	}
+	if ( email.length > 0 &&  !IsEmail(email) )
+	{
+	alert("电子邮件地址不正确");
+	$("fbemail").focus();
+	return;
+	}
+	Article.Feedback(id,newsid,title,content,nick,email,FeedbackCallback);
+	$("fbtip").innerHTML = "信息正在发送...";
+	$("fbtip").style.display = "inline";
+	 
+}
+
+function FeedbackCallback(res)
+{
+    $("fbtip").style.display = "none";
+    
+	if ( res != null && res.value != null )
+	{
+		 alert(res.value);
+closeDiv($("email2editor"));
+	}
+	else
+	{
+		alert("操作失败，请重新操作");
+	}
+	
+
+}
+
+function WriteReadedFeel(id,newsId,title,content,nick,email)
+{
+	if ( title.length == 0 )
+	{
+	alert("请填写标题");
+	$("rftitle").focus();
+	return false;
+	}
+
+	if ( content.length == 0 )
+	{
+	alert("请填写内容");
+	$("rfcontent").focus();
+	return false;
+	}
+
+	if ( email.length > 0 && !IsEmail(email) )
+	{
+	alert("邮件地址不正确");
+	$("rfemail").focus();
+	return false;
+	}
+
+	Article.ReadedFeel(id,newsId,title,content,nick,email,WriteReadedFeelCallback);
+	$("rftip").style.display = "inline";
+}
+
+function WriteReadedFeelCallback(res)
+{
+	$("rftip").style.display = "none";
+	if ( res != null && res.value != null )
+	{
+		alert(res.value);
+		closeDiv($("writecoment"));
+		$("rftitle").value = "";
+		$("rfcontent").value = "";
+		$("rfnick").value = "";
+		$("rfemail").value = "";
+
+	}
+	else
+	{
+		alert("操作失败，请重新操作");
+	}
+}
+
+function GetVoteItem()
+{
+var a = document.getElementsByName("tpitems");
+for(var i=0; i<a.length; i++) 
+{
+	if(a[i].checked)
+    { 
+      alert(a[i].value);
+      return a[i].value;
+    }
+}
+return 0;
+
+}
+
+function AddVoteArticle(id,newsId,vote)
+{
+	if ( !(/\d{1,20}/.test(newsId)) || !(newsId > 0) )
+	{
+	alert("该文章不存在");
+	return false;
+	}
+	var items = document.getElementsByName("tpitems");
+	var k=0;
+	for( i=0;i<items.length;i++)
+	{
+	if ( items[i].checked )
+	{
+	++k;
+	}
+	}
+	if ( k == 0 )
+	{
+	alert("请选择投票选项");
+	return false;
+	}
+	Article.VoteArticle(id,newsId,vote,AddVoteArticleCallback);
+
+    if ( $("tptip") != null )
+	{
+		$("tptip").style.display = "block";
+	}
+}
+
+
+
+var voteRes ;
+function AddVoteArticleCallback(res)
+{
+	if ( $("tptip") != null )
+	{
+		$("tptip").style.display = "none";
+	}   
+	if ( res != null && res.value != null )
+	{
+		if ( $("favorlevel") != null )
+		{
+		 Article.GetFavorOfArticle("artrelated",3268227,GetFavorOfArticleCallback);
+		}
+	    voteRes = res.value;
+	}
+	else
+	{
+	alert("操作失败！");
+	}
+    
+}
+
+function GetFavorOfArticleCallback(res)
+{
+   if ( res != null &&  res.value != null && res.value.length > 0 )
+{   
+	var s = res.value.split("@@");
+	if ( s != null && s.length == 2 )
+	{
+		if ( $("favorlevel") != null )
+		{
+		$("favorlevel").innerHTML = "读者喜爱度：" +  s[0];
+		$("favorlevel").setAttribute("title",s[1]);
+		}
+
+		if ( $("favorlevel2") != null )
+		{
+		$("favorlevel2").innerHTML = "&nbsp;" + s[0] + "<div>【喜爱度】" + s[1] + "</div>";
+		}
+
+	}
+
+}
+
+if ( voteRes != null && voteRes.length > 0 )
+{
+	alert(voteRes);
+    closeDiv($('favorvote'));
+
+}
+
+}
+
+
+
+function SetPrizeFlash()
+{
+	if ( $("zp") != null )
+	{
+		$("zp").innerHTML = '<embed src="/flash/zp.swf" width="270" height="300" type="application/x-shockwave-flash" play="true" loop="true" menu="true" wmode="Window" scale="showall" quality="high"></embed>';
+	}
+}
+
+function GetPrize(ctrlid,newsid)
+{
+   var cvalue = "";
+   var kvalue = "";
+   Article.GetPrize(ctrlid,newsid,cvalue,kvalue,GetPrizeCallback);
+}
+ 
+function GetPrizeCallback(res)
+{
+	var prizeInfo = "";    
+	if ( res != null && res.value != null && res.value.length > 0)
+	{
+		prizeInfo = res.value;
+	}
+    else
+	{
+		prizeInfo = "意外错误，抽奖失败";
+	}
+    var ps = prizeInfo.split("@@");
+    if ( ps.length == 2 && ps[0] == "1")
+    {
+		setPrizeInfo(1,prizeInfo);
+	}
+	else
+	{
+		setPrizeInfo(0,prizeInfo);
+	}
+
+}
+
+
+		
+	  function lottery()
+		{
+setTimeout(tempPrize,5000); 
+		//	GetPrize("artrelated",3268227);
+	
+		}
+function tempPrize()
+			{
+				document.getElementById('ltitle').innerHTML="抽奖完毕";
+				document.getElementById('zp').innerHTML=" <img src='/images/contpage/zp.gif' alt='抽奖完毕' />";
+                
+				document.getElementById('ltResult').innerHTML="祝您春节愉快";
+				
+			}
+
+
+		function setPrizeInfo(opstatus,prizeInfo)
+		{		
+				document.getElementById('ltitle').innerHTML="抽奖完毕";
+				document.getElementById('zp').innerHTML=" <img src='/images/contpage/zp.gif' alt='抽奖完毕' />";
+                if ( opstatus == 1 )
+				{
+					document.getElementById('ltResult').innerHTML="您的奖品是:" + prizeInfo;
+				}
+				else
+				{
+					document.getElementById('ltResult').innerHTML= prizeInfo;
+				}
+		}
+
+</script>
+<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="91F985BA" />
+<!--头部-->
+ 
+<!-- 导航条-->
+<div id="head" class="box">
+	<div id="banner">
+	    <div id="bannerImg1" style="position:absolute;"><img src="http://img.chinaqking.com/images/newPage/banner01.jpg" /></div>
+	    <div id="bannerImg2" style="position:absolute; display:none;"><img  src="http://img.chinaqking.com/images/newPage/banner02.jpg" /></div>
+	</div>
+	<script type="text/javascript">
+	        var flag_banner=true;
+	        var bannerTimer = setInterval(function() { 
+                   flag_banner=!flag_banner;
+                   if(flag_banner){
+                    $("#bannerImg1").fadeIn(3000);
+                    $("#bannerImg2").fadeOut(3000);
+                   }else{
+                    $("#bannerImg1").fadeOut(3000);
+                    $("#bannerImg2").fadeIn(3000);
+                   }
+                   
+            }, 6000);
+    </script>
+	<div id="logo" style="background-color:#ffffff;"><a href="http://www.chinaqking.com"><img src="http://img.chinaqking.com/images/newPage/logo_qkw.jpg" /></a></div>
+	<div id="mainnav">
+		<ul>
+			<li id="mainnav0"><a href="http://www.chinaqking.com" ><span>1</span>首&nbsp;&nbsp;&nbsp;页</a></li>
+			<li id="mainnav1"><a href="#"><span>2</span>阅&nbsp;&nbsp;&nbsp;读</a></li>
+			<li id="mainnav2"><a href="#"><span>3</span>杂志媒体</a></li>
+			<li id="mainnav3"><a href="#"><span>4</span>服务</a></li>
+		</ul>
+	</div>
+	<!--论文搜索-->
+	<div id="search_box">
+		    <div class="ddl" >
+				<input type="text" class="ddlIp" value="" id="q"  onclick="setSecMenu()" size="22"/>&nbsp;&nbsp;
+                <img style="cursor:hand;position: absolute; z-index: 1000;" align="absMiddle" id="secBtn" src="http://img.chinaqking.com/images/newPage/btn.jpg" />
+				<div class="ddlBtn" style="position:absolute">
+					<div class="wrap">
+						<img src="http://img.chinaqking.com/images/index/header/ddlbtn.gif" onclick="setSecMenu()">
+						
+						<ul id="ddl2Menu" style="DISPLAY:none;">
+                            <li>
+								<input id="lwsl" type="radio" checked="checked" name="sItem" value="on" />
+								<label  for="lwsl">论文收录查询</label>
+							</li>                            <li>
+								<input id="swz" type="radio" name="sItem" value="on" />
+								<label  for="swz">文摘资讯</label>
+							</li>
+							<li>
+								<input id="szz" type="radio"  name="sItem" value="on" />
+								<label  for="szz">期刊杂志</label>
+							</li>
+							<li>
+								<input id="slwk" type="radio"  name="sItem" value="on" />
+								<label  for="slwk">论文库</label>
+							</li>
+                            <li>
+								<input id="lwjsbg" type="radio"  name="sItem" value="on" />
+								<label  for="lwjsbg">论文检索报告</label>
+							</li>
+						</ul>
+					</div>
+				</div>
+			</div>
+			
+	</div>
+	
+	<!--菜单内容-->
+	<div id="index_subnav0" class="index_subnav">
+	     
+        <a href="/win/body.aspx?Areaid=5" target="_blank">&bull;&nbsp;电子杂志</a> 
+        <a href="/QKQualcomm/QKTJoinDefault.aspx" target="_blank">&bull;&nbsp;期刊通</a> 
+        <a href="/win/index.aspx" target="_blank">&bull;&nbsp;北斗画廊</a>  
+        <a href="/qk/" target="_blank">&bull;&nbsp;期刊查询</a> 
+        <a title="暂未开通" href="#" target="_blank">&bull;&nbsp;加盟合作</a> 
+        <a href="http://www.chinaqking.com/tgxz/27455.html" target="_blank">&bull;&nbsp;投稿</a> 
+        <a href="#" target="_blank">&bull;&nbsp;图书奖购</a>
+	</div>
+	<div id="index_subnav1" class="index_subnav">
+        <a href="http://www.chinaqking.com/area/159.aspx" target="_blank">&bull;&nbsp;读者来稿</a>        
+        <a href="/area/208.aspx" target="_blank">&bull;&nbsp;杂志导读</a> 
+        <a href="/area/258.aspx" target="_blank">&bull;&nbsp;言论与风向</a>
+        <a href="/area/212.aspx" target="_blank">&bull;&nbsp;读者推荐</a> 
+        <a href="/area/213.aspx" target="_blank">&bull;&nbsp;论文中心</a> 
+	</div>
+	<div id="index_subnav2" class="index_subnav">
+        <a href="/QKQualcomm/QKTJoinDefault.aspx" target="_blank">&bull;&nbsp;期刊通</a> 
+        <a href="/qk/" target="_blank">&bull;&nbsp;期刊黄页</a> 
+        <a href="/win/body.aspx?Areaid=5" target="_blank">&bull;&nbsp;电子杂志</a> 
+	</div>
+	<div id="index_subnav3" class="index_subnav">
+	    
+	    <a href="/MemberCenter/" target="_blank">&bull;&nbsp;会员首页</a>  
+        <a href="/MemberCenter/register.aspx" target="_blank">&bull;&nbsp;加入会员</a> 
+        <a title="暂未开通" target="_blank">&bull;&nbsp;远方的风</a> 
+        <a title="期刊网网站地图" href="http://www.chinaqking.com/dhang.aspx" target="_blank">&bull;&nbsp;网站地图</a>  
+        <a title="栏目总汇" id="all_div" href="javascript:void(0);">&bull;&nbsp;栏目总汇</a>  
+	</div>
+	
+</div>
+
+
+<div id="grid">
+	<!--文章正文-->
+	
+<div id="news-cnt">
+		<div id="link-bar">
+		    <div class="foot-zi">
+		        <span>字体：
+		          <a href="javascript:adjustFontSize('big')">大</a>
+		          <a href="javascript:adjustFontSize('middle')">中</a>
+		          <a href="javascript:adjustFontSize('little')">小</a>
+		        </span>
+		        </div>
+		        
+		      <span class="gray"><a href="#">首页</a></span>&gt;
+            <span class="gray"><a href="#">原创作品</a></span>&gt;
+            <span class="gray"><a href="#">正文</a></span>
+		</div>
+		<h2 style="background-color:#D1DDED"><span id="ArticleInfo___lbTitle">水底山水库复合土工膜土石围堰设计</span></h2>
+		<div id="news-info">发表时间：<span id="ArticleInfo___lbPubTime">2021/9/7</span>
+		
+		            &nbsp; 来源：<span id="ArticleInfo___lbSource">《建筑设计管理》2021年5期</span>
+		            &nbsp; 作者：<span id="ArticleInfo___lblauto">李少博</span>
+		            
+		            </div>
+		            
+		<div id="news-daodu">
+            <table cellpadding="3" cellspacing="0">
+                <tr>
+                    <td class="article_desc">
+                        [导读]
+                        <span id="ArticleInfo___lbDescription">水底山水库上游采用全断围堰进行截流，围堰堰高为18m，围堰采用复合土工膜+残积风化土进行防渗</span>
+                    </td> 
+                </tr>
+            </table>
+            
+        </div>
+        
+        <div id="news-body">
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 李少博<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 深圳市水务规划设计院股份有限公司 <br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 摘要&nbsp; 水底山水库上游采用全断围堰进行截流，围堰堰高为18m，围堰采用复合土工膜+残积风化土进行防渗。根据当地水文气象及气质条件，设计围堰的结构型式，介绍该种地质条件下的基础防渗方法，并对围堰的渗流及稳定进行分析。通过计算可知，采用该种方法防渗，其渗流量较小且围堰边坡均能达到稳定，可为今后同类工程在围堰设计方面提供参考与借鉴。<br />
+<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 关键词：围堰、土工膜、防渗、渗流、稳定<br />
+<br />
+1工程概述<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 深汕西部水源及供水工程位于深圳市深汕特别合作区，工程的任务以供水为主，兼有生态和滞洪功能。工程建设内容包括水底山水库枢纽工程和水底山水库至西部水厂输水工程。<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 水底山水库坝址位于广东省深汕特别合作区赤石镇明热河源头以下约8km处，距离下游水底山温泉度假村约2km，水库坝址距离合作区管委会15km，距离汕尾市海丰县70km，距深圳市130km。深汕高速、东部沿海高速、324国道横穿合作区，厦深铁路设有鲘门站，在建的交通设施有广汕铁路、潮莞高速等，交通情况较为便利。<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 水底山水库枢纽工程工程规模属中型，水库枢纽工程等别为Ⅲ等，根据《水利水电工程等级划分及洪水标准》（SL252-2017）第4.1.3条&ldquo;失事后损失巨大或影响十分严重的水利水电工程的 2～5级主要永久性水工建筑物，经过论证并报主管部门批准，建筑物级别可提高一级&rdquo;。因此提出将水底山水库建筑物级别提高一级，即主要建筑物包括挡水、泄水和取水建筑物级别由3级提为2级。其中挡水建筑物采用碾压混凝土重力坝，坝顶高程 145m，大坝顶宽10m，最大坝高69m，坝顶长度293m。<br />
+2基本情况<br />
+2.1水文气象条件<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 本工程坝址以上流域面积19.2km2，河长8.28km，河道比降44.9&permil;。工程所在流域属于亚热带季风气候，高温多雨，霜期短，日照充足，由于面临南海，海洋性气候影响强烈，具有明显的干湿季节。据海丰县气象局资料统计，本地区多年平均气温为22.7℃，年平均日照为2032.1小时。多年平均降雨量为2425.4mm。雨量年分配极不均匀，洪水由暴雨形成，5～10月份为洪水期，其水量占全年水量的70％，最大洪水多出现在 7～9月份；11月至次年4月份为枯水期，其水量仅占全年水量的30％，尤以12月至次年2月份为最枯时段。<br />
+2.2地质条件<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 坝址上游围堰轴线距坝轴线约69.5m，该处河床横向宽约24.4m，河底高程约85.0-87.8m，枯水期河水面高程87.5m，河床基岩零星裸露，为弱风化岩，冲洪积卵石广泛分布（厚度1~3m），两岸分布有少量残坡积土，层厚2~5m，下伏强-弱风化花岗岩。漂卵砾石层透水性强，渗透系数为K&gt;100cm/s；残坡积土弱透水；强风化岩强-弱透水，弱风化岩呈弱透水性-中等透水性（上部），微风化岩呈微透水性。<br />
+3围堰设计<br />
+3.1设计标准<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 水底山水库工程为Ⅲ等工程，主要建筑物包括挡水、泄水和取水建筑物，主要建筑物级别为2级。大坝枢纽上游围堰等级为4级，大坝枢纽区导流洪水标准为10年一遇，施工导流时段为全年洪水，相应洪峰流量351 m3/s。<br />
+3.2平面布置<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 水底山大坝导流采用全段围堰截流+导流隧洞泄流方式，围堰轴线距离大坝轴线约69.5m，导流隧洞布置于现状河道左岸，导流隧洞进口距离现状河道约43.0m，导流隧洞进口高程为90.0m，出口高程87.2m。<br />
+3.3结构型式<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 经计算分析，围堰堰顶高程为104.0m，围堰顶宽度为7.0m，最大堰高约18.0m，围堰轴线长约83.0m。迎水面设置两个戗堤，两个戗堤高程分别为91.0m、94.0m，戗堤的宽度分别为3.0m、10.0m，迎水堰面坡度为1：2。背水堰面坡度为1：2。为将渗水排出，在背水坡设置贴坡排水，贴坡排水顶高程为88.0m，宽度为2.0m。<br />
+<div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 围堰采用复合土工膜+残积风化土进行防渗，在围堰上游侧采用残积风化土填筑，根据地勘可知残积风化土渗透性约为4.0E-05cm/s。复合土工膜布置于残积风化土上侧，高程94.0m以上复合土工膜采用厚0.2m中粗砂加以保护，在中粗砂上侧采用厚0.3m编织袋装土压重；高程94.0m以下复合土工膜采用黏土料进行压实。围堰下游侧采用石渣料填筑。围堰典型横断面见下图1。</div>
+<div><img src="/userUpload/1(114004).png" alt="" /><br />
+</div>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 图1 围堰典型横断面图<br />
+3.4基础防渗处理<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 围堰处地质自上而下为：卵石层（1~3m厚）、弱风化花岗岩、微风化花岗岩，其中卵石层透水性强，为阻断河床渗流，本次设置截水槽，截水槽底高程为83.0m，位于弱风化花岗岩以下0.5m，截水槽左右侧坡度为1：1.5，截水槽采用残积风化土进行回填。<br />
+3.5围堰渗流及稳定分析<br />
+3.5.1 渗流计算<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 通过理正岩土7.0计算围堰渗流，计算工况为：洪水期的稳定渗流期和水位降落期。各工况下的围堰渗流量结果见表1。<br />
+<img src="/userUpload/2(55496).png" width="540" height="131" alt="" /><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 由上表可知，围堰渗流量为489.7m3/d，渗流量不大，表明围堰防渗措施的防渗效果较好。<br />
+3.5.2稳定计算<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 围堰边坡的抗滑稳定工况为：稳定渗流期（上下游围堰边坡）、水位降落期（上下游围堰边坡），经计算，两种工况下围堰抗滑稳定成果见下表2。<br />
+<img src="/userUpload/3(35295).png" width="540" height="126" alt="" /><br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 从表2可知，围堰在正常运行情况的计算工况下的抗滑稳定系数均大于规范要求最小安全系数，围堰抗滑稳定满足规范要求。<br />
+4围堰施工<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 本次设计截流选择时间段为10月上旬，具体时间根据当时水文水情选择在非下雨期河道水位较小时截流。首先采用土石混合料（块石比例为30%），用翻斗汽车运抵截流河段，用推土机逐级推进，直到河道完全断流，先形成戗堤。戗堤堰体抢筑至94.0m高程，戗堤进占后期，抛填堤头裹头保护，防止堤头淘涮流失。截流采用立堵、两岸进占的方式。龙口形成后，进行龙口合拢施工，合拢采用立堵方案。在合拢施工准备过程中，应有水情工作人员对龙口上下游水位及水流情况进行认真的测定和分析，布置好观测设备，并对合拢料物、设备及施工人员等准备情况进行详细的检查、核对、落实。当截流令下达后，强行截流，一鼓作气，迅速推进直到合拢完成。<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 合龙后，在堰体上游侧位置回填黏土闭气料，围堰上游采用残积风化土开挖料填筑，下游采用石渣料回填，上下游同步上升，碾压部位土压实度不小于0.90，石渣料等砂石料相对密度不小于0.65。围堰主体填筑完成后，上游侧铺设复合土工膜，土工膜采用热熔法焊接，焊缝宽度为0.1m，土工膜厚度不小于0.5mm，复合土工膜单位面积质量不小于400g。下游侧布置贴坡排水。<br />
+5结束语<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 综上所述，本工程河床冲洪积卵石广泛分布，下伏弱风化岩、微风化岩。在该种地质条件下新建全断围堰，保证围堰渗流小且围堰边坡稳定是关键，本工程通过将表层卵石层挖除，新建截水槽，并采用复合土工膜+残积风化土进行防渗，该种防渗方式可有效截断渗流，且围堰边坡能达到稳定状态。<br />
+6参考文献<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [1] SL252-2017 水利水电等级划分及洪水标准 中国人民共和国水利部, 2017.<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [2] SL274-2001 碾压土石坝设计规范 中国人民共和国水利部, 2002.<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [3] SL303-2017 水利水电施工组织设计规范 中国人民共和国水利部, 2017.<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [4] SL623-2013 水利水电工程施工导流设计规范 中国人民共和国水利部, 2013.<br />
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; [5] SL645-2013 水利水电工程围堰设计规范 中国人民共和国水利部, 2013.
+		</div>
+		<div class="dteditor" style="TEXT-ALIGN:right"></div>
+		<div id="flipage"><!--分页导航--></div>
+		<div style="text-align:center"> <a href="http://www.chinaqking.com/win/index2.aspx"> <img src="/Themes/default/images/bdrc.gif" alt="" /> </a></div>
+		
+			<table class="icon" border="0" width="530px;" cellpadding="5" align="center" >
+		        <tr>
+		            <td><img src="/images/newpage/icon_10.jpg" alt="" /><span><a style="color:#4781AA" href="http://www.chinaqking.com/tgxz/27455.html" target="_blank">投稿</a></span></td>
+		            <td><img src="/images/newpage/icon_12.jpg" alt="" /><span><a style='color:#4781AA' href='/content/PrintArticle.aspx?newsid=3268227'>打印文章</a></span></td>
+		            <td><img src="/images/newpage/icon_14.jpg" alt="" /><span><a style="color:#4781AA" href="javascript:dialogbox(email2fan);">转寄朋友</a></span></td>
+		            <td><img src="/images/newpage/icon_18.jpg" alt="" /><span><a style="color:#4781AA" href="javascript:dialogbox(email2editor);">留言编辑</a></span></td>
+		            <td style="border:0px;"><img src="/images/newpage/icon_20.jpg" alt="" /><span><a style="color:#4781AA" href="JavaScript:d=document;t=d.selection?(d.selection.type!='None'?d.selection.createRange().text:''):(d.getSelection?d.getSelection():'');void(saveit=window.open('http://www.chinaqking.com/DiggSvc/addurl.aspx?t='+escape(d.title)+'&amp;u='+escape(d.location.href)+'&amp;c='+escape(t),'keyit','scrollbars=yes,width=670,height=575,left=10,top=20,status=no,resizable=yes'));saveit.focus();">收藏文章</a></span></td>
+		        </tr>
+		    </table>
+    
+		<div id="tuijian">
+			<div class="tuijian-title">
+			    <div class="tuijian-tj"><span>您可能感兴趣的其他文章</span></div>
+			</div>
+			<!--同栏目其他文章-->
+			
+
+<div class="tuijian-left">
+        
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268226.html' title='城市市政道路设计的方法及思路分析' target="_blank">城市市政道路设计的方法及思路分析</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268225.html' title='    建筑施工管理中存在的问题与解决对策' target="_blank">    建筑施工管理中存在的问题与解...</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268224.html' title='材料设计服务在项目实施中的作用--以中南大学新校区体育馆（含游泳馆）、珠海中学项目材料配合为例' target="_blank">材料设计服务在项目实施中的作用--以...</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268223.html' title='工业园区建设的环境管理模式探讨' target="_blank">工业园区建设的环境管理模式探讨</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268222.html' title='工业机电设备安装管理与可持续发展研究' target="_blank">工业机电设备安装管理与可持续发展研究</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268221.html' title='不动产登记中测绘与规划面积区别研究' target="_blank">不动产登记中测绘与规划面积区别研究</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268220.html' title='浅析新时代初中班主任班级管理' target="_blank">浅析新时代初中班主任班级管理</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268219.html' title='如何提高学生对自然地理知识的学习能力' target="_blank">如何提高学生对自然地理知识的学习能力</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268218.html' title='建筑施工质量通病及其控制问题思考' target="_blank">建筑施工质量通病及其控制问题思考</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268217.html' title='                               高中历史教学中学生家国情怀培养策略' target="_blank">                  ...</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268216.html' title='大型商业综合体信息网络系统设计' target="_blank">大型商业综合体信息网络系统设计</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268215.html' title='重大突发事件中大学生思想政治教育的功能及实现路径研究' target="_blank">重大突发事件中大学生思想政治教育的功...</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268214.html' title='浅析CFG桩复合地基单桩承载力不足的原因及解决办法' target="_blank">浅析CFG桩复合地基单桩承载力不足的...</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268213.html' title='如何促进学生高度自主参与地理教学活动' target="_blank">如何促进学生高度自主参与地理教学活动</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268212.html' title='初中阶段地理读图能力的培养的策略研究' target="_blank">初中阶段地理读图能力的培养的策略研究</a></span>
+                </div>
+            
+                <div><span style="color:Red;">&bull;&nbsp;&nbsp;
+                    <a href='http://www.chinaqking.com/yc/2021/3268211.html' title='“图文式”前置研学，培养地理综合思维能力' target="_blank">“图文式”前置研学，培养地理综合思维...</a></span>
+                </div>
+            
+</div>
+<div class="clear"></div>
+<div>
+    <span class="tuijian-tj-more">
+    <a href="http://www.chinaqking.com/area/65.aspx" target="_blank">更多&gt;&gt;</a>  </span>  
+</div>
+
+		</div>
+		
+		<!--评论-->
+        
+	    
+	    <!--投票开始-->
+	    
+	    <!--投票结束-->
+	</div>
+<input type="hidden" name="ArticleInfo:_:hfQKingCount" id="ArticleInfo___hfQKingCount" value="0" />
+
+ 
+
+	<!--右侧内容-->
+	<div id="grid3_new">
+	    <!--顶部广告,网上是300，本地301-->
+		<div id="QKAD1" class="ad">
+		    
+
+
+
+
+		</div>
+		<!--站长推荐-->
+        
+<div id="smrDIV">
+<div class="shop_title">
+	    <span class="emtitle">&nbsp;&nbsp;站长推荐</span>
+	    <span class="book_more"><a href="/area/292.aspx" target="_blank">更多&gt;&gt;</a></span>
+	</div>
+<ul >
+    
+	        <li><span class="title-dot">·</span>
+                <a id="smrlist___autolist_hyTitle_0" title="新加坡国立大学教授郑永年：中国崛起开启新的世界历史" href="http://www.chinaqking.com/hfjjdt/2019/1951935.html" target="_blank">新加坡国立大学教授郑永年：中国崛...</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="smrlist___autolist_hyTitle_1" title="一张照片突然刷爆朋友圈！黑天鹅已经起飞，你还浑然不觉" href="http://www.chinaqking.com/hfjjdt/2019/1933973.html" target="_blank">一张照片突然刷爆朋友圈！黑天鹅已...</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="smrlist___autolist_hyTitle_2" title="2019年，是大破之年，也是大立之年！“深度”" href="http://www.chinaqking.com/hfjjdt/2019/1926082.html" target="_blank">2019年，是大破之年，也是大立...</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="smrlist___autolist_hyTitle_3" title="任泽平：认清中美贸易摩擦升级真相 放弃幻想 拿起改革武器！" href="http://www.chinaqking.com/hfjjdt/2019/1923739.html" target="_blank">任泽平：认清中美贸易摩擦升级真相...</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="smrlist___autolist_hyTitle_4" title="中国的生存法则变了！你再不懂就彻底晚了！" href="http://www.chinaqking.com/hfjjdt/2019/1919976.html" target="_blank">中国的生存法则变了！你再不懂就彻...</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="smrlist___autolist_hyTitle_5" title="那场82年前的失败，藏着吾国吾民的底气" href="http://www.chinaqking.com/sp/2019/1742250.html" target="_blank">那场82年前的失败，藏着吾国吾民...</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="smrlist___autolist_hyTitle_6" title="叶檀：华为何为？（与任正非对谈纪要）" href="http://www.chinaqking.com/sp/2019/1732103.html" target="_blank">叶檀：华为何为？（与任正非对谈纪...</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="smrlist___autolist_hyTitle_7" title="中兴高管爆料！这是一场任正非渴盼已久的战争！不是备胎那么简单" href="http://www.chinaqking.com/wxwh/2019/1725458.html" target="_blank">中兴高管爆料！这是一场任正非渴盼...</a></li>
+        
+</ul>
+</div>
+        
+        <div class="clear"></div>
+        
+        <!--google广告-->
+        
+            
+		<!--期刊推荐-->
+		
+<div id="qkrDIV">
+    <div class="shop_title">
+        <span class="emtitle">&nbsp;&nbsp;期刊推荐</span>
+        <div class="book_more">
+	        <a class="control" id="leftControl" onclick="changePage('prev')"><img align="absmiddle" src="/images/newPage/left.png"/></a>
+	        <b id="slide_current">1</b>/<b id="slide_total">1</b>
+	        <a class="control" id="rightControl" onclick="changePage('next')"><img align="absmiddle" src="/images/newPage/right.png"/></a>
+       </div>
+    </div>
+    <!-- Slideshow HTML -->
+    <div id="slidesContainer">
+        <div id="slide"></div>
+    </div>
+    <div id="qkrlist___QKJsonDIV" style="display:none;">[{'qkid':'1223','qkname':'《HisLife 他生活》'},{'qkid':'1222','qkname':'《新旅行》'},{'qkid':'1302','qkname':'《现代临床医学研究》'},{'qkid':'1301','qkname':'《中学课程辅导·教师通讯》'},{'qkid':'348','qkname':'《 中外企业家 》'},{'qkid':'1294','qkname':'《科技成果管理与研究》'},{'qkid':'1293','qkname':'《中国科技成果》'},{'qkid':'1283','qkname':'《军事交通学院学报》'},{'qkid':'1231','qkname':'《黑龙江科技信息》'},{'qkid':'1225','qkname':'《医药直投中国》'},{'qkid':'1224','qkname':'《初中生阅读世界》'},{'qkid':'1217','qkname':'《哈佛商业评论》'},{'qkid':'1168','qkname':'《现代电子技术》'},{'qkid':'1308','qkname':'《新课程》'},{'qkid':'1220','qkname':'《环球工商》'},{'qkid':'1286','qkname':'《中国经济与管理科学》'},{'qkid':'1310','qkname':'《世界文艺》'},{'qkid':'1453','qkname':'《校园英语(教研版)》'},{'qkid':'1570','qkname':'《小学生(教学实践)》'},{'qkid':'3102','qkname':'《新科教》'},{'qkid':'1230','qkname':'《人力资本管理》'},{'qkid':'1320','qkname':'《教科论坛》'},{'qkid':'1319','qkname':'《新华教育导刊》'},{'qkid':'1316','qkname':'《中国期刊网现教研》'}]</div>
+    <!-- Slideshow HTML -->	
+    
+</div>
+<script type="text/javascript">
+    
+     var obj=document.getElementById("qkrlist___QKJsonDIV");
+     var qkjson=obj.innerHTML;
+     qkjson=eval("("+qkjson+")");
+     var pageIndex=-1;
+     var totalP=document.getElementById("slide_total");
+     totalP.innerText=parseInt(qkjson.length/8);
+     changePage("next");
+    //换页
+    function changePage(type){
+        
+        if(type=="next"){
+            pageIndex++;
+            if(pageIndex>2) pageIndex=0;
+        }else if(type=="prev"){
+            pageIndex--;
+            if(pageIndex<0) pageIndex=2;
+        }
+        var currentP=document.getElementById("slide_current");
+        
+        var obj2=document.getElementById("slide");
+        currentP.innerText=pageIndex+1;
+        obj2.innerHTML="";
+        for(var i=0;i<8;i++){
+            obj2.innerHTML+="<div><a href='/QKQualcomm/Default.aspx?id="+qkjson[pageIndex*8+i].qkid+"' title='"+qkjson[pageIndex*8+i].qkname+"' target='_blank'>"+clipString(qkjson[pageIndex*8+i].qkname,8)+"</a></div>";
+        }
+    }
+    
+</script>
+
+
+
+
+		
+		<div class="clear"></div>
+		
+	    <!--原创来稿文章-->
+	    
+<div id="originalDIV">
+<div class="shop_title">
+	    <span class="emtitle">&nbsp;&nbsp;原创来稿文章</span>
+	    <span class="book_more"><a href="/area/159.aspx" target="_blank">更多&gt;&gt;</a></span>
+	</div>
+<ul >
+    
+	        <li><span class="title-dot">·</span>
+                <a id="originallist___autolist_hyTitle_0" title="眼 神" href="http://www.chinaqking.com/yc/2018/1365806.html" target="_blank">眼 神</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="originallist___autolist_hyTitle_1" title="我的前世今生" href="http://www.chinaqking.com/yc/2018/1365807.html" target="_blank">我的前世今生</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="originallist___autolist_hyTitle_2" title="我" href="http://www.chinaqking.com/yc/2018/1365808.html" target="_blank">我</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="originallist___autolist_hyTitle_3" title="守望" href="http://www.chinaqking.com/yc/2018/1351735.html" target="_blank">守望</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="originallist___autolist_hyTitle_4" title="这一年" href="http://www.chinaqking.com/yc/2018/1332984.html" target="_blank">这一年</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="originallist___autolist_hyTitle_5" title="梁家河" href="http://www.chinaqking.com/yc/2018/1332985.html" target="_blank">梁家河</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="originallist___autolist_hyTitle_6" title="这个世界会好吗？" href="http://www.chinaqking.com/yc/2018/1332986.html" target="_blank">这个世界会好吗？</a></li>
+        
+	        <li><span class="title-dot">·</span>
+                <a id="originallist___autolist_hyTitle_7" title="此去经年" href="http://www.chinaqking.com/yc/2018/1322207.html" target="_blank">此去经年</a></li>
+        
+</ul>
+</div>
+	    <div class="clear"></div>
+	    
+		<!--自用宣传,本地302，网上300-->
+		
+		
+		<!--电子杂志-->
+		
+		
+		<!--北斗博览-->
+		
+            <script type="text/javascript">                /*300*250，创建于2012-2-10*/var cpro_id = 'u763657';</script><script src="http://cpro.baidu.com/cpro/ui/c.js" type="text/javascript"></script>
+        </div>
+		
+    <div class="clear"></div>
+</div>
+</div>
+
+<!----页脚----->
+<div class="box" id="footer"><a href="#">关于我们</a> | <a target="_blank" href="http://www.chinaqking.com/gb/">联系方式</a> | <a target="_blank" href="http://www.chinaqking.com/gb/">广告服务</a> | <a target="_blank" href="http://www.chinaqking.com/zhaopin.htm">招聘信息</a> | <a href="#">服务声明</a> | <a target="_blank" href="http://www.chinaqking.com/friendshiplinks.htm">友情链接</a> | <a target="_blank" href="http://www.chinaqking.com/QKEditorLogin.aspx">期刊联盟</a> <br />
+增值电信业务经营许可证编号：粤-B2 20040576&nbsp;<br />
+电话：4008-114-678&nbsp;&nbsp;&nbsp; 客服QQ：51400436<br />
+copyright 2004 ChinaQking.Com All Right Reserved 中国期刊网 版权所有 </div>
+
+<!--页面相关功能-->
+<!-- 转寄给朋友-->
+<div id="email2fan" class="dialogbox">
+	<div class="top"><a href="javascript:closeDiv(email2fan)"><img src="/images/index_43.jpg" width="19" height="19"></a></div>
+	<div class="mid"><table width="100%" border="0" cellspacing="0" cellpadding="0">
+			<tr>
+				<td colspan="2" class="title">转寄给朋友 <span id="frdtip" style="DISPLAY:none;COLOR:#FF0000">信息正在发送...</span></td>
+			</tr>
+			<tr>
+				<td colspan="2"><div class="blank10"></div>
+				</td>
+			</tr>
+			<tr>
+				<td width="27%">朋友的昵称:</td>
+				<td width="73%"><input type="text" name="frdnick" id="frdnick" class="txtinput"></td>
+			</tr>
+			<tr>
+				<td>朋友的邮件地址:</td>
+				<td><input type="text" name="frdemail" id="frdemail" class="txtinput"></td>
+			</tr>
+			<tr>
+				<td>您的昵称:
+				</td>
+				<td><input type="text" name="mynick" id="mynick" class="txtinput"></td>
+			</tr>
+			<tr>
+				<td>您的邮件地址:
+				</td>
+				<td><input type="text" name="myemail" id="myemail" class="txtinput"></td>
+			</tr>
+			<tr>
+				<td>邮件主题:
+				</td>
+				<td><input type="text" name="mailsubject" id="mailsubject" class="txtinput"></td>
+			</tr>
+			<tr>
+				<td class="aligntop">推荐理由:
+				</td>
+				<td><textarea name="mailcontent" id="mailcontent" class="mtxt"></textarea></td>
+			</tr>
+			<tr>
+				<td></td>
+				<td><p class="btnwrap">
+						<input type="button" name="smail" id="smail" value="发送" class="blackbtn" onclick="SendMail('artrelated',$('mynick').value,$('frdnick').value,$('frdemail').value,$('myemail').value,$('mailsubject').value,$('mailcontent').value)"><input type="reset" onclick="javascript:closeDiv(email2fan)" name="button2c" id="button2c"
+							value="取消" class="blackbtn"></p>
+				</td>
+			</tr>
+		</table>
+	</div>
+	<div class="btm"></div>
+</div>
+<!-- 写信给编辑-->
+<div id="email2editor" class="dialogbox">
+	<div class="top"><a href="javascript:closeDiv(email2editor)"><img src="/images/index_43.jpg" width="19" height="19"></a></div>
+	<div class="mid"><table width="100%" border="0" cellspacing="0" cellpadding="0">
+			<tr>
+				<td colspan="2" class="title">写信给编辑 <span id="fbtip" style="DISPLAY:none;COLOR:#FF0000">信息正在发送...</span></td>
+			</tr>
+			<tr>
+				<td colspan="2"><div class="blank10"></div>
+				</td>
+			</tr>
+			<tr>
+				<td width="27%">标题:</td>
+				<td width="73%"><input type="text" name="fbtitle" id="fbtitle" class="txtinput"></td>
+			</tr>
+			<tr>
+				<td class="aligntop">内容:</td>
+				<td><textarea name="fbcontent" id="fbcontent" class="mtxt"></textarea></td>
+			</tr>
+			<tr>
+				<td>您的昵称:
+				</td>
+				<td><input type="text" name="fbnick" id="fbnick" class="txtinput"></td>
+			</tr>
+			<tr>
+				<td>您的邮件地址:
+				</td>
+				<td><input type="text" name="fbemail" id="fbemail" class="txtinput"></td>
+			</tr>
+			<tr>
+				<td colspan="2">&nbsp;</td>
+			</tr>
+			<tr>
+				<td></td>
+				<td><p class="btnwrap">
+						<input type="button" name="fbsendbtn" id="fbsendbtn" value="发送" class="blackbtn"  onclick="WriteFeedback('artrelated',3268227,$('fbtitle').value,$('fbcontent').value,$('fbnick').value,$('fbemail').value)" >
+						<input type="reset" name="fbcancel" id="fbcancel" onclick="closeDiv(email2editor)"
+							value="取消" class="blackbtn"></p>
+				</td>
+			</tr>
+		</table>
+	</div>
+	<div class="btm"></div>
+</div>
+
+
+
+<script type="text/javascript">
+	var maskDiv;	
+	
+	function dialogbox(obj){
+			showOverlay();
+			divPos(obj);
+			window.onscroll=function (){divPos(obj);}
+			window.onresize=function (){divPos(obj);}
+		 	window.onload=function (){divPos(obj);}
+		}
+		
+		function divPos(obj){ 
+		 obj.style.display="block";
+ 		 obj.style.top=(document.documentElement.scrollTop+(document.documentElement.clientHeight-obj.offsetHeight)/2)+"px";
+		 obj.style.left=(document.documentElement.scrollLeft+(document.documentElement.clientWidth-obj.offsetWidth)/2)+"px";
+		 
+		}
+		
+		function closeDiv(obj){
+			obj.style.display='none';
+			window.onscroll=null;
+			window.onresize=null;
+		 	window.onload=null;
+			hideOverlay();
+		}
+	
+	//显示遮罩层
+	function showOverlay(){
+	    var newDiv=document.createElement("div");
+		newDiv.id="maskDiv";
+		
+		document.body.appendChild(newDiv);
+		
+		maskDiv=document.getElementById("maskDiv");
+		maskDiv.style.width= window.screen.width-20;
+		maskDiv.style.height= document.body.scrollHeight;
+	}
+	
+	//隐藏遮罩层
+	function hideOverlay(){
+	    maskDiv=document.getElementById("maskDiv");
+		document.getElementsByTagName('body')[0].removeChild(maskDiv);
+	}			
+</script>
+
+    
+    <script src="/js/ContentLoginString.js" type="text/javascript"></script>
+
+<script>
+var h =window.location.host.toLowerCase();
+var q="qking";
+var dot =".";
+var m ="com";
+  var w =window;
+  var wl=w.location ;
+  var w3 ="http://www";
+  var c ="china";
+	
+
+  var bwl= w3+dot;
+  bwl= bwl + c+q+dot+m;   
+  var hj="window.location=bwl;";
+
+if(h){
+
+ 
+if( h.indexOf('qk')<=0){ 
+eval(hj);
+
+}
+else{
+  
+}
+}
+</script>
+
+
+<script type="text/javascript">
+
+function SetFavorOfArticle()
+{
+  voteRes = null;
+  Article.GetFavorOfArticle("artrelated",3268227,GetFavorOfArticleCallback)
+}
+</script></form>
+</body>
+</html>
+
+<!--[] published at 2021/9/7 11:24:50  -->

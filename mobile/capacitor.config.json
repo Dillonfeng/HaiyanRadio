@@ -2,6 +2,11 @@
   "appId": "com.retro.radio",
   "appName": "复古网络收音机",
   "webDir": "www",
+  "server": {
+    "androidScheme": "http",
+    "androidHostname": "localhost",
+    "allowMixedContent": true
+  },
   "android": {
     "allowMixedContent": true,
     "networkSecurityConfig": true
