@@ -21,7 +21,10 @@
       "main.js",
       "preload.js",
       "styles.css",
-      "package.json"
+      "package.json",
+      "logoScheduler.js",
+      "fetch_logos.py",
+      "logo_fetch_progress.json"
     ],
     "forceCodeSigning": false,
     "win": {
@@ -37,5 +40,8 @@
   },
   "allowScripts": {
     "electron@32.3.3": true
+  },
+  "dependencies": {
+    "node-cron": "^4.6.0"
   }
 }

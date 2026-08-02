@@ -11,6 +11,12 @@ mobile/android/.gradle/
 mobile/android/local.properties
 mobile/android-sdk/
 
+# local file backups
+backups/
+
+# local deploy state (last wireless adb IP:port)
+mobile/.last_adb_wifi_conn
+
 # OS files
 Thumbs.db
 .DS_Store

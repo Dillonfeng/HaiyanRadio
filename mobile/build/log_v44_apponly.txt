@@ -1,0 +1,245 @@
+﻿--------- beginning of main
+I/com.retro.radio(  819): isSwordfishLaunchAppEnabled_ 1 isSwordfishInstallAppEnabled_ 1
+I/com.retro.radio(  819): Late-enabling -Xcheck:jni
+E/com.retro.radio(  819): Unknown bits set in runtime_flags: 0x40000000
+I/com.retro.radio(  819): Using CollectorTypeCMC GC.
+D/nativeloader(  819): Load libframework-connectivity-tiramisu-jni.so using APEX ns com_android_tethering for caller /apex/com.android.tethering/javalib/framework-connectivity-t.jar: ok
+I/OneTrace(  819): Mark active for pid=819? true
+D/cutils-dev(  819): otrace_set_tracing_enabled? true tag:0
+D/cutils-dev(  819): properties changed in otrace_seq_number_changed!
+D/CompactWindowAppManager(  819): initCompactApplicationInfo CompactMode: , NormalMode: 
+--------- beginning of system
+V/Configuration(  819): Updating configuration, locales updated from [] to [zh_CN]
+D/OplusScrollToTopManager(  819): setIsInWhiteList false
+D/OplusViewDebugManager(  819): OplusViewDebugManager Constructor android.view.debug.OplusViewDebugManager@9d311d0 [mHasViewDebugProperty true] [mHasMsgDebugProperty false] [DEBUG false] [EXTRAINFOENABLE false] [LIGHT_OS false]
+E/DynamicFramerate [AnimationConfigManager](  819): initAnimationConfig: animAwareItem is empty, return
+D/CompatChangeReporter(  819): Compat change id reported: 242716250; UID 10484; state: ENABLED
+W/libc    (  819): Access denied finding property "ro.odm.prev.product.name"
+W/libc    (  819): Access denied finding property "ro.vendor.oplus.gundam"
+I/Quality (  819): Odex status:io-error-no-oat filter:run-from-apk reason:unknown location:/data/app/~~5D22EydnL1v9RH9DNH53jQ==/com.retro.radio-a-uYB8svh-3hGJv2vuEgJQ==/base.apk cost:103
+D/nativeloader(  819): Configuring clns-9 for other apk /data/app/~~5D22EydnL1v9RH9DNH53jQ==/com.retro.radio-a-uYB8svh-3hGJv2vuEgJQ==/base.apk. target_sdk_version=34, uses_libraries=, library_path=/data/app/~~5D22EydnL1v9RH9DNH53jQ==/com.retro.radio-a-uYB8svh-3hGJv2vuEgJQ==/lib/arm64, permitted_path=/data:/mnt/expand:/data/user/0/com.retro.radio
+I/com.retro.radio(  819): AssetManager2(0xb400006f18a2ab28) locale list changing from [] to [zh-CN]
+V/GraphicsEnvironment(  819): Currently set values for:
+V/GraphicsEnvironment(  819):   angle_gl_driver_selection_pkgs=[]
+V/GraphicsEnvironment(  819):   angle_gl_driver_selection_values=[]
+V/GraphicsEnvironment(  819): com.retro.radio is not listed in per-application setting
+V/GraphicsEnvironment(  819): ANGLE allowlist from config: 
+V/GraphicsEnvironment(  819): com.retro.radio is not listed in ANGLE allowlist or settings, returning default
+V/GraphicsEnvironment(  819): App is not on the allowlist for updatable production driver.
+D/ResourcesManagerExtImpl(  819): applyConfigurationToAppResourcesLocked app.getDisplayId() return callback.displayId:-1
+D/SurfaceSyncGroup(  819): preCreateSurfaceSyncGroupTimerThread
+D/OplusGraphicsEvent(  819): OplusGraphicsEventListener create now!
+D/OplusGraphicsEvent(  819): addEventListener success!
+D/nativeloader(  819): Load libpowerhalwrap_jni.so using system ns (caller=/system_ext/framework/mediatek-framework.jar): ok
+I/PowerHalWrapper(  819): PowerHalWrapper.getInstance 
+I/PowerHalWrapper(  819): PowerHalWrapper.getInstance 
+I/M-ProMotion(  819): M-ProMotion is disabled
+D/OplusActivityManager(  819): get AMS extension: android.os.BinderProxy@ada2d94
+I/HWUI    (  819): SupportApps size 0
+D/ExtensionsLoader(  819): createInstance(64bit) : createExtendedFactory
+D/ExtensionsLoader(  819): Opened libSchedAssistExtImpl.so
+E/SchedAssist(  819): open sharedFd failed with error=No such file or directory
+E/SchedAssist(  819): open sharedFd failed with error=No such file or directory
+E/SchedAssist(  819): open sharedFd failed with error=Permission denied
+E/SchedAssist(  819): open sharedFd failed with error=Permission denied
+D/ExtensionsLoader(  819): createInstance(64bit) : createExtendedFactory
+D/ExtensionsLoader(  819): Opened libSchedAssistExtImpl.so
+I/DisplayManager(  819): Choreographer implicitly registered for the refresh rate.
+I/com.retro.radio(  819): AssetManager2(0xb400006f18a2b428) locale list changing from [] to [zh-CN]
+D/ResourcesManagerExtImpl(  819): applyConfigurationToAppResourcesLocked app.getDisplayId() return callback.displayId:0
+D/ExtensionsLoader(  819): createInstance(64bit) : createExtendedFactory
+D/ExtensionsLoader(  819): Opened libeglextimpl.so
+D/PreCache(  819): [IPreCacheRus]loadRUSConfigs#102 failed to transact: -22 prc:com.retro.radio
+D/AppCompatDelegate(  819): Checking for metadata for AppLocalesMetadataHolderService : Service not found
+I/com.retro.radio(  819): AssetManager2(0xb400006f18a2b728) locale list changing from [] to [zh-CN]
+E/ashmem  (  819): Pinning is deprecated since Android Q. Please use trim or other methods.
+D/OplusPredictiveBackController(  819): initPredictiveBackConfig for com.retro.radio.MainActivity@f7c3ca9 initPredictiveBackConfig mShouldInterceptKeyEvent false
+D/WindowOnBackDispatcher(  819):  predictive settings is disabled for ApplicationInfo{4ec275c com.retro.radio}
+I/oplus.android.OplusFrameworkFactoryImpl(  819): Unknow feature:IOplusTextViewRTLUtilForUG
+D/DesktopModeFlags(  819): Toggle override initialized to: OVERRIDE_UNSET
+I/com.retro.radio(  819): hiddenapi: Accessing hidden method Landroid/view/View;->computeFitSystemWindows(Landroid/graphics/Rect;Landroid/graphics/Rect;)Z (runtime_flags=0, domain=platform, api=unsupported) from Landroidx/appcompat/widget/ViewUtils; (domain=app) using reflection: allowed
+I/com.retro.radio(  819): hiddenapi: Accessing hidden method Landroid/view/ViewGroup;->makeOptionalFitsSystemWindows()V (runtime_flags=0, domain=platform, api=unsupported) from Landroidx/appcompat/widget/ViewUtils; (domain=app) using reflection: allowed
+I/com.retro.radio(  819): AssetManager2(0xb400006f18a2ba28) locale list changing from [] to [zh-CN]
+I/WebViewFactory(  819): Loading com.google.android.webview version 138.0.7204.179 (code 720417933)
+W/com.retro.radio(  819): Failed to find entry 'classes.dex': Entry not found
+D/nativeloader(  819): InitLlndkLibrariesProduct: libEGL.so:libGLESv1_CM.so:libGLESv2.so:libGLESv3.so:libRS.so:libandroid_net.so:libapexsupport.so:libavf.so:libbinder_ndk.so:libc.so:libcgrouprc.so:libclang_rt.asan-aarch64-android.so:libclang_rt.asan-arm-android.so:libclang_rt.hwasan-aarch64-android.so:libcom.android.tethering.connectivity_native.so:libdl.so:libft2.so:liblog.so:libm.so:libmediandk.so:libnativewindow.so:libneuralnetworks.so:libselinux.so:libsync.so:libvendorsupport.so:libvndksupport.so:libvulkan.so
+D/nativeloader(  819): Configuring product-clns-10 for unbundled product apk /product/app/TrichromeLibrary64CN/TrichromeLibrary64CN.apk. target_sdk_version=35, uses_libraries=ALL, library_path=/product/app/WebViewGoogle64CN/lib/arm64:/product/app/WebViewGoogle64CN/WebViewGoogle64CN.apk!/lib/arm64-v8a:/product/app/TrichromeLibrary64CN/TrichromeLibrary64CN.apk!/lib/arm64-v8a:/product/lib64:/system/product/lib64, permitted_path=/data:/mnt/expand:/product/lib64:/system/product/lib64
+D/nativeloader(  819): Extending system_exposed_libraries: libapuwareapusys.mtk.so:libapuwareapusys_v2.mtk.so:libapuwarexrp.mtk.so:libapuwarexrp_v2.mtk.so:libapuwareutils.mtk.so:libapuwareutils_v2.mtk.so:libapuwarehmp.mtk.so:libapuwareaiste.mtk.so:libneuron_graph_delegate.mtk.so:libneuronusdk_adapter.mtk.so:libtflite_mtk.mtk.so:libarmnn_ndk.mtk.so:libcmdl_ndk.mtk.so:libnir_neon_driver_ndk.mtk.so:libmvpu_runtime.mtk.so:libmvpu_runtime_pub.mtk.so:libmvpu_engine_pub.mtk.so:libmvpu_pattern_pub.mtk.so:libmvpuop_mtk_cv.mtk.so:libmvpuop_mtk_nn.mtk.so:libmvpu_runtime_25.mtk.so:libmvpu_runtime_25_pub.mtk.so:libmvpu_engine_25_pub.mtk.so:libmvpu_pattern_25_pub.mtk.so:libmvpuop25_mtk_cv.mtk.so:libmvpuop25_mtk_nn.mtk.so:libmvpu_config.mtk.so:libmvpu_engine_30.mtk.so:libmvpu_pattern_30.mtk.so:libmvpu_cic_ci_compiler_30.mtk.so:libmvpu_runtime_30.mtk.so:libmvpu_clc_30_mvpu_debuginfo.mtk.so:libmvpu_clc_30_mvpu_elf.mtk.so:libmvpu_clc_30_mvpu_utility.mtk.so:libneuronservice_adapter.mtk.so:libneuron_sys_util.mtk.so:libmvpuop30_mtk_nn.mtk.so:libneuron
+D/nativeloader(  819): InitVndkspLibrariesProduct: VNDK is deprecated with product
+D/ApplicationLoaders(  819): Returning zygote-cached class loader: /system_ext/framework/androidx.window.extensions.jar
+D/nativeloader(  819): Configuring product-clns-11 for unbundled product apk /product/app/WebViewGoogle64CN/WebViewGoogle64CN.apk. target_sdk_version=35, uses_libraries=, library_path=/product/app/WebViewGoogle64CN/lib/arm64:/product/app/WebViewGoogle64CN/WebViewGoogle64CN.apk!/lib/arm64-v8a:/product/app/TrichromeLibrary64CN/TrichromeLibrary64CN.apk!/lib/arm64-v8a:/product/lib64:/system/product/lib64, permitted_path=/data:/mnt/expand:/product/lib64:/system/product/lib64
+I/cr_WVCFactoryProvider(  819): version=138.0.7204.179 (720417933) minSdkVersion=29 isBundle=false multiprocess=true packageId=2
+D/nativeloader(  819): Load /product/app/TrichromeLibrary64CN/TrichromeLibrary64CN.apk!/lib/arm64-v8a/libmonochrome_64.so using class loader ns product-clns-11 (caller=/product/app/WebViewGoogle64CN/WebViewGoogle64CN.apk): ok
+D/nativeloader(  819): Load /system/lib64/libwebviewchromium_plat_support.so using class loader ns product-clns-11 (caller=/product/app/WebViewGoogle64CN/WebViewGoogle64CN.apk): ok
+I/chromium(  819): [0726/162509.793550:INFO:android_webview/browser/variations/variations_seed_loader.cc:67] Failed to open file for reading.: No such file or directory (2)
+I/com.retro.radio(  819): AssetManager2(0xb400006f18a2bd28) locale list changing from [] to [zh-CN]
+I/com.retro.radio(  819): AssetManager2(0xb400006f18a2ae28) locale list changing from [] to [zh-CN]
+I/com.retro.radio(  819): AssetManager2(0xb400006e38ba5028) locale list changing from [] to [zh-CN]
+I/cr_LibraryLoader(  819): Successfully loaded native library
+I/cr_CachingUmaRecorder(  819): Flushed 8 samples from 8 histograms, 0 samples were dropped.
+I/cr_CombinedPProvider(  819): #registerProvider() provider:WV.d9@9f1183e isPolicyCacheEnabled:false policyProvidersSize:0
+I/cr_PolicyProvider(  819): #setManagerAndSource() 0
+W/cr_PlatformSer-Internal(  819): GMS is installed but not enabled
+I/com.retro.radio(  819): AssetManager2(0xb400006e38ba5328) locale list changing from [] to [zh-CN]
+D/WindowContextController(  819): attachToDisplayArea  type = 2 ,displayId = 0 ,options = null ,mToken = android.window.WindowTokenClient@c24c2d8
+I/com.retro.radio(  819): AssetManager2(0xb400006e38ba5628) locale list changing from [] to [zh-CN]
+I/cr_CombinedPProvider(  819): #linkNativeInternal() 1
+I/cr_AppResProvider(  819): #getApplicationRestrictionsFromUserManager() Bundle[EMPTY_PARCEL]
+I/cr_PolicyProvider(  819): #notifySettingsAvailable() 0
+I/cr_CombinedPProvider(  819): #onSettingsAvailable() 0
+I/cr_CombinedPProvider(  819): #flushPolicies()
+W/chromium(  819): [WARNING:android_webview/browser/network_service/net_helpers.cc:143] HTTP Cache size is: 219101061
+D/OplusInputMethodUtil(  819): init sDebug to false, init sDebugIme to false, init sAlwaysOn to false
+D/OplusInputMethodUtil(  819): updateDebugToClass InputMethodManager.DEBUG = false
+D/OplusInputMethodUtil(  819): updateDebugToClass ImeFocusController.DEBUG = false
+D/OplusInputMethodUtil(  819): updateDebugToClass OnBackInvokedDispatcher.DEBUG = false
+D/OplusInputMethodUtil(  819): updateDebugToClass InsetsController.DEBUG = false
+D/OplusInputMethodUtil(  819): updateDebugToClass BaseInputConnection.DEBUG = false
+I/Quality (  819): InflateViewInfo:177793462,androidx.coordinatorlayout.widget.CoordinatorLayout
+D/Capacitor(  819): Starting BridgeActivity
+D/Capacitor(  819): Registering plugin instance: CapacitorCookies
+D/Capacitor(  819): Registering plugin instance: WebView
+D/Capacitor(  819): Registering plugin instance: CapacitorHttp
+W/Capacitor(  819): Unable to read file at path public/plugins
+D/Capacitor(  819): Loading app at https://localhost
+D/colorx  (  819): VulkanExtImpl Init
+D/colorx  (  819): I can't find colorx layer , let's enumerate colorx layers first.
+D/Capacitor(  819): Handling local request: https://localhost/
+D/RetroRadioMain(  819): WebView settings: mixed=0 dom=true
+W/cr_media(  819): BLUETOOTH_CONNECT permission is missing.
+D/Capacitor(  819): App started
+D/ActivityThread(  819): ComponentInfo{com.retro.radio/com.retro.radio.MainActivity} checkFinished=false 2
+W/cr_media(  819): getBluetoothAdapter() requires BLUETOOTH permission
+W/cr_media(  819): registerBluetoothIntentsIfNeeded: Requires BLUETOOTH permission
+D/ResourcesManagerExtImpl(  819): applyConfigurationToAppResourcesLocked app.getDisplayId() return callback.displayId:0
+V/AutofillClientController(  819): onActivityResumed()
+D/Capacitor(  819): App resumed
+V/AutofillClientController(  819): onActivityPostResumed()
+V/AutofillClientController(  819): onActivityPostResumed(): Relayout fix enabled
+V/AutofillClientController(  819): forResume(): Not attempting refill.
+I/SurfaceFactory(  819): [static] sSurfaceFactory = com.mediatek.view.impl.SurfaceFactoryImpl@95e3dde
+D/WindowManager(  819): Add to mViews: com.android.internal.policy.DecorView{4899251 I.E...... R.....ID 0,0-0,0 alpha=1.0 viewInfo = }[MainActivity],pkg= com.retro.radio
+I/PowerHalWrapper(  819): PowerHalWrapper.getInstance 
+D/ExtensionsLoader(  819): createInstance(64bit) : createExtendedFactory
+W/ServiceManagerCppClient(  819): Failed to get isDeclared for mapper/mediatek: Status(-1, EX_SECURITY): 'SELinux denied for service.'
+E/Gralloc5(  819): Failed to load mapper.mediatek.so
+D/ExtensionsLoader(  819): Opened libhwuiextimpl.so
+D/skia    (  819): setRusSupported enable 1
+D/OplusAppWatchdog(  819): monitor disabled
+D/ViewRootImplExtImpl(  819): onDisplayChanged -1 for VRI android.view.ViewRootImpl@f04028d
+D/ResourcesManagerExtImpl(  819): applyConfigurationToAppResourcesLocked app.getDisplayId() return callback.displayId:0
+I/Choreographer(  819): Skipped 48 frames!  The application may be doing too much work on its main thread.
+I/CameraManagerExtImpl(  819): packagename is com.retro.radio
+I/OplusCameraManager(  819): saveOpPackageName, mOpPackageName: com.retro.radio
+E/OplusBracketLog(  819): [OplusViewMirrorManager] updateHostViewRootIfNeeded, not support android.view.ViewRootImpl@f04028d
+I/DynamicFramerate [AnimationInfoManager](  819): updatePixelSize: sPixelSize has been updated, process = com.retro.radio
+D/WindowOnBackDispatcher(  819):  predictive settings is disabled for ApplicationInfo{4ec275c com.retro.radio}
+D/WindowOnBackDispatcher(  819):  predictive settings is disabled for ApplicationInfo{4ec275c com.retro.radio}
+D/ViewRootImplExtImpl(  819): wrapConfigInfoIntoFlags rotation=0, smallestScreenWidthDp=0, isAutolayoutSwdpModified=false, residentWS=false, scenario=0, bounds=Rect(0, 0 - 1080, 2373), isFirstDraw=true, relayoutAsync=false, flags=0, newFlags=-903348224, title=com.retro.radio/com.retro.radio.MainActivity
+D/VRI[MainActivity](  819): relayoutWindow result, sizeChanged:true, surfaceControlChanged:true, transformHintChanged:false, mSurfaceSize:Point(1080, 2373), mLastSurfaceSize:Point(0, 0), mWidth:-1, mHeight:-1, requestedWidth:1080, requestedHeight:2373, transformHint:0, installOrientation:0, displayRotation:0, isSurfaceValid:true, attr.flag:-2122252032, tmpFrames:ClientWindowFrames{frame=[0,0][1080,2373] display=[0,0][1080,2373] parentFrame=[0,0][0,0]}, relayoutResult:3, relayoutAsync:false, mSyncSeqId:0
+W/VRI[MainActivity](  819): updateBlastSurfaceIfNeeded, surfaceSize:Point(1080, 2373), lastSurfaceSize:Point(0, 0), format:-1, blastBufferQueue:null
+W/AudioCapabilities(  819): Unsupported mediaType audio/x-adpcm-dvi-ima
+W/AudioCapabilities(  819): Unsupported mediaType audio/x-adpcm-ms
+W/AudioCapabilities(  819): Unsupported mediaType audio/alac
+E/com.retro.radio(  819): [perfctl] 819 819 FPSGO ver:7
+E/com.retro.radio(  819): [perfctl] 1 1 1 0
+D/BufferQueueConsumer(  819): [](id:33300000000,api:0,p:-1,c:819) connect: controlledByApp=false
+D/BufferQueueConsumer(  819): [VRI[MainActivity]#0(BLAST Consumer)0](id:33300000000,api:0,p:-1,c:819) setMaxAcquiredBufferCount: 3
+D/HWUI    (  819): createSurface new attribs array
+D/libEGL  (  819): this is from skia gles
+I/OplusCameraManagerGlobal(  819): setClientInfo, packageName: com.retro.radio, uid: 10484, pid: 819
+I/SurfaceControl(  819):  setExtendedRangeBrightness sc=Surface(name=com.retro.radio/com.retro.radio.MainActivity)/@0x60718a7,currentBufferRatio=1.0,desiredRatio=1.0
+I/OplusCameraManagerGlobal(  819): Connecting to camera service
+I/CameraManagerGlobal(  819): Connecting to camera service
+D/Capacitor(  819): Handling local request: https://localhost/hls.js?v=44
+D/Capacitor(  819): Handling local request: https://localhost/channels.js?v=44
+D/Capacitor(  819): Handling local request: https://localhost/styles.css?v=44
+D/Capacitor(  819): Handling local request: https://localhost/app.js?v=44
+W/VideoCapabilities(  819): Unsupported mime image/vnd.android.heic
+W/VideoCapabilities(  819): Unsupported mime image/vnd.android.heic
+W/AudioCapabilities(  819): Unsupported mime audio/x-adpcm-dvi-ima
+W/AudioCapabilities(  819): Unsupported mime audio/x-adpcm-dvi-ima
+I/GrallocExtra(  819): gralloc_extra_query:is_SW3D 0
+W/AudioCapabilities(  819): Unsupported mime audio/x-adpcm-ms
+W/AudioCapabilities(  819): Unsupported mime audio/x-adpcm-ms
+D/BLASTBufferQueue(  819): [VRI[MainActivity]#0](f:0,a:1) acquireNextBufferLocked size=1080x2373 mFrameNumber=1 applyTransaction=true mTimestamp=379178683726369(auto) mPendingTransactions.size=0 graphicBufferId=3517578215425 transform=0
+W/AudioCapabilities(  819): Unsupported mime audio/alac
+W/AudioCapabilities(  819): Unsupported mime audio/alac
+D/VRI[MainActivity](  819): Received frameCommittedCallback lastAttemptedDrawFrameNum=1 didProduceBuffer=true syncBuffer=false
+D/ExtensionsLoader(  819): createInstance(64bit) : createExtendedFactory
+D/ExtensionsLoader(  819): Opened libSchedAssistExtImpl.so
+D/VRI[MainActivity](  819): draw finished. seqId=0
+D/VRI[MainActivity](  819): onFocusEvent true
+D/CompatChangeReporter(  819): Compat change id reported: 263076149; UID 10484; state: ENABLED
+D/MediaCodecListExtImpl(  819): mIsDisableAv1=false
+D/MediaPlayer(  819): MediaPlayer
+D/AudioSystem(  819): onNewServiceWithAdapter: media.audio_flinger service obtained 0xb400006e38ab8c80
+D/AudioSystem(  819): getService: IAudioFlingerService retrieved: 0xb400006e38ae3980  IAudioFlinger cached: 0xb400006e38ab8c80
+I/PowerHalMgrImpl(  819): perfLockAcq is supported. 
+D/Capacitor(  819): App paused
+D/RetroRadioMain(  819): WebView ensure settings applied: mixed=always_allow
+W/VRI[MainActivity](  819): handleResized, msg:, frameChanged:false, configChanged:false, displayChanged:false, attachedFrameChanged:false, compatScaleChanged:false, pendingDragResizing=false
+D/MediaCodecListExtImpl(  819): mIsDisableAv1=false
+D/LibMBrainProxy(  819): Init Paramters
+W/ServiceManagerCppClient(  819): Failed to get isDeclared for vendor.mediatek.hardware.mbrain.IMBrain/default: Status(-1, EX_SECURITY): 'SELinux denied for service.'
+I/DynamicFramerate [FRTCConfigManager](  819): initFrameRateConfig: init with OplusDynamicFRTCConfig
+I/DynamicFramerate [FRTCConfigManager](  819): 	levelsFor120hz: [120, 60]
+I/DynamicFramerate [FRTCConfigManager](  819): 	thresholdsFor120hz: [300]
+I/DynamicFramerate [FRTCConfigManager](  819): 	levelsFor90hz: [90, 45]
+I/DynamicFramerate [FRTCConfigManager](  819): 	thresholdsFor90hz: [214]
+I/DynamicFramerate [FRTCConfigManager](  819): FRTCConfigManager: FRTC_CAPABILITY = 120, package name = com.retro.radio, WINDOW_ANIMATION_SPEED_RATE = 10, SCROLL_ANIMATION_SPEED_RATE = 20, PACKAGE_ENABLE = true
+I/DynamicFramerate [DynamicFrameRateController](  819): init info: mPackageName = com.retro.radio, mIsEnabled = true
+D/VRI[MainActivity](  819): onFocusEvent false
+D/VRI[MainActivity](  819): Received frameCommittedCallback lastAttemptedDrawFrameNum=3 didProduceBuffer=false syncBuffer=false
+D/VRI[MainActivity](  819): draw finished. seqId=0
+D/MediaCodecListExtImpl(  819): mIsDisableAv1=false
+W/VideoCapabilities(  819): Unsupported mime image/vnd.android.heic
+W/VideoCapabilities(  819): Unsupported mime image/vnd.android.heic
+W/VideoCapabilities(  819): Unsupported mime image/vnd.android.heic
+W/VideoCapabilities(  819): Unsupported mime image/vnd.android.heic
+D/RetroRadioMain(  819): WebView ensure settings applied: mixed=always_allow
+D/Capacitor(  819): Unable to find a Capacitor plugin to handle permission requestCode, trying Cordova plugins 1001
+D/ActivityThread(  819): ComponentInfo{com.retro.radio/com.retro.radio.MainActivity} checkFinished=false 4
+D/ResourcesManagerExtImpl(  819): applyConfigurationToAppResourcesLocked app.getDisplayId() return callback.displayId:0
+V/AutofillClientController(  819): onActivityResumed()
+D/Capacitor(  819): App resumed
+V/AutofillClientController(  819): onActivityPostResumed()
+V/AutofillClientController(  819): onActivityPostResumed(): Relayout fix enabled
+V/AutofillClientController(  819): forResume(): Not attempting refill.
+D/VRI[MainActivity](  819): onFocusEvent true
+D/InsetsController(  819): hide(ime(), fromIme=false)
+I/ImeTracker(  819): com.retro.radio:fa06b36a: onCancelled at PHASE_CLIENT_ALREADY_HIDDEN
+D/RetroRadioMain(  819): WebView ensure settings applied: mixed=always_allow
+D/RetroRadioSvc(  819): onStartCommand action=com.retro.radio.STOP url=null name=null
+V/MediaPlayer(  819): resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+V/MediaPlayer(  819): cleanDrmObj: mDrmObj=null mDrmSessionId=null
+D/Capacitor(  819): onGeolocationPermissionsShowPrompt: DOING IT HERE FOR ORIGIN: https://localhost/
+D/Capacitor(  819): onGeolocationPermissionsShowPrompt: has required permission
+D/Capacitor(  819): Handling local request: https://localhost/favicon.ico
+D/RetroRadioMain(  819): WebView ensure settings applied: mixed=always_allow
+D/RetroRadioMain(  819): WebView ensure settings applied: mixed=always_allow
+D/RetroRadioMain(  819): WebView ensure settings applied: mixed=always_allow
+D/OplusScrollToTopManager(  819): com.retro.radio/com.retro.radio.MainActivity,This com.android.internal.policy.DecorView{4899251 V.E...... R....... 0,0-1080,2373 alpha=1.0 viewInfo = }[MainActivity] change focus to true
+I/com.retro.radio(  819): Compiler allocated 7254KB to compile void android.view.ViewRootImpl.performTraversals()
+I/com.retro.radio(  819): HeapTask is not gc_task
+D/RetroRadioMain(  819): WebView ensure settings applied: mixed=always_allow
+D/RetroRadioMain(  819): WebView ensure settings applied: mixed=always_allow
+I/com.retro.radio(  819): HeapTask is not gc_task
+I/Capacitor/Console(  819): File: https://localhost/app.js?v=44 - Line 142 - Msg: [AUTO-TEST] 触发播放: 台湾宝岛联播网寶島新聲 -> http://125.227.87.206:8000/FM98.5
+D/RetroRadioSvc(  819): onStartCommand action=com.retro.radio.STOP url=null name=null
+V/MediaPlayer(  819): resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+V/MediaPlayer(  819): cleanDrmObj: mDrmObj=null mDrmSessionId=null
+D/RetroRadioSvc(  819): onStartCommand action=com.retro.radio.META url=null name=台湾宝岛联播网寶島新聲
+D/RetroRadioSvc(  819): onStartCommand action=com.retro.radio.META url=null name=台湾宝岛联播网寶島新聲
+W/Capacitor/Console(  819): File: https://localhost/app.js?v=44 - Line 979 - Msg: [WebEngine] play() promise rejected: [object DOMException]
+W/Capacitor/Console(  819): File: https://localhost/app.js?v=44 - Line 941 - Msg: [WebEngine] fallback to native for url= http://125.227.87.206:8000/FM98.5 reason= play promise The play() request was interrupted by a call to pause(). https://goo.gl/LdLk22
+D/RetroRadioSvc(  819): onStartCommand action=com.retro.radio.STOP url=null name=null
+V/MediaPlayer(  819): resetDrmState:  mDrmInfo=null mDrmProvisioningThread=null mPrepareDrmInProgress=false mActiveDrmScheme=false
+V/MediaPlayer(  819): cleanDrmObj: mDrmObj=null mDrmSessionId=null
+D/ProfileInstaller(  819): Installing profile for com.retro.radio
+I/com.retro.radio(  819): HeapTask is not gc_task
+I/com.retro.radio(  819): _Desupression native alloc gc_urgency: 71653 native bytes: 61373780
+I/com.retro.radio(  819): Background concurrent mark compact GC freed 16MB AllocSpace bytes, 38(1204KB) LOS objects, 76% free,3760KB(2088KB_0B_1672KB)/15MB, paused 3.293ms,1.999ms total 185.414ms
+W/FinalizerDaemon(  819): type=1400 audit(0.0:2453218): avc:  denied  { getopt } for  path="/dev/socket/usap_pool_primary" scontext=u:r:untrusted_app:s0:c228,c257,c512,c768 tcontext=u:r:zygote:s0 tclass=unix_stream_socket permissive=0 app=com.retro.radio
+I/com.retro.radio(  819): HeapTask is not gc_task
+I/com.retro.radio(  819): HeapTask is not gc_task

@@ -89,14 +89,14 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.i(TAG, "onCreate BEGIN app=v1.3.82 / buildV82 / androidScheme=http / badge=about / no-play-toast");
+        Log.i(TAG, "onCreate BEGIN app=v1.3.87h FINAL / ROOT-CAUSE onerror code=1 SKIP(hls.destroy fallback, not a failure) + 25s GATES on __wdReloadSourceIfNeeded AND __wdFullReinitIfNeeded (FINAL WALL)");
         registerServiceReceiver();
         registerDebugEvalReceiver();
         bindService();
+        final Handler h = new Handler(Looper.getMainLooper());
         // V80: install hooks from the first non-null WebView moment, then never
         // touch them again. Poll every 60ms for up to ~2.4s (enough for even
         // the slowest ColorOS bridge init).
-        final Handler h = new Handler(Looper.getMainLooper());
         for (int i = 0; i < 40; i++) {
             final int idx = i;
             h.postDelayed(new Runnable() {
@@ -291,6 +291,23 @@ public class MainActivity extends BridgeActivity {
         }
     }
 
+    // V87f: InputStream wrapper that calls HttpURLConnection.disconnect() when
+    // the stream is closed by Chromium's WebResourceResponse consumer. Without
+    // this, CNR/CRI proxy streams leave sockets in CLOSE_WAIT after rapid
+    // channel switches → FD leak → EMFILE → OOM crash.
+    private static final class AutoDisconnectInputStream extends java.io.FilterInputStream {
+        private final java.net.HttpURLConnection hc;
+        AutoDisconnectInputStream(java.io.InputStream in, java.net.HttpURLConnection hc) {
+            super(in);
+            this.hc = hc;
+        }
+        @Override public void close() throws java.io.IOException {
+            try { super.close(); } finally {
+                if (hc != null) { try { hc.disconnect(); } catch (Throwable ignore) {} }
+            }
+        }
+    }
+
     // --------------- CORS / ICY proxy for CNR/CRI + legacy Icecast only -------------
     private static WebResourceResponse proxyStreamRequest(String urlS, String method0,
                                                           boolean... flags) {
@@ -405,13 +422,25 @@ public class MainActivity extends BridgeActivity {
                 respHeaders.put("Access-Control-Allow-Headers", "*");
             }
             respHeaders.put("Cache-Control", "no-cache");
-            WebResourceResponse wr = new WebResourceResponse(contentType, encoding, in);
+            // V87f: Wrap the raw InputStream with one that auto-disconnects the
+            // underlying HttpURLConnection when Chromium closes it (either on
+            // audio.pause / src swap during a channel switch, or on EOF). This
+            // eliminates the CLOSE_WAIT / FD leak caused by rapid channel
+            // switches when listening to CNR/CRI stations (e.g. 经济之声).
+            java.io.InputStream wrappedIn = in;
+            if (hc != null) {
+                wrappedIn = new AutoDisconnectInputStream(in, hc);
+                // Clear the local `hc` reference so the finally block below does
+                // NOT double-disconnect. The AutoDisconnectInputStream owns it now.
+                hc = null;
+            }
+            WebResourceResponse wr = new WebResourceResponse(contentType, encoding, wrappedIn);
             try { wr.setStatusCodeAndReasonPhrase(status, (statusMsg == null || statusMsg.isEmpty()) ? "OK" : statusMsg); }
             catch (Throwable ignoreSafe) {/*no-op*/}
             try { wr.setResponseHeaders(respHeaders); } catch (Throwable ignoreSafe) {/*no-op*/}
             Log.d("RetroRadioCORS", "PROXY OK icy=" + applyIcyFix + " http=" + isHttp + " cnr=" + isCnrCri
                     + " " + status + " " + url.getHost() + (url.getPort() > 0 ? ":" + url.getPort() : "")
-                    + (url.getPath() == null ? "" : url.getPath()) + " ct=" + contentType);
+                    + (url.getPath() == null ? "" : url.getPath()) + " ct=" + contentType + (hc == null ? " hcOwnedByStream" : ""));
             return wr;
         } catch (Throwable t) {
             closeStream(in);
@@ -548,13 +577,71 @@ public class MainActivity extends BridgeActivity {
 
     private void sendCommandToService(String action, String name, String subtitle, Boolean playing) {
         try {
+            // V87-THE-FIX: 因为 Service 通过 bindService 启动（isBindService=true），
+            // 任何 startService() / startForegroundService() 都不会触发 onStartCommand，
+            // 所以 ACTION_PLAY/PAUSE/META/STOP 完全不走！startForegroundCount 永远=0！
+            // 终极方案：通过已经 bind 成功的 LocalBinder 直接调用 Service 的 public forwarder
+            //（apiPlayFromBinder/apiPauseFromBinder/apiMetaFromBinder/apiStopFromBinder），
+            // 绕过 Service lifecycle 限制 → handlePlay/handlePause 立即执行 → startForeground + acquireLocks 立刻生效！
+            if (playbackService != null) {
+                try {
+                    String nm = (name == null) ? "" : name;
+                    String sub = (subtitle == null) ? "" : subtitle;
+                    if (RadioPlaybackService.ACTION_PLAY.equals(action)) {
+                        playbackService.apiPlayFromBinder(nm, sub, true);
+                        Log.e("RetroRadioBridge", "sendCommandToService BINDER-DIRECT: ACTION_PLAY name=[" + nm + "] OK");
+                        return;
+                    } else if (RadioPlaybackService.ACTION_PAUSE.equals(action)) {
+                        playbackService.apiPauseFromBinder(nm, sub, true);
+                        Log.e("RetroRadioBridge", "sendCommandToService BINDER-DIRECT: ACTION_PAUSE name=[" + nm + "] OK");
+                        return;
+                    } else if (RadioPlaybackService.ACTION_META.equals(action)) {
+                        boolean pl = (playing != null) && playing;
+                        playbackService.apiMetaFromBinder(nm, sub, pl);
+                        Log.e("RetroRadioBridge", "sendCommandToService BINDER-DIRECT: ACTION_META name=[" + nm + "] playing=" + pl + " OK");
+                        return;
+                    } else if (RadioPlaybackService.ACTION_STOP.equals(action)) {
+                        playbackService.apiStopFromBinder(true);
+                        Log.e("RetroRadioBridge", "sendCommandToService BINDER-DIRECT: ACTION_STOP OK");
+                        return;
+                    }
+                    // ACTION_NEXT/ACTION_PREV/ACTION_TOGGLE: 继续走 startService（广播给 UIBroadcastReceiver），或直接 binder forward
+                    if (RadioPlaybackService.ACTION_NEXT.equals(action)) {
+                        try { playbackService.sendBroadcastToUI(RadioPlaybackService.ACTION_NEXT); Log.e("RetroRadioBridge", "sendCommandToService BINDER-DIRECT: ACTION_NEXT OK"); return; } catch (Throwable t) { Log.e("RetroRadioBridge", "BINDER ACTION_NEXT FAIL " + t); }
+                    } else if (RadioPlaybackService.ACTION_PREV.equals(action)) {
+                        try { playbackService.sendBroadcastToUI(RadioPlaybackService.ACTION_PREV); Log.e("RetroRadioBridge", "sendCommandToService BINDER-DIRECT: ACTION_PREV OK"); return; } catch (Throwable t) { Log.e("RetroRadioBridge", "BINDER ACTION_PREV FAIL " + t); }
+                    } else if (RadioPlaybackService.ACTION_TOGGLE.equals(action)) {
+                        if (playbackService.isPlaying()) { playbackService.apiPauseFromBinder(nm, sub, true); } else { playbackService.apiPlayFromBinder(nm, sub, true); }
+                        Log.e("RetroRadioBridge", "sendCommandToService BINDER-DIRECT: ACTION_TOGGLE OK");
+                        return;
+                    }
+                } catch (Throwable bt) {
+                    Log.e("RetroRadioBridge", "sendCommandToService BINDER-DIRECT FAIL → fallback to startService. action=" + action + " err=" + bt, bt);
+                    // Binder 直调失败才 fallback 到 startService（理论上不会走到这）
+                }
+            } else {
+                Log.w("RetroRadioBridge", "sendCommandToService: playbackService == null (bind not ready), fallback to startService. action=" + action);
+            }
+
+            // === fallback 路径：bind 还没连上时才走 startService/startForegroundService（APP 启动早期极端情况）===
             Intent i = new Intent(MainActivity.this, RadioPlaybackService.class);
             i.setAction(action);
             if (name != null) i.putExtra(RadioPlaybackService.EXTRA_NAME, name);
             if (subtitle != null) i.putExtra(RadioPlaybackService.EXTRA_SUBTITLE, subtitle);
             if (playing != null) i.putExtra(RadioPlaybackService.EXTRA_IS_PLAYING, playing);
-            startService(i);
-        } catch (Throwable t) { Log.w(TAG, "sendCommandToService FAIL action=" + action + ": " + t); }
+            try {
+                startService(i);
+                Log.e("RetroRadioBridge", "sendCommandToService FALLBACK OK: startService action=" + action
+                        + " playing=" + playing + " name=" + name);
+            } catch (IllegalStateException bg) {
+                Log.e("RetroRadioBridge", "sendCommandToService FALLBACK startService FAIL (bg restriction) → try startForegroundService: " + bg);
+                try {
+                    startForegroundService(i);
+                } catch (Throwable fg) {
+                    Log.e("RetroRadioBridge", "sendCommandToService FALLBACK startForegroundService ALSO FAIL: " + fg);
+                }
+            }
+        } catch (Throwable t) { Log.e("RetroRadioBridge", "sendCommandToService TOP-LEVEL FAIL action=" + action + ": " + t, t); }
     }
 
     private void dispatchJsEvent(String type, String payload) {
@@ -587,22 +674,28 @@ public class MainActivity extends BridgeActivity {
             playingFlag = true;
             currentName = name == null ? "" : name;
             currentSubtitle = subtitle == null ? "" : subtitle;
-            Log.d(TAG_B, "reportPlaying name=" + currentName + " sub=" + currentSubtitle);
-            sendCommandToService(RadioPlaybackService.ACTION_META, currentName, currentSubtitle, true);
+            // V87f-FIX: SINGLE BINDER CALL. apiPlayFromBinder already runs:
+            //  updateMetadata() → handlePlay(notifyUi=true) → startForeground + acquireLocks.
+            // A preceding ACTION_META was 100% redundant and caused a 200ms "cancel + reschedule"
+            // debounce chain that DELAYED startForeground → Doze window could throttle network.
+            Log.e(TAG_B, "reportPlaying JS → apiPlayFromBinder (SINGLE CALL). name=[" + currentName + "] sub=[" + currentSubtitle + "]");
+            sendCommandToService(RadioPlaybackService.ACTION_PLAY, currentName, currentSubtitle, true);
         }
         @JavascriptInterface
         public void reportPaused(String name, String subtitle) {
             playingFlag = false;
             currentName = name == null ? "" : name;
             currentSubtitle = subtitle == null ? "" : subtitle;
-            Log.d(TAG_B, "reportPaused name=" + currentName + " sub=" + currentSubtitle);
-            sendCommandToService(RadioPlaybackService.ACTION_META, currentName, currentSubtitle, false);
+            // V87f: SINGLE CALL. apiPauseFromBinder already runs updateMetadata() + handlePause().
+            Log.e(TAG_B, "reportPaused JS → apiPauseFromBinder (SINGLE CALL). name=[" + currentName + "]");
+            sendCommandToService(RadioPlaybackService.ACTION_PAUSE, currentName, currentSubtitle, false);
         }
         @JavascriptInterface
         public void reportStopped() {
             playingFlag = false;
             currentName = ""; currentSubtitle = "";
-            Log.d(TAG_B, "reportStopped");
+            // V87f: SINGLE CALL.
+            Log.e(TAG_B, "reportStopped JS → apiStopFromBinder (SINGLE CALL)");
             sendCommandToService(RadioPlaybackService.ACTION_STOP, null, null, null);
         }
         @JavascriptInterface
@@ -610,8 +703,42 @@ public class MainActivity extends BridgeActivity {
             playingFlag = playing;
             currentName = name == null ? "" : name;
             currentSubtitle = subtitle == null ? "" : subtitle;
-            Log.d(TAG_B, "reportMeta playing=" + playing + " name=" + currentName);
+            // V87f: SINGLE CALL. apiMetaFromBinder handles state transitions INTERNALLY:
+            //   if (playing && !isPlaying) → handlePlay(notifyUi=false)
+            //   if (!playing && isPlaying) → handlePause(notifyUi=false)
+            //   otherwise → updateMetadata() + updateNotification().
+            // A second explicit ACTION_PLAY/PAUSE after ACTION_META was DOUBLE-INVOKING
+            // handlePlay/handlePause → twice acquireLocks/startForeground/buildNotification
+            // which caused "经济之声开头卡一下" and burned the main thread during rapid switches.
+            Log.e(TAG_B, "reportMeta JS → apiMetaFromBinder (SINGLE CALL). playing=" + playing + " name=[" + currentName + "]");
             sendCommandToService(RadioPlaybackService.ACTION_META, currentName, currentSubtitle, playing);
+        }
+        // V87: JS 显式通知"我现在意图是播放/暂停某个台" → 不等 audio.onplaying 回调，
+        // 立即让 RadioPlaybackService 启动 startForeground + WakeLock/WifiLock
+        @JavascriptInterface
+        public void notifyPlaybackIntent(String name, String subtitle, boolean playing) {
+            currentName = name == null ? "" : name;
+            currentSubtitle = subtitle == null ? "" : subtitle;
+            playingFlag = playing;
+            // V87f: SINGLE CALL. For INTENT signal we want the FASTEST path to startForeground.
+            //   playing=true → apiPlayFromBinder (immediately acquireLocks + registerNetworkCallback +
+            //                   startForeground — never wait for onplaying).
+            //   playing=false → apiPauseFromBinder (fastest tear-down).
+            // Do NOT sandwich an ACTION_META first — that 2-call chain in the debouncer
+            // was THE #1 root cause of "首次打开故城 很久才播放 + toast":
+            //   t=0 : enqueue apiMeta → fire at 200ms
+            //   t=1 : cancel apiMeta, enqueue apiPlay → fire at 201ms
+            //   So WakeLock/startForeground held off for 200ms while first-buffer HTTP was
+            //   already trying to run — Chromium network task got Doze throttled → long startup.
+            // By dispatching just ONE runnable the 80ms debounce passes quickly and locks
+            // are held BEFORE the network stack needs them.
+            Log.e(TAG_B, "notifyPlaybackIntent JS → " + (playing ? "apiPlayFromBinder" : "apiPauseFromBinder")
+                    + " (SINGLE CALL, fast-intent path). playing=" + playing + " name=[" + currentName + "]");
+            if (playing) {
+                sendCommandToService(RadioPlaybackService.ACTION_PLAY, currentName, currentSubtitle, true);
+            } else {
+                sendCommandToService(RadioPlaybackService.ACTION_PAUSE, currentName, currentSubtitle, false);
+            }
         }
         @JavascriptInterface
         public boolean playUrl(final String url, final String name, final String subtitle) {
@@ -620,8 +747,9 @@ public class MainActivity extends BridgeActivity {
                 playingFlag = true;
                 currentName = name == null ? "" : name;
                 currentSubtitle = subtitle == null ? "" : subtitle;
-                Log.d(TAG_B, "playUrl (MediaSession-only) name=" + currentName + " url=" + url);
-                sendCommandToService(RadioPlaybackService.ACTION_META, currentName, currentSubtitle, true);
+                // V87f: SINGLE CALL.
+                Log.e(TAG_B, "playUrl JS → apiPlayFromBinder (SINGLE CALL). name=[" + currentName + "] url=" + url);
+                sendCommandToService(RadioPlaybackService.ACTION_PLAY, currentName, currentSubtitle, true);
                 return true;
             } catch (Throwable t) {
                 Log.e(TAG_B, "playUrl FAIL: " + t, t);
@@ -633,7 +761,7 @@ public class MainActivity extends BridgeActivity {
             try {
                 playingFlag = false;
                 currentName = ""; currentSubtitle = "";
-                Log.d(TAG_B, "stopPlayer");
+                Log.e(TAG_B, "stopPlayer JS → apiStopFromBinder (SINGLE CALL)");
                 sendCommandToService(RadioPlaybackService.ACTION_STOP, null, null, null);
                 return true;
             } catch (Throwable t) { Log.w(TAG_B, "stopPlayer FAIL: " + t); return false; }

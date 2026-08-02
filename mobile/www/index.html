@@ -279,16 +279,46 @@
         </div>
 
         <div class="logo-progress-section" id="logoProgressSection" style="display:none;">
-          <h4>📷 台标获取进度</h4>
-          <div class="progress-info">
-            <div>已获取: <span id="progressFetched">0</span></div>
-            <div>获取失败: <span id="progressFailed">0</span></div>
-            <div>总电台: <span id="progressTotal">0</span></div>
+          <!-- V85: Native APP 局域网后端地址配置（让手机端也能实时更新台标、读服务器新台标图） -->
+          <div id="serverUrlConfig" style="display:none;margin-bottom:12px;padding:12px;border-radius:10px;background:rgba(59,130,246,.06);border:1px solid rgba(59,130,246,.22);">
+            <div style="font-size:13px;font-weight:700;margin-bottom:6px;color:#1e40af;">📡 手机端台标实时更新（需电脑端先启动 node server.js）</div>
+            <div style="font-size:11.5px;color:#64748b;margin-bottom:8px;">
+              填电脑局域网地址，例如：<b style="color:#1e3a8a;">http://192.168.2.5:8080</b>（IP 看你 PC 运行 server.js 控制台打印的「局域网访问」）。<br/>
+              保存后：播放无台标电台时自动触发拉取、台标图通过 HTTP 实时显示、进度条同步电脑端 batch 进度。
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <input type="text" id="serverUrlInput" placeholder="http://你的电脑IP:8080" autocomplete="off" spellcheck="false"
+                style="flex:1;padding:9px 11px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;font-size:13px;outline:none;color:#0f172a;"/>
+              <button class="sheet-btn" id="saveServerUrlBtn" style="padding:9px 12px;font-size:12.5px;white-space:nowrap;">💾 保存</button>
+            </div>
+            <div id="serverUrlHint" style="margin-top:8px;font-size:11.5px;color:#475569;"></div>
           </div>
-          <div class="progress-bar">
-            <div class="progress-fill" id="progressFill"></div>
+          <!-- V84: 台标按需获取状态（播放无台标电台时，后台自动触发） -->
+          <div id="onDemandStatus" style="display:none;margin-bottom:10px;padding:10px 12px;border-radius:10px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.3);font-size:12.5px;color:#92400e;"></div>
+          <div class="logo-local-info" style="margin-bottom:12px;padding:12px;border-radius:10px;background:rgba(124,58,237,.06);border:1px solid rgba(124,58,237,.18);"></div>
+          <div class="logo-server-area">
+            <h4 style="margin:0 0 8px;font-size:14px;">🌐 电脑端台标批量获取（本地Web模式）</h4>
+            <div class="logo-server-status" style="font-size:12px;margin-bottom:8px;"></div>
+            <div class="progress-info" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px;margin-bottom:8px;">
+              <div>服务器已获取: <span id="progressFetched">0</span></div>
+              <div>获取失败: <span id="progressFailed">0</span></div>
+              <div>总电台: <span id="progressTotal">0</span></div>
+            </div>
+            <div class="progress-bar" style="height:6px;background:rgba(127,127,127,.15);border-radius:999px;overflow:hidden;margin-bottom:8px;">
+              <div class="progress-fill" id="progressFill" style="height:100%;width:0%;background:linear-gradient(90deg,#f59e0b,#7c3aed);transition:width .4s ease;"></div>
+            </div>
+            <div class="logo-scheduler-status" style="font-size:12px;margin-bottom:10px;"></div>
+            <button class="sheet-btn" id="fetchLogoBtn">🚀 手动批量获取台标（本地浏览器）</button>
           </div>
-          <button class="sheet-btn" id="fetchLogoBtn">🚀 手动获取台标</button>
+        </div>
+        <!-- V84: 管理电台按 39 省市分类导航 + 列表（和播放页栏目完全一致） -->
+        <div id="manageRegionNav" style="margin-top: 8px; padding: 6px 0 10px; border-bottom: 1px solid var(--divider);">
+          <div style="font-size: 12px; color: var(--text-2); margin: 0 4px 8px 6px; font-weight: 500;">📂 按省市管理（点击筛选电台）</div>
+          <div id="manageRegionTabs" style="display:flex; flex-wrap:wrap; gap: 6px 6px; padding: 0 2px;"></div>
+          <div style="display:flex; justify-content: space-between; align-items: center; margin: 10px 6px 0; font-size: 11.5px; color: var(--text-3);">
+            <span id="manageRegionSummary">共 39 分类 / 1652 电台</span>
+            <span id="manageRegionCurrent">当前：全部</span>
+          </div>
         </div>
         <div class="channel-manage-list" id="channelManageList"></div>
       </div>

@@ -1,0 +1,1 @@
+﻿D/CwbService( 1347): normal mode or switch to doze from power off/doze suspend mode, mPowerMode = 2

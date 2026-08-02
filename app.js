@@ -542,7 +542,8 @@
         url: url,
         color: ch.color || '#d4af37',
         description: region,
-        category: category
+        category: category,
+        logo: ch.logo || undefined
       });
     }
     
@@ -567,7 +568,8 @@
               url: station.url,
               color: '#4a90e2',
               description: station.region,
-              category: station.category
+              category: station.category,
+              logo: radio[j].logo || undefined
             };
             found = true;
             break;
@@ -575,16 +577,17 @@
         }
       }
       if (!found) {
-        radio.push({
-          id: 'bk' + (i + 1),
-          name: station.name,
-          frequency: station.frequency,
-          url: station.url,
-          color: '#4a90e2',
-          description: station.region,
-          category: station.category
-        });
-      }
+      radio.push({
+        id: 'bk' + (i + 1),
+        name: station.name,
+        frequency: station.frequency,
+        url: station.url,
+        color: '#4a90e2',
+        description: station.region,
+        category: station.category,
+        logo: undefined
+      });
+    }
     }
     
     const urlSeen = new Set();
@@ -655,14 +658,15 @@
       const frequency = normalizeFrequency(ch.frequency, name);
       
       tv.push({
-        id: ch.id,
-        name: name,
-        frequency: frequency,
-        url: url,
-        color: ch.color || '#d4af37',
-        description: region,
-        category: ch.category || 'tv-documentary'
-      });
+      id: ch.id,
+      name: name,
+      frequency: frequency,
+      url: url,
+      color: ch.color || '#d4af37',
+      description: region,
+      category: ch.category || 'tv-documentary',
+      logo: ch.logo || undefined
+    });
     }
     
     return { radio: uniqueRadio, tv };
@@ -1670,9 +1674,27 @@
     els.radioChannelName.textContent = ch.name;
     els.radioChannelFreq.textContent = ch.frequency || ch.name;
 
+    if (!ch.logo && window.electronAPI && window.electronAPI.fetchLogo) {
+      fetchAndUpdateLogo(ch);
+    }
+
     updateRadioSelection();
     triggerTuningEffect(1200);
     playAudio(ch.url, ch);
+  }
+
+  async function fetchAndUpdateLogo(ch) {
+    try {
+      const result = await window.electronAPI.fetchLogo(ch.name, ch.url);
+      if (result && result.success) {
+        toast(`台标已更新: ${ch.name}`);
+        setTimeout(() => {
+          location.reload();
+        }, 1000);
+      }
+    } catch (e) {
+      console.log('获取台标失败:', e);
+    }
   }
 
   function playAudio(url, ch) {

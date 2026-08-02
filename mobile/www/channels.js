@@ -97,7 +97,8 @@ const CHANNEL_DATA = {
       "url": "https://live.ximalaya.com/radio-first-page-app/live/999/64.m3u8",
       "color": "#e67e22",
       "description": "全国",
-      "category": "文艺"
+      "category": "文艺",
+      "logo": "logos/1b009fb5.png"
     },
     {
       "id": "r12",
@@ -106,7 +107,8 @@ const CHANNEL_DATA = {
       "url": "https://sk.cri.cn/905.m3u8",
       "color": "#8e44ad",
       "description": "国际",
-      "category": "综合"
+      "category": "综合",
+      "logo": "logos/0f506c1f.png"
     },
     {
       "id": "r13",
@@ -115,7 +117,8 @@ const CHANNEL_DATA = {
       "url": "https://piccpndali.v.myalicdn.com/audio/cctv4_2.m3u8",
       "color": "#8e44ad",
       "description": "中央",
-      "category": "综合"
+      "category": "综合",
+      "logo": "logos/d53aeebc.png"
     },
     {
       "id": "r14",
@@ -133,7 +136,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/20500149/64k.mp3",
       "color": "#e74c3c",
       "description": "广东",
-      "category": "新闻"
+      "category": "新闻",
+      "logo": "logos/0c15e438.jpg"
     },
     {
       "id": "r16",
@@ -151,7 +155,8 @@ const CHANNEL_DATA = {
       "url": "https://live.ximalaya.com/radio-first-page-app/live/2629/64.m3u8",
       "color": "#9b59b6",
       "description": "全国",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/0d38c9ed.png"
     },
     {
       "id": "r18",
@@ -169,7 +174,8 @@ const CHANNEL_DATA = {
       "url": "http://asiafm.hk:8000/asiahd",
       "color": "#9b59b6",
       "description": "国际",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/d6d981e6.png"
     },
     {
       "id": "r20",
@@ -178,7 +184,8 @@ const CHANNEL_DATA = {
       "url": "http://goldfm.cn:8000/goldfm",
       "color": "#34495e",
       "description": "国际",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/5e271f7b.png"
     },
     {
       "id": "r21",
@@ -187,7 +194,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/15318569/64k.mp3",
       "color": "#34495e",
       "description": "国际",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/5cb33865.jpg"
     },
     {
       "id": "r22",
@@ -214,7 +222,8 @@ const CHANNEL_DATA = {
       "url": "http://sk.cri.cn/am846.m3u8",
       "color": "#2980b9",
       "description": "国际",
-      "category": "新闻"
+      "category": "新闻",
+      "logo": "logos/4d0a7968.png"
     },
     {
       "id": "r26",
@@ -223,7 +232,8 @@ const CHANNEL_DATA = {
       "url": "https://live.ximalaya.com/radio-first-page-app/live/2629/64.m3u8",
       "color": "#9b59b6",
       "description": "全国",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/8d011333.png"
     },
     {
       "id": "r27",
@@ -232,7 +242,8 @@ const CHANNEL_DATA = {
       "url": "http://lzlive.vojs.cn/5Fo8mMX/92/live.m3u8?",
       "color": "#e74c3c",
       "description": "江苏",
-      "category": "新闻"
+      "category": "新闻",
+      "logo": "logos/55dad81e.png"
     },
     {
       "id": "r28",
@@ -250,7 +261,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp-hw.qtfm.cn/live/5022107/64k.mp3",
       "color": "#9b59b6",
       "description": "全国",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/c9554fa3.jpg"
     },
     {
       "id": "r30",
@@ -259,7 +271,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/4847/64k.mp3",
       "color": "#f39c12",
       "description": "广东",
-      "category": "经济"
+      "category": "经济",
+      "logo": "logos/69f9adc3.jpg"
     },
     {
       "id": "r31",
@@ -268,7 +281,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/1259/64k.mp3",
       "color": "#f39c12",
       "description": "广东",
-      "category": "经济"
+      "category": "经济",
+      "logo": "logos/df4e193b.jpg"
     },
     {
       "id": "r32",
@@ -295,7 +309,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/339/64k.mp3",
       "color": "#e74c3c",
       "description": "北京",
-      "category": "新闻"
+      "category": "新闻",
+      "logo": "logos/54e76a51.jpg"
     },
     {
       "id": "r35",
@@ -313,7 +328,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/5022308/64k.mp3",
       "color": "#9b59b6",
       "description": "全国",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/099ba049.jpg"
     },
     {
       "id": "r37",
@@ -367,7 +383,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/1271/64k.mp3",
       "color": "#9b59b6",
       "description": "四川",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/f72e55bb.jpg"
     },
     {
       "id": "r43",
@@ -385,7 +402,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp-hw.qtfm.cn/live/5022308/64k.mp3",
       "color": "#9b59b6",
       "description": "全国",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/9384018e.jpg"
     },
     {
       "id": "r46",
@@ -403,7 +421,8 @@ const CHANNEL_DATA = {
       "url": "http://sk.cri.cn/905.m3u8",
       "color": "#e74c3c",
       "description": "中央",
-      "category": "新闻"
+      "category": "新闻",
+      "logo": "logos/5e330001.png"
     },
     {
       "id": "r48",
@@ -421,7 +440,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/1254/64k.mp3",
       "color": "#e74c3c",
       "description": "广东",
-      "category": "新闻"
+      "category": "新闻",
+      "logo": "logos/61bd7089.jpg"
     },
     {
       "id": "r50",
@@ -439,7 +459,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/20500153/64k.mp3",
       "color": "#9b59b6",
       "description": "全国",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/5ae69fc8.jpg"
     },
     {
       "id": "r52",
@@ -448,7 +469,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/20500182/64k.mp3",
       "color": "#e67e22",
       "description": "全国",
-      "category": "文艺"
+      "category": "文艺",
+      "logo": "logos/2b550368.jpg"
     },
     {
       "id": "r53",
@@ -457,7 +479,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/1672/64k.mp3",
       "color": "#e67e22",
       "description": "山东",
-      "category": "文艺"
+      "category": "文艺",
+      "logo": "logos/fe81d4c8.jpg"
     },
     {
       "id": "r54",
@@ -520,7 +543,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp-hw.qtfm.cn/live/5022379/64k.mp3",
       "color": "#1abc9c",
       "description": "全国",
-      "category": "生活"
+      "category": "生活",
+      "logo": "logos/519f2577.jpg"
     },
     {
       "id": "r61",
@@ -556,7 +580,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/4938/64k.mp3",
       "color": "#9b59b6",
       "description": "江苏",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/1cbd6799.jpg"
     },
     {
       "id": "r65",
@@ -583,7 +608,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/1260/64k.mp3",
       "color": "#e74c3c",
       "description": "中央",
-      "category": "新闻"
+      "category": "新闻",
+      "logo": "logos/8f008010.jpg"
     },
     {
       "id": "r68",
@@ -601,7 +627,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/1886/64k.mp3",
       "color": "#e67e22",
       "description": "内蒙古",
-      "category": "文艺"
+      "category": "文艺",
+      "logo": "logos/31d4407e.jpg"
     },
     {
       "id": "r70",
@@ -610,7 +637,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/20500150/64k.mp3",
       "color": "#e74c3c",
       "description": "中央",
-      "category": "新闻"
+      "category": "新闻",
+      "logo": "logos/8cf2532e.jpg"
     },
     {
       "id": "r71",
@@ -907,7 +935,8 @@ const CHANNEL_DATA = {
       "url": "https://live.ximalaya.com/radio-first-page-app/live/2629/64.m3u8",
       "color": "#34495e",
       "description": "全国",
-      "category": "综合"
+      "category": "综合",
+      "logo": "logos/14c8253b.png"
     },
     {
       "id": "r107",
@@ -979,7 +1008,8 @@ const CHANNEL_DATA = {
       "url": "http://lzlive.vojs.cn/2wtSfrS/92/live.m3u8?",
       "color": "#9b59b6",
       "description": "江苏",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/1cbd6799.jpg"
     },
     {
       "id": "r116",
@@ -1051,7 +1081,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qtfm.cn/live/332/64k.mp3",
       "color": "#9b59b6",
       "description": "北京",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/dc1def0f.jpg"
     },
     {
       "id": "r124",
@@ -1114,7 +1145,8 @@ const CHANNEL_DATA = {
       "url": "https://ngcdn002.cnr.cn/live/jjzs/index.m3u8",
       "color": "#f39c12",
       "description": "中央",
-      "category": "经济"
+      "category": "经济",
+      "logo": "logos/a4e70ba8.png"
     },
     {
       "id": "r131",
@@ -1132,7 +1164,8 @@ const CHANNEL_DATA = {
       "url": "https://lhttp.qingting.fm/live/5021912/64k.mp3",
       "color": "#34495e",
       "description": "国际",
-      "category": "音乐"
+      "category": "音乐",
+      "logo": "logos/5e271f7b.png"
     },
     {
       "id": "r133",
@@ -1294,7 +1327,8 @@ const CHANNEL_DATA = {
       "url": "http://ls.qingting.fm/live/470.m3u8",
       "color": "#e74c3c",
       "description": "广东",
-      "category": "新闻"
+      "category": "新闻",
+      "logo": "logos/53bea9ce.png"
     },
     {
       "id": "r152",
@@ -1501,7 +1535,8 @@ const CHANNEL_DATA = {
       "url": "https://radiopull.radiofoshan.com.cn/live/1400820947_BSID_44_audio.m3u8",
       "color": "#34495e",
       "description": "广东",
-      "category": "综合"
+      "category": "综合",
+      "logo": "logos/09100a98.png"
     },
     {
       "id": "r176",
@@ -15371,44 +15406,6 @@ const CHANNEL_DATA = {
       "color": "#3498db",
       "description": "安徽",
       "category": "交通"
-    }
-  ],
-  "tv": [
-    {
-      "id": "t1",
-      "name": "NASA TV",
-      "frequency": "CH 01",
-      "url": "https://www.nasa.gov/wp-content/themes/nasa/assets/video/nasa-tv-public_256k.mp4",
-      "color": "#e74c3c",
-      "description": "全国",
-      "category": "tv-documentary"
-    },
-    {
-      "id": "t2",
-      "name": "Nature Documentary",
-      "frequency": "CH 03",
-      "url": "https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8",
-      "color": "#1abc9c",
-      "description": "全国",
-      "category": "tv-documentary"
-    },
-    {
-      "id": "t3",
-      "name": "Classic Movies",
-      "frequency": "CH 07",
-      "url": "https://test-streams.mux.dev/test_001/stream.m3u8",
-      "color": "#9b59b6",
-      "description": "全国",
-      "category": "tv-documentary"
-    },
-    {
-      "id": "t4",
-      "name": "Educational TV",
-      "frequency": "CH 11",
-      "url": "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4",
-      "color": "#f39c12",
-      "description": "全国",
-      "category": "tv-documentary"
     }
   ]
 };

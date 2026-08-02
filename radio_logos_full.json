@@ -1,0 +1,302 @@
+﻿[
+    {
+        "catName":  "Hot",
+        "name":  "陕西新闻广播",
+        "id":  "1600",
+        "logo":  "https://pic.qtfm.cn/2016/0715/20160715150648227.png"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "广东南方生活广播",
+        "id":  "468",
+        "logo":  "https://pic.qtfm.cn/2021/0519/20210519030711.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "苏州音乐广播",
+        "id":  "2803",
+        "logo":  "https://pic.qtfm.cn/2022/1207/20221207091708.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "广东广播电视台文体广播",
+        "id":  "471",
+        "logo":  "https://pic.qtfm.cn/sso/198/1567411393720_vdCUW70Lt.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "北京交通广播",
+        "id":  "336",
+        "logo":  "https://pic.qtfm.cn/2019/0227/20190227023249.png"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "投资传媒（股市广播）",
+        "id":  "4847",
+        "logo":  "https://pic.qtfm.cn/sso/198/1606978988505_KEOyj7yxs.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "都市101经济广播",
+        "id":  "3995",
+        "logo":  "https://pic.qtfm.cn/2017/0928/20170928054640.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "济南新闻广播",
+        "id":  "1667",
+        "logo":  "https://pic.qtfm.cn/2020/0331/20200331035111.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "苏州交通广播",
+        "id":  "2806",
+        "logo":  "https://pic.qtfm.cn/sso/198/1631607649319_Vd7ueakoB.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "两广之声音乐台",
+        "id":  "20500149",
+        "logo":  "https://pic.qtfm.cn/2022/0619/20220619063631.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "广东交通之声",
+        "id":  "1262",
+        "logo":  "https://pic.qtfm.cn/2025/0311/20250311045956.png"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "1042南阳新闻广播",
+        "id":  "1213",
+        "logo":  "https://pic.qtfm.cn/2017/1110/20171110060558.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "广东珠江经济电台",
+        "id":  "1259",
+        "logo":  "https://pic.qtfm.cn/2015/0209/20150209212831195.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "济南经济广播",
+        "id":  "1668",
+        "logo":  "https://pic.qtfm.cn/2012/0816/20120816114101877.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "河北交通广播",
+        "id":  "1646",
+        "logo":  "https://pic.qtfm.cn/2017/0411/20170411011252.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "江苏交通广播",
+        "id":  "4054",
+        "logo":  "https://pic.qtfm.cn/sso/198/1631519000891__6ukgTMjU.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "经典音乐 FM90.5",
+        "id":  "20212269",
+        "logo":  "https://pic.qtfm.cn/2019/0313/20190313115555.png"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "哈尔滨音乐广播",
+        "id":  "839",
+        "logo":  "https://pic.qtfm.cn/2015/1210/20151210172937967.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "吉林新闻综合广播",
+        "id":  "4953",
+        "logo":  "https://pic.qtfm.cn/2012/0724/20120724112902255.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "杭州交通91.8电台",
+        "id":  "1133",
+        "logo":  "https://pic.qtfm.cn/2014/0829/20140829044142919.png"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "江苏经典流行音乐",
+        "id":  "4938",
+        "logo":  "https://pic.qtfm.cn/2017/0518/20170518065929.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "哈尔滨文艺广播",
+        "id":  "20083",
+        "logo":  "https://pic.qtfm.cn/sso/48/1694752887690_rypUKhx3C.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "中山电台快乐888",
+        "id":  "1278",
+        "logo":  "https://pic.qtfm.cn/2017/0811/20170811095134.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "清晨音乐台",
+        "id":  "4915",
+        "logo":  "https://pic.qtfm.cn/2022/0211/20220211102019.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "济南交通广播",
+        "id":  "1669",
+        "logo":  "https://pic.qtfm.cn/2013/channel_logo/1669.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "深圳先锋898",
+        "id":  "1270",
+        "logo":  "https://pic.qtfm.cn/sso/198/1572602894027_Jv8W5VjLR.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "邯郸新闻综合广播",
+        "id":  "5072",
+        "logo":  "https://pic.qtfm.cn/2015/0421/20150421191442115.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "鹤山电台",
+        "id":  "1286",
+        "logo":  "https://pic.qtfm.cn/2015/0323/20150323103813782.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "临沂综合广播",
+        "id":  "3992",
+        "logo":  "https://pic.qtfm.cn/2021/0729/20210729053950.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "第一财经广播",
+        "id":  "276",
+        "logo":  "https://pic.qtfm.cn/sso/48/1641438475219_mv9SoJP78.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "广东音乐之声",
+        "id":  "1260",
+        "logo":  "https://pic.qtfm.cn/sso/198/1564454286057_EAoJdKLRT.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "北京文艺广播",
+        "id":  "333",
+        "logo":  "https://pic.qtfm.cn/sso/198/1631520087008_cMpTFBNNx.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "广州新闻电台",
+        "id":  "4848",
+        "logo":  "https://pic.qtfm.cn/sso/198/1631608611268_yOwdpDG9p.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "江苏新闻广播",
+        "id":  "4944",
+        "logo":  "https://pic.qtfm.cn/2023/1225/20231225094225.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "长春交通之声",
+        "id":  "4967",
+        "logo":  "https://pic.qtfm.cn/2012/0821/20120821104235396.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "河北新闻广播",
+        "id":  "1644",
+        "logo":  "https://pic.qtfm.cn/2014/0616/20140616053545367.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "怀集音乐之声",
+        "id":  "4804",
+        "logo":  "https://pic.qtfm.cn/2020/1016/20201016121634.png"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "河北音乐广播",
+        "id":  "1649",
+        "logo":  "https://pic.qtfm.cn/2015/1223/20151223210921313.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "黑龙江交通广播",
+        "id":  "4973",
+        "logo":  "https://pic.qtfm.cn/2021/1231/20211231014716.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "新疆交通广播",
+        "id":  "1910",
+        "logo":  "https://pic.qtfm.cn/2013/channel_logo/1910.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "郑州新闻广播",
+        "id":  "1220",
+        "logo":  "https://pic.qtfm.cn/2020/0405/20200405083235.png"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "湖北之声",
+        "id":  "1303",
+        "logo":  "https://pic.qtfm.cn/sso/198/1631607042423_APvC7PZWG.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "沈阳之声",
+        "id":  "20024",
+        "logo":  "https://pic.qtfm.cn/2024/0715/20240715040320.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "上海新闻广播",
+        "id":  "270",
+        "logo":  "https://pic.qtfm.cn/2015/0202/20150202170847551.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "北京新闻广播",
+        "id":  "339",
+        "logo":  "https://pic.qtfm.cn/2015/0514/2015051417385422.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "国际新闻",
+        "id":  "20500172",
+        "logo":  "https://pic.qtfm.cn/sso/48/1678171152584_a6BwhQSVz.png"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "AsiaFM 亚洲粤语台",
+        "id":  "15318569",
+        "logo":  "https://pic.qtfm.cn/2022/1019/20221019042732.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "上海流行音乐LoveRadio",
+        "id":  "273",
+        "logo":  "https://pic.qtfm.cn/2014/0909/20140909125130474.jpg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "FM93浙江交通之声",
+        "id":  "4522",
+        "logo":  "https://pic.qtfm.cn/2020/0405/20200405120311.jpeg"
+    },
+    {
+        "catName":  "Hot",
+        "name":  "广东城市之声",
+        "id":  "469",
+        "logo":  "https://pic.qtfm.cn/2020/0402/20200402042931.png"
+    }
+]

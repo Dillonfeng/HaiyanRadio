@@ -1,0 +1,1 @@
+(function(){ try { if(window.stopPlaying){ window.stopPlaying(); } else { var s=window.state; if(s&&s.audioElement){try{s.audioElement.pause();}catch(e){} try{s.audioElement.removeAttribute('src');}catch(e){} try{s.isPlaying=false;}catch(e){} } } } catch(e){} window.__Rpush('STOPPED'); })();

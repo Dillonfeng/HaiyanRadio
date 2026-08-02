@@ -1,0 +1,457 @@
+﻿<!DOCTYPE html>
+<html>
+    <head>
+        <title>现代工程训练中心-广东海洋大学机械与能源工程学院</title><META Name="keywords" Content="广东海洋大学机械与能源工程学院,实验室介绍,现代,代工,工程,训练,中心" />
+<META Name="description" Content="广东海洋大学（阳江校区）现代工训中心（以下简称：现代工训中心）是在新工科背景下，以培养学生工程实践能力、创新实践与工匠精神为目标。按照“多技能、多层次、多维度”现代工程实训教学新模式，将传统制造工艺、现代先进技术与阳江地方产业实际需求相融合的现代工程技术实践教学基地、教学科研协同发展的综合素质培养平台，灵活多样的创新创业实践平台、多位一体的产学研协同创新平台，旨在培养面向制造业高质量发展的应用..." />
+
+        <meta charset="UTF-8">
+        
+        <link href="../../css/style.css" rel="stylesheet" type="text/css" />
+               
+                <script src="../../js/bdtxk.js" type="text/javascript"></script>
+        <!--[if lt IE 9]><script src="../../js/html5.js"></script><![endif]-->        
+        <script src="../../js/SuperSlide.js" type="text/javascript"></script>
+        
+        
+                         <script src="../../js/jquery.SuperSlide.js" type="text/javascript"></script>
+                <script src="../../js/jquery-migrate.min.js" type="text/javascript"></script>   
+
+ <script src="../../js/common.js" type="text/javascript"></script> 
+                
+                
+    <!--Announced by Visual SiteBuilder 9-->
+<link rel="stylesheet" type="text/css" href="../../_sitegray/_sitegray_d.css" />
+<script language="javascript" src="../../_sitegray/_sitegray.js"></script>
+<!-- CustomerNO:7765626265723230766b47545350564303090002 -->
+<link rel="stylesheet" type="text/css" href="../../content.vsb.css" />
+<script type="text/javascript" src="/system/resource/js/counter.js"></script>
+<script type="text/javascript">_jsq_(1062,'/content.jsp',1843,1749183936)</script>
+</head>
+    <body>
+
+        <div id="header">
+            <div class="top-wrap">
+                <div class="top-wrap-box">
+                    <div class="logo">
+<!-- 网站logo图片地址请在本组件"内容配置-网站logo"处填写 -->
+<a href="../../index.htm" title="机械与能源工程学院"><img src="../../images/jx_logo.png" alt="logo"></a></div>
+                    <div style="width:500px;float:right;">
+                    <div class="head-we-box">
+                        <script language="javascript" src="/system/resource/js/calendar/simple.js"></script>               
+<script language="JavaScript">
+//阳历
+var c_Calendar1025512EnDateString;
+
+var c_Calendar1025512WeekDayString;
+
+//阴历
+var c_Calendar1025512CnDateString;
+//节气
+var c_Calendar1025512JQString;
+//年
+var c_Calendar1025512YearString;
+//月
+var c_Calendar1025512MonthString;
+//日
+var c_Calendar1025512DayString;
+//周
+var c_Calendar1025512WeekString;
+//显示
+var c_Calendar1025512ShowString;
+function RunGLNL1025512()
+{          
+    var  sc =new Simple_Calendar ();
+    sc.init();
+    c_Calendar1025512CnDateString=sc.getCnDateString();
+    c_Calendar1025512WeekDayString=sc.getCalendarWeekString();
+    c_Calendar1025512JQString=sc.getJQString();
+    c_Calendar1025512EnDateString=sc.getEnDateString();
+    c_Calendar1025512YearString=sc.getYearString();
+    c_Calendar1025512MonthString=sc.getMonthString();
+    c_Calendar1025512DayString=sc.getDayString();
+    c_Calendar1025512WeekString=sc.getWeekString();
+    c_Calendar1025512ShowString= "";
+}
+RunGLNL1025512();
+      
+c_Calendar1025512ShowString+=c_Calendar1025512EnDateString; 
+c_Calendar1025512ShowString+="&nbsp;&nbsp;"+c_Calendar1025512WeekDayString; 
+
+
+
+</script>
+<div id="c_lunar1025512"></div>
+<script>
+	document.getElementById("c_lunar1025512").innerHTML = c_Calendar1025512ShowString;
+</script>
+
+                    </div>
+                    <div class="top-search-box">
+                          <script type="text/javascript">
+    function _nl_ys_check(){
+        
+        var keyword = document.getElementById('showkeycode1025513').value;
+        if(keyword==null||keyword==""){
+            alert("请输入你要检索的内容！");
+            return false;
+        }
+        if(window.toFF==1)
+        {
+            document.getElementById("lucenenewssearchkey1025513").value = Simplized(keyword );
+        }else
+        {
+            document.getElementById("lucenenewssearchkey1025513").value = keyword;            
+        }
+        var  base64 = new Base64();
+        document.getElementById("lucenenewssearchkey1025513").value = base64.encode(document.getElementById("lucenenewssearchkey1025513").value);
+        new VsbFormFunc().disableAutoEnable(document.getElementById("showkeycode1025513"));
+        return true;
+    } 
+</script>
+<form action="../../sj_list.jsp?wbtreeid=1062" method="post" id="au2a" name="au2a" onsubmit="return _nl_ys_check()" style="display: inline">
+ <input type="hidden" id="lucenenewssearchkey1025513" name="lucenenewssearchkey" value=""><input type="hidden" id="_lucenesearchtype1025513" name="_lucenesearchtype" value="1"><input type="hidden" id="searchScope1025513" name="searchScope" value="0">
+<input name="showkeycode" id="showkeycode1025513" class="search-input" type="text" name="keywords" placeholder="热门搜索关键字" value="" />
+
+ <input class="search-btn" type="submit" align="absmiddle" value="" style="cursor: hand" />
+ 
+</form><script language="javascript" src="/system/resource/js/base64.js"></script><script language="javascript" src="/system/resource/js/formfunc.js"></script>
+
+                    </div></div>
+                </div>
+            </div>
+
+            <div class="header-menu">
+                <ul>
+<li>
+                        <a href="../../index.htm">
+                            <span class="menu-icon menu-icon-1"></span>
+                            <span class="menu-font">学院首页</span>
+                        </a>
+                    </li>
+
+
+<li>
+                        <a href="../../xygk.htm">
+                            <span class="menu-icon menu-icon-2"></span>
+                            <span class="menu-font">学院概况</span>
+                        </a>
+
+
+                        <ul>
+                            <li><a href="../../xygk/xyjj.htm">学院简介</a></li>
+                            <li><a href="../../xygk/xyld.htm">学院领导</a></li>
+                            <li><a href="../../xygk/jg.htm">机构设置</a></li>
+                            <li><a href="../../xygk/zyjs.htm">专业介绍</a></li>
+                            <li><a href="../../xygk/glzd.htm">管理制度</a></li>
+                        </ul>
+
+                    </li>
+
+
+<li>
+                        <a href="../../szdw.htm">
+                            <span class="menu-icon menu-icon-3"></span>
+                            <span class="menu-font">师资队伍</span>
+                        </a>
+
+
+                        <ul>
+                            <li><a href="../../szdw/szgk.htm">师资概况</a></li>
+                            <li><a href="../../szdw/jsml.htm">教师名录</a></li>
+                            <li><a href="../../szdw/syjxzx.htm">实验教学中心</a></li>
+                            <li><a href="../../szdw/gcxlzx.htm">工程训练中心</a></li>
+                            <li><a href="../../szdw/rczp.htm">人才招聘</a></li>
+                        </ul>
+
+                    </li>
+
+
+<li>
+                        <a href="../../rcpy1.htm">
+                            <span class="menu-icon menu-icon-4"></span>
+                            <span class="menu-font">人才培养</span>
+                        </a>
+
+
+                        <ul>
+                            <li><a href="../../rcpy1/bkjx.htm">本科教学</a></li>
+                            <li><a href="../../rcpy1/yjsjy.htm">研究生教育</a></li>
+                            <li><a href="../../rcpy1/bkzs.htm">本科招生</a></li>
+                            <li><a href="../../rcpy1/yjszs.htm">研究生招生</a></li>
+                        </ul>
+
+                    </li>
+
+
+<li>
+                        <a href="../../syjxzx.htm" class="active">
+                            <span class="menu-icon menu-icon-5"></span>
+                            <span class="menu-font">实验教学中心</span>
+                        </a>
+
+
+                        <ul>
+                            <li><a href="../../syjxzx/sysjs.htm">实验室介绍</a></li>
+                            <li><a href="../../syjxzx/xqgjsys.htm">校企共建实验室</a></li>
+                            <li><a href="../../syjxzx/gzyqsb.htm">贵重仪器设备</a></li>
+                            <li><a href="../../syjxzx/sysaq.htm">实验室安全</a></li>
+                            <li><a href="../../syjxzx/gzzd.htm">规章制度</a></li>
+                            <li><a href="../../syjxzx/xzzq.htm">下载专区</a></li>
+                            <li><a href="../../syjxzx/syjxzxdw.htm">实验教学中心队伍</a></li>
+                        </ul>
+
+                    </li>
+
+
+<li>
+                        <a href="../../kxyj.htm">
+                            <span class="menu-icon menu-icon-6"></span>
+                            <span class="menu-font">科学研究</span>
+                        </a>
+
+
+                        <ul>
+                            <li><a href="../../kxyj/kygk.htm">科研概况</a></li>
+                            <li><a href="../../kxyj/kytd.htm">科研团队</a></li>
+                            <li><a href="../../kxyj/kyxm.htm">科研项目</a></li>
+                            <li><a href="../../kxyj/kycg.htm">科研成果</a></li>
+                            <li><a href="../../kxyj/xshd.htm">学术活动</a></li>
+                        </ul>
+
+                    </li>
+
+
+<li>
+                        <a href="../../dqjs.htm">
+                            <span class="menu-icon menu-icon-7"></span>
+                            <span class="menu-font">党群建设</span>
+                        </a>
+
+
+                        <ul>
+                            <li><a href="../../dqjs/xydw.htm">学院党委</a></li>
+                            <li><a href="../../dqjs/jcdj.htm">基层党建</a></li>
+                            <li><a href="../../dqjs/jjxj.htm">奖教学金</a></li>
+                            <li><a href="../../dqjs/gh_jdh.htm">工会、教代会</a></li>
+                            <li><a href="../../dqjs/dzdg.htm">党章党规</a></li>
+                            <li><a href="https://jwb.gdou.edu.cn/zcfg.htm">政策法规</a></li>
+                        </ul>
+
+                    </li>
+
+
+<li>
+                        <a href="../../xsgz.htm">
+                            <span class="menu-icon menu-icon-8"></span>
+                            <span class="menu-font">学生工作</span>
+                        </a>
+
+
+                        <ul>
+                            <li><a href="../../xsgz/cxcy.htm">创新创业</a></li>
+                            <li><a href="../../xsgz/xlfd.htm">心理辅导</a></li>
+                            <li><a href="../../xsgz/xsdj.htm">学生党建</a></li>
+                            <li><a href="../../xsgz/jzxj.htm">奖助学金</a></li>
+                            <li><a href="../../xsgz/twxsh.htm">团委学生会</a></li>
+                            <li><a href="../../xsgz/ggtz.htm">公告通知</a></li>
+                            <li><a href="../../xsgz/xzzq.htm">下载专区</a></li>
+                        </ul>
+
+                    </li>
+
+
+<li>
+                        <a href="../../hsfdxy.htm">
+                            <span class="menu-icon menu-icon-9"></span>
+                            <span class="menu-font">海上风电学院</span>
+                        </a>
+
+
+                        <ul>
+                            <li><a href="../../hsfdxy/cyxygk.htm">产业学院概况</a></li>
+                            <li><a href="../../hsfdxy/jgsz.htm">机构设置</a></li>
+                            <li><a href="../../hsfdxy/xwsxsxjd.htm">校外实习实训基地</a></li>
+                            <li><a href="../../hsfdxy/qyms.htm">企业名师</a></li>
+                            <li><a href="../../hsfdxy/zypx.htm">专业培训</a></li>
+                            <li><a href="../../hsfdxy/hsfdxydsj.htm">海上风电学院大事记</a></li>
+                        </ul>
+
+                    </li>
+
+
+<li>
+                        <a href="../../xyzl.htm">
+                            <span class="menu-icon menu-icon-10"></span>
+                            <span class="menu-font">校友专栏</span>
+                        </a>
+
+
+                        <ul>
+                            <li><a href="../../xyzl/xyml.htm">校友名录</a></li>
+                            <li><a href="../../xyzl/xyxw.htm">校友新闻</a></li>
+                            <li><a href="../../xyzl/gzzd.htm">规章制度</a></li>
+                        </ul>
+
+                    </li>
+
+
+</ul>
+            </div>
+
+        </div>
+
+<div class="nybanner" style="background:url(../../images/banner_z.jpg) top center no-repeat"></div>
+<div class="ny" style="margin-top:0;">
+
+
+<div class="ny_right1">
+<div class="nytit"><b>您当前所在的位置：</b> 
+                        <a href="../../index.htm">学院首页</a>
+                -&gt;
+                <a href="../../syjxzx.htm">实验教学中心</a>
+                -&gt;
+                <a href="../../syjxzx/sysjs.htm">实验室介绍</a>
+                -&gt;
+                正文
+</div>
+      
+<script language="javascript" src="/system/resource/js/dynclicks.js"></script><script language="javascript" src="../../_dwr/interface/NewsvoteDWR.js"></script><script language="javascript" src="../../_dwr/engine.js"></script><script language="javascript" src="/system/resource/js/news/newscontent.js"></script><LINK href="/system/resource/js/photoswipe/3.0.5.1/photoswipe.css" type="text/css" rel="stylesheet"><script language="javascript" src="/system/resource/js/photoswipe/3.0.5.1/klass.min.js"></script><script language="javascript" src="/system/resource/js/ajax.js"></script><form name="_newscontent_fromname">
+<div class="content">
+<div class="content-title">
+          <h3>现代工程训练中心</h3>
+            <i>作者：唐万和、梁尤宇  　　编辑：陈银怡 　　审核人：陈扬枝  点击数：<script>_showDynClicks("wbnews", 1749183936, 1843)</script>　　来源：无  　　发布日期：2023-04-14
+           </i>
+        </div>
+<div class="content-con">
+    <div id="vsb_content"><div class="v_news_content">
+<p style="text-indent:37px;line-height:150%"><span style="line-height: 150%; font-family: 宋体; font-size: 18px;">广东海洋大学（阳江校区）现代工训中心（以下简称：现代工训中心）是在新工科背景下，以培养学生工程实践能力、创新实践与工匠精神为目标。按照“多技能、多层次、多维度”现代工程实训教学新模式，将传统制造工艺、现代先进技术与阳江地方产业实际需求相融合的现代工程技术实践教学基地、教学科研协同发展的综合素质培养平台，灵活多样的创新创业实践平台、多位一体的产学研协同创新平台，旨在培养面向制造业高质量发展的应用型“卓越工程师”。</span></p>
+<p style="text-indent:37px;line-height:150%"><span style="line-height: 150%; font-family: 宋体; font-size: 18px;">现代工训中心总体规划面积约12000㎡，分两期建设；一期建筑面积约4000平方米，二期建筑面积约8000㎡。当前，一期已建成并投入使用。一期建设内容从基础工程认知、工程基础实践、工程综合实践、创新创业实践四个层面展开；围绕工程产品总体构思、设计建模、工艺流程分析、加工制造、测量检验等现代制造工艺全流程，建成基础制造技术训练中心（包括普车、钳工、焊接）、智能制造技术训练中心（包括数车、加工中心、电加工、激光加工、3D打印）、机器人技术训练中心、产业应用技术中心（包括自动控制实训平台、五金刀剪智能制造生产线、紧固件加工线）和创新实践中心五大中心。已涵盖工程实训及科研设备206台套，工量刀具300余件，设备总价值1700余万元。历经2年筹划建设，现代工程实训中心于2022年10月25日正式开课；截至目前已完成机能学院、材料学院、食品学院等3批次14个班共397名学生为期2-3周的现代工程实训。其已成为阳江校区教学规模最大、学生受众人数最多的工程实践必修课程。承担了全校机械与能源工程学院、材料科学与工程学院、计算机科学与工程学院、食品科学与工程学院等4个学院8个专业的工程训练教学及部分研究生科研等任务。同时，现代工程训练中心还承担了机械加工、机械电子、海上风电、信息电子等相关科学研究、对外服务等工作。</span></p>
+<p style="text-indent:37px;line-height:150%"><strong><span style="line-height: 150%; font-family: 宋体; font-size: 18px;">一、基础制造技术训练中心</span></strong></p>
+<p style="text-indent:37px;line-height:150%"><span style="line-height: 150%; font-family: 宋体; font-size: 18px;">基础制造技术训练中心主要围绕车工、钳工、焊接等基础制造工艺的工程实训课程而设置，包括普通车床实训区、钳工实训区、焊接实训室等，向学生普及基础制造工艺知识、培养基础工程实操技能与解决普通工程问题能力。如下图所示：</span></p>
+<p style="text-align: center"><img src="/__local/2/D6/80/35A4307E9E31B0A481BEB78F111_BD432832_C93B.jpg" width="600" alt="C93B" vsbhref="vurl" vurl="/_vsl/2D68035A4307E9E31B0A481BEB78F111/BD432832/C93B" vheight="" vwidth="600" orisrc="/__local/2/D6/80/35A4307E9E31B0A481BEB78F111_BD432832_C93B.jpg" class="img_vsb_content"></p>
+<p style="text-align:center;text-indent:32px;line-height:150%"><span style="line-height: 150%; font-size: 16px; font-family: 宋体;">图1 普通车床实训区</span></p>
+<p style="text-align: center"><img src="/__local/3/F9/F0/4AA9FAB174CBECC8A7B1F26D38A_CE29C20E_321AE.jpg" width="600" alt="21A21" vurl="/_vsl/3F9F04AA9FAB174CBECC8A7B1F26D38A/CE29C20E/321AE" vsbhref="vurl" vheight="" vwidth="600" orisrc="/__local/3/F9/F0/4AA9FAB174CBECC8A7B1F26D38A_CE29C20E_321AE.jpg" class="img_vsb_content"></p>
+<p style="text-align:center;text-indent:32px;line-height:150%"><span style="line-height: 150%; font-size: 16px; font-family: 宋体;">图2 钳工实训区</span></p>
+<p style="text-indent: 2em;"><strong><span style="line-height: 150%; font-family: 宋体; font-size: 18px;">二、智能制造技术训练中心</span></strong></p>
+<p style="text-indent:37px"><span style="line-height: 150%; font-family: 宋体; font-size: 18px;">智能制造技术训练中心是基础制造技术训练中心的基础上，培养具备解决一般复杂工程能力而设；包括数控加工区、加工中心、特种加工（线切割、电火花等）、激光加工以及3D打印；以解决复杂工程任务为目标导向，通过多种现代加工装备组合与课程训练，重点培养学生设计建模、工艺规划、数控编程、难加工工艺、综合工程实践等能力<span style="font-size: 18px; text-indent: 37px; text-wrap-mode: wrap;">，</span>为学生培养现代工程思维、掌握工程技术以及使用现代机械装备等打下坚实基础<span style="font-size: 18px; text-indent: 37px; text-wrap-mode: wrap;">，</span>是现代工程实践能力培养的核心。此外还兼顾研究生培养、加工领域教师科研及社会服务职能。具体如下：</span></p>
+<p style="text-align: center"><img src="/__local/7/F7/61/D756F8E3D66AF0167FA5DF053AD_E80E2564_1BD04.jpg" width="600" alt="1BD04" vsbhref="vurl" vurl="/_vsl/7F761D756F8E3D66AF0167FA5DF053AD/E80E2564/1BD04" vheight="" vwidth="600" orisrc="/__local/B/7A/8E/2572E15C773C486025790D64B5C_BD3C6DB9_4F68AC.jpg" class="img_vsb_content"></p>
+<p style="text-align:center;text-indent:32px;line-height:150%"><span style="line-height: 150%; font-size: 16px; font-family: 宋体;">图3 加工中心实训区</span></p>
+<p style="text-align: center"><img src="/__local/2/B6/70/86D7298F8DDD0D7FA66953CF527_05F36E53_1CD39.jpg" width="600" alt="1CD39" vsbhref="vurl" vurl="/_vsl/2B67086D7298F8DDD0D7FA66953CF527/05F36E53/1CD39" vheight="" vwidth="600" orisrc="/__local/2/B6/70/86D7298F8DDD0D7FA66953CF527_05F36E53_1CD39.jpg" class="img_vsb_content"></p>
+<p style="text-align:center;text-indent:32px;line-height:150%"><span style="line-height: 150%; font-size: 16px; font-family: 宋体;">图4 数控车床实训区</span></p>
+<p style="text-align: center"><img src="/__local/4/D4/C0/F92607B1C983F48C3125BE12C1E_E163E8A0_1FF24.jpg" width="600" alt="1FF24" vsbhref="vurl" vurl="/_vsl/4D4C0F92607B1C983F48C3125BE12C1E/E163E8A0/1FF24" vheight="" vwidth="600" orisrc="/__local/4/D4/C0/F92607B1C983F48C3125BE12C1E_E163E8A0_1FF24.jpg" class="img_vsb_content"></p>
+<p style="text-align:center;text-indent:32px;line-height:150%"><span style="line-height: 150%;font-size: 16px"><span style="font-family:宋体">图5 特种加工</span>实训区—— 线切割机</span></p>
+<p style="text-align: center"><img src="/__local/9/10/59/C6BBA0A43DE803022FF8E5B5F8C_34337E20_18CE0.jpg" width="600" alt="18CE0" vsbhref="vurl" vurl="/_vsl/91059C6BBA0A43DE803022FF8E5B5F8C/34337E20/18CE0" vheight="" vwidth="600" orisrc="/__local/9/10/59/C6BBA0A43DE803022FF8E5B5F8C_34337E20_18CE0.jpg" class="img_vsb_content"></p>
+<p style="text-align:center;text-indent:32px;line-height:150%"><span style="line-height: 150%;font-size: 16px"><span style="font-family:宋体">图6 特种加工</span>实训区——镜面火花机</span></p>
+<p style="text-align: center"><img src="/__local/C/2D/72/EF5895CA22519159802E76D8B07_66C10E4A_13177.jpg" width="600" alt="13177" vsbhref="vurl" vurl="/_vsl/C2D72EF5895CA22519159802E76D8B07/66C10E4A/13177" vheight="" vwidth="600" orisrc="/__local/C/2D/72/EF5895CA22519159802E76D8B07_66C10E4A_13177.jpg" class="img_vsb_content"></p>
+<p style="text-align:center;text-indent:32px;line-height:150%"><span style="line-height: 150%; font-size: 16px; font-family: 宋体;">图7 3D打印实训室</span></p>
+<p style="margin-left: 28px;text-indent: 0"><strong><span style="line-height: 150%; font-family: 宋体; font-size: 18px;">三、机器人技术训练中心</span></strong></p>
+<p style="text-indent: 37px"><span style="line-height: 150%; font-family: 宋体; font-size: 18px;">机器人作为国家或地区工业自动化水平的重要标志，工业机器人技术是综合了计算机、控制技术、机构学、信息与传感技术、人工智能等多学科的高新技术，是现代工程实训教学的重点之一。机器人技术训练中心主要训练项目包括工业机器人编程、系统调试、典型工艺应用、设备安装调试等实训，着重培养学生对机器设备调试、编程、设备调试、算法设计等实践能力，是工程实践的综合实训。</span></p>
+<p style="text-align: center"><img src="/__local/A/AD/89/358039D9AD50C9E7E0AEAA97433_3B7625FF_1DE17.jpg" width="600" alt="1DE17" vsbhref="vurl" vurl="/_vsl/AAD89358039D9AD50C9E7E0AEAA97433/3B7625FF/1DE17" vheight="" vwidth="600" orisrc="/__local/A/AD/89/358039D9AD50C9E7E0AEAA97433_3B7625FF_1DE17.jpg" class="img_vsb_content"></p>
+<p style="text-align:center;text-indent:32px;line-height:150%"><span style="line-height: 150%;font-size: 16px"><span style="font-family:宋体">图8&nbsp;工业机器人实训</span>区</span></p>
+<p style="text-indent: 2em;"><strong><span style="line-height: 150%; font-family: 宋体; font-size: 18px;">四、产业应用技术中心</span></strong></p>
+<p style="text-indent:37px"><span style="line-height: 150%; font-family: 宋体; font-size: 18px;">产业应用技术中心是以培养学生综合工程能力为目标，基于阳江乃至广东地方产业特色与工程人才需求，通过产学研合作等方式共同建设产业应用技术中心。围绕刀剪产业智能制造需求，与本土刀剪加工装备龙头企业威特动力共建五金刀剪智能制造生产线，其综合了刀剪自动水磨设备、上下料机器人、数控系统等，从产业应用角度培养学生综合工程能力。针对本地制造业转型升级对自动化、智能化人才的需求，基于现代工业产线自动化控制、仿真优化、工业网络、智能控制等实际需要，现代工程训练中心搭建了自动控制实训室，模拟多种真实工业场景的控制与管理过程，培养学生“懂原理、懂性能、懂构造，会操作、会控制、会管理”等技能，提升学生综合工程能力。基于阳江市紧固件及风电产业发展需求，联合阳江市机械工业学会等共建紧固件智能加工线及自动高强螺栓智能检测试验平台，旨在推动紧固件产业、风电产业智能制造技术人才培养、组织科研攻关。</span></p>
+<p style="text-align: center"><img src="/__local/F/83/D9/B89B12B6165A5FCC62D951C6BEA_E90C44CB_24170.jpg" width="600" alt="24170" vsbhref="vurl" vurl="/_vsl/F83D9B89B12B6165A5FCC62D951C6BEA/E90C44CB/24170" vheight="" vwidth="600" orisrc="/__local/F/83/D9/B89B12B6165A5FCC62D951C6BEA_E90C44CB_24170.jpg" class="img_vsb_content"></p>
+<p style="text-align:center;text-indent:32px;line-height:150%"><span style="line-height: 150%; font-size: 16px; font-family: 宋体;">图9 五金刀剪智能制造生产线</span></p>
+<p style="text-align: center"><img src="/__local/9/83/8A/441B6AEC0126AA1E862CDBDEC7B_91A830DD_1B4AC.jpg" width="600" alt="1B4AC" vsbhref="vurl" vurl="/_vsl/9838A441B6AEC0126AA1E862CDBDEC7B/91A830DD/1B4AC" vheight="" vwidth="600" orisrc="/__local/9/83/8A/441B6AEC0126AA1E862CDBDEC7B_91A830DD_1B4AC.jpg" class="img_vsb_content"></p>
+<p style="text-align:center;text-indent:32px;line-height:150%"><span style="line-height: 150%; font-size: 16px; font-family: 宋体;">图10 自动控制实训室</span></p>
+<p><br></p>
+</div></div><div id="div_vote_id"></div>
+    </div>
+
+
+
+
+
+    
+    
+    
+    
+</div>
+</form>
+
+<div class="clear"></div>
+</div>
+
+<div class="clear"></div>
+
+
+</div>
+
+        
+        <div class="link-wrap clear">
+            <div class="link-box">
+                <span class="link-title">常用链接：</span>
+               <script language="javascript" src="/system/resource/js/openlink.js"></script>   <a href="http://lib.gdou.edu.cn/" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73628)">图书馆</a>
+   <a href="#" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73625)">教务处</a>
+   <a href="#" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73627)">财务处</a>
+   <a href="https://www.gdou.edu.cn/proxy.https.kjc.gdou.edu.cn/" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73626)">科技处</a>
+   <a href="https://www.gdou.edu.cn/proxy.https.grs.gdou.edu.cn/" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73686)">研究生院</a>
+   <a href="http://mail.gdou.edu.cn/cgi-bin/loginpage?t=logindomain&amp;s=logout&amp;f=biz&amp;param=zhangmk@gdou.edu.cn" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73639)">学校邮箱</a>
+
+            </div>
+        </div>
+        
+        <div id="footer">
+            
+            <div class="footer-wrap clear">
+                <div class="footer-wrap-l">
+                    <div class="friendship-link">
+                        <span>友情链接</span>
+                       <UL>
+    <LI><a href="https://www.scut.edu.cn/new/" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73602)">华南理工大学</a></li>
+    <LI><a href="https://www.bit.edu.cn/" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73613)">北京理工大学</a></li>
+    <LI><a href="http://www.hit.edu.cn/" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73615)">哈尔滨工业大学</a></li>
+    <LI><a href="https://www.buaa.edu.cn/" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73614)">北京航空航天大学</a></li>
+    <LI><a href="http://www.njust.edu.cn/" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73616)">南京理工大学</a></li>
+    <LI><a href="https://www.nuaa.edu.cn/" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73617)">南京航空航天大学</a></li>
+    <LI><a href="http://www.sysu.edu.cn/cn/index.htm" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73618)">中山大学</a></li>
+    <LI><a href="https://www.gfbzb.gov.cn/" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 114135)">中国征兵网</a></li>
+</UL>
+                    </div>
+                    <div class="related-link">
+                        <span>相关链接</span>
+                        <UL>
+    <LI><a href="https://www.gdou.edu.cn/" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73624)">广东海洋大学主页</a></li>
+    <LI><a href="https://www.gdou.edu.cn/yjxq/index.htm" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73684)">广东海洋大学（阳江校区）主页</a></li>
+    <LI><a href="https://www.gdou.edu.cn/zjzx/index.htm" onclick="_addDynClicks(&#34;wburl&#34;, 1749183936, 73687)">海大招生就业指导中心</a></li>
+</UL>
+                    </div>
+                    <div class="contact-box">
+                        <span>联系我们</span>
+                       <script language="javascript" src="/system/resource/js/news/mp4video.js"></script>
+<ul> 
+ <li>电 话：0662-2162006</li> 
+ <li>E-mail：jnxy@gdou.edu.cn</li> 
+ <li>地址：广东省 阳江市 江城区 罗琴路1号<br></li> 
+ <li>邮政编码：529500</li> 
+</ul>
+                    </div>
+                </div>
+                
+               <div class="footer-wrap-r">
+                    <div class="footer-weixin-bg">        
+      
+                
+                      <img src="../../images/b10e30ab73463466f5792b0522aff33d.png" alt="weixin">
+                
+       
+</div>
+                </div>
+                
+                <div class="footer-copy">
+                    <!-- 版权内容请在本组件"内容配置-版权"处填写 -->
+<p>Copyright ©版权所有：广东海洋大学机械与能源工程学院</p>
+                </div>
+                
+            </div>
+        </div>
+        
+        <div class="return_top"></div>
+        <script type="text/javascript">
+function killErrors() {
+    return true;
+}
+window.onerror = killErrors;
+</script>
+    </body>
+</html>

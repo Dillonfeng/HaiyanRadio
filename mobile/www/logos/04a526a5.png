@@ -1,0 +1,2269 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width,user-scalable=0.3,initial-scale=no,maximum-scale=0.3,minimum-scale=0.3">
+    <title>
+        信息公开
+    </title>
+    <!-- 头部css_嵌套  -->
+    <link rel="stylesheet" href="../../images/base.css">
+    <link rel="stylesheet" href="../../images/swiper.8.css">
+    <link rel="stylesheet" href="../../images/tysj.css">
+    <link rel="stylesheet" type="text/css" href="../../images/default.css">
+    <link rel="stylesheet" type="text/css" href="../../images/component.css">
+    <link rel="stylesheet" href="../../images/video.css">
+    <link rel="stylesheet" href="../../images/admins.css">
+    <link rel="stylesheet" href="../../images/ty_heard_footer.css">
+    <link rel="stylesheet" href="../../images/mob_yd_second.css">
+    <link rel="stylesheet" href="../../images/second.css">
+    <style>
+     .imgnews_img {
+    width: 100%!important;
+   
+}
+      .xq_854 img {
+       width: 45%!important;
+    height: auto!important;
+   
+}
+    </style>
+</head>
+
+<body id="body" style="visibility:hidden;">
+    <!-- 头部 -->
+    <!-- 头部 -->
+<style>
+  .tyjs_header .head_cont .nav_ul {
+    width: 6rem;
+    height: 100%;
+    overflow: hidden;
+}
+</style>
+    <div style="background: #f6f9ff;">
+        <!-- 移动 -->
+        <div class="sinochem-header sinochem-header-none header_dark bgfff" style="">
+            <div class="header w1600 clearfix">
+                <!-- logo -->
+              <a href="../../" target="">
+              
+                <div class="logo fl">
+                    <!-- logo -->
+                </div>
+                </a>
+                <!-- DDRmenu v02.00.01 - Simple template -->
+                <div class="nav fl" id="nav">
+                    <div class="close-search-box clearfix">
+                        <div class="close-search clearfix">
+                            <div class="mobnav-close"></div>
+                            <!-- <div class="mobnav-search" onclick="window.location.href=&#39;/16419.html&#39;;"></div>-->
+                        </div>
+                    </div>
+                    <ul class="nav_ul clearfix">
+
+                        <li class="nav_li">
+
+                            <div class="navli_tit">
+                                <a href="javascript:void(0);" target="">关于我们</a>
+                                <span class="jt">∨</span>
+                            </div>
+
+                            <div class="sec_box bgf5 header_btc" style="display: none;">
+                                <div class="sec_cont clearfix">
+                                    <div class="sec_nav fl">
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../gywm/gsgk/"
+                                                    target="">公司概况&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../gywm/zzjg/" target="">组织结构&nbsp;&nbsp;<span
+                                                        class="seclist_jt" style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../gywm/fzlc/"
+                                                    target="">发展历程&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+                                        
+                                        
+                                    </div>
+
+                                </div>
+                            </div>
+                        </li>
+
+                        <li class="nav_li">
+
+                            <div class="navli_tit">
+                                <a href="javascript:void(0);" target="">业务领域</a>
+                                <span class="jt">∨</span>
+                            </div>
+
+                            <div class="sec_box bgf5 header_btc" style="display: none;">
+                                <div class="sec_cont clearfix">
+                                    <div class="sec_nav fl">
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href=""
+                                                    target="">煤炭工程&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href=""
+                                                    target="">电力新能源&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href=""
+                                                    target="">建筑市政&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+															 <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href=""
+                                                    target="">节能环保&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+                                    </div>
+
+                                </div>
+                            </div>
+                        </li>
+                        <li class="nav_li">
+
+                            <div class="navli_tit">
+                                <a href="javascript:void(0);" target="">新闻中心</a>
+                                <span class="jt">∨</span>
+                            </div>
+
+                            <div class="sec_box bgf5 header_btc" style="display: none;">
+                                <div class="sec_cont clearfix">
+                                    <div class="sec_nav fl">
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../xwzx/gsdt/"
+                                                    target="">公司动态&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../xwzx/jtxw/"
+                                                    target="">集团新闻&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../xwzx/spzx/"
+                                                    target="">视频中心&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+                                    
+
+
+
+
+                                    </div>
+
+                                </div>
+                            </div>
+                        </li>
+                        <li class="nav_li">
+
+                            <div class="navli_tit">
+                                <a href="javascript:void(0);" target="">资质荣誉</a>
+                                <span class="jt">∨</span>
+                            </div>
+
+                            <div class="sec_box bgf5 header_btc" style="display: none;">
+                                <div class="sec_cont clearfix">
+                                    <div class="sec_nav fl">
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="javascript:void(0);" target="">公司资质&nbsp;&nbsp;<span
+                                                        class="seclist_jt" style="display: none;">&gt;</span></a>
+                                            </div>
+
+                                            <div class="thr_box" style="display: none;">
+                                                <ul class="thr_ul">
+
+                                                    <li class="thr_li">
+                                                        <a href="../../zzry/gszz/gczx/"
+                                                            target="">工程咨询&nbsp;&nbsp;<span
+                                                                class="thr_jt">&gt;</span></a>
+                                                    </li>
+
+                                                    <li class="thr_li">
+                                                        <a href="../../zzry/gszz/gckc/"
+                                                            target="">工程勘察、测量、测绘&nbsp;&nbsp;<span
+                                                                class="thr_jt">&gt;</span></a>
+                                                    </li>
+                                                   <li class="thr_li">
+                                                        <a href="../../zzry/gszz/gcsj/"
+                                                            target="">工程设计（工程总承包）&nbsp;&nbsp;<span
+                                                                class="thr_jt">&gt;</span></a>
+                                                    </li>
+                                                   <li class="thr_li">
+                                                        <a href="../../zzry/gszz/gcjl/"
+                                                            target="">工程监理（项目管理）&nbsp;&nbsp;<span
+                                                                class="thr_jt">&gt;</span></a>
+                                                    </li>
+ <li class="thr_li">
+                                                        <a href="../../zzry/gszz/qt/"
+                                                            target="">其他&nbsp;&nbsp;<span
+                                                                class="thr_jt">&gt;</span></a>
+                                                    </li>
+                                                </ul>
+                                            </div>
+                                        </div>
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../zzry/ryjx/" target="">荣誉奖项&nbsp;&nbsp;<span
+                                                        class="seclist_jt" style="display: none;">&gt;</span></a>
+                                            </div>
+
+                                           
+                                        </div>
+
+  <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../zzry/txrz/" target="">体系认证&nbsp;&nbsp;<span
+                                                        class="seclist_jt" style="display: none;">&gt;</span></a>
+                                            </div>
+
+                                           
+                                        </div>
+
+
+                                    </div>
+
+                                </div>
+                            </div>
+                        </li>
+                        <li class="nav_li">
+
+                            <div class="navli_tit">
+                                <a href="javascript:void(0);" target="">科技创新</a>
+                                <span class="jt">∨</span>
+                            </div>
+
+                            <div class="sec_box bgf5 header_btc" style="display: none;">
+                                <div class="sec_cont clearfix">
+                                    <div class="sec_nav fl">
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../kjcx/kysl/"
+                                                    target="">科研实力&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../kjcx/zdxm/"
+                                                    target="">重点项目&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../kjcx/kjcg/"
+                                                    target="">科技成果&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../kjcx/kjdt/"
+                                                    target="">科技动态&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+                                       
+                                       
+
+
+                                    </div>
+
+                                </div>
+                            </div>
+                        </li>
+
+                        <li class="nav_li">
+
+                            <div class="navli_tit">
+                                <a href="javascript:void(0);" target="">党建与文化</a>
+                                <span class="jt">∨</span>
+                            </div>
+
+                            <div class="sec_box bgf5 header_btc" style="display: none;">
+                                <div class="sec_cont clearfix">
+                                    <div class="sec_nav fl">
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../djwh/djgk/"
+                                                    target="">党建概况&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../djwh/djhd/"
+                                                    target="">党建活动&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../djwh/qyln/"
+                                                    target="">企业理念&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+                                        <div class="sec_list">
+
+                                            <div class="seclist_tit">
+                                                <a href="../../djwh/qthd/"
+                                                    target="">群团活动&nbsp;&nbsp;<span class="seclist_jt"
+                                                        style="">&gt;</span></a>
+                                            </div>
+
+
+                                        </div>
+
+
+
+
+                                    </div>
+
+                                </div>
+                            </div>
+                        </li>
+
+
+                        <li class="nav_li">
+
+                            <div class="navli_tit">
+                                <a href="../../zpdt/" target="">招聘动态</a>
+                                <span class="jt">∨</span>
+                            </div>
+
+                          
+                        </li>
+                      
+                         <li class="nav_li">
+
+                            <div class="navli_tit">
+                                <a href="../" target="">信息公开</a>
+                                <span class="jt">∨</span>
+                            </div>
+
+                          
+                        </li>
+                    </ul>
+                    <div class="btmbtn_box clearfix">
+                        <div class="btmbtn_text"><a href="../../lxwm/lxfs/">联系我们</a></div>
+                    </div>
+                </div>
+
+
+
+
+
+
+                <!-- �ƶ��˰�ť -->
+                <div id="dnn_BthPane" class="btn-box fr clearfix">
+                    <div class="DnnModule DnnModule-DNN_HTML DnnModule-46260"><a id="46260" name="46260"
+                            class="module"></a>
+                        <div class="GoneContainer_without_title">
+                            <div id="dnn_ctr46260_ContentPane">
+                                <!-- Start_Module_46260 -->
+                                <div id="dnn_ctr46260_ModuleContent">
+                                    <div id="dnn_ctr46260_HtmlModule_lblContent" class="Normal">
+                                        <!-- <div class="btn-search" onclick="window.location.href=&#39;&#39;;">&nbsp;</div>
+
+                                        <div class="btn-en fl" onclick="window.location.href=&#39;&#39;;">EN</div> -->
+
+                                        <div class="btn fl">&nbsp;</div>
+
+                                    </div>
+
+                                </div><!-- End_Module_46260 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- ���� -->
+                <div id="dnn_SearchPane" class="search fr">
+                    <div class="DnnModule DnnModule-DNN_HTML DnnModule-46261"><a id="46261" name="46261"
+                            class="module"></a>
+                        <div class="GoneContainer_without_title">
+                            <div id="dnn_ctr46261_ContentPane">
+                                <!-- Start_Module_46261 -->
+                                <div id="dnn_ctr46261_ModuleContent">
+                                    <div id="dnn_ctr46261_HtmlModule_lblContent" class="Normal">
+                                        <div class="search_box clearfix">
+
+
+                                        </div>
+
+                                    </div>
+
+                                </div><!-- End_Module_46261 -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <!-- PC -->
+        <div class="tyjs_header">
+            <a href="../../" style="display: block;">
+                <div class="head_logo"></div>
+            </a>
+            <div class="head_cont" style="margin-left:6.9rem">
+                <ul class="nav_ul clearfix">
+                    <li class="nav" ><a href="../../">首页</a>
+                        <div class="ej_nav"></div>
+                    </li>
+                    <li class="nav">
+                        <a class="index_1" href="../../gywm/gsgk/">关于我们</a>
+                        <div class="ej_nav">
+                            <div class="w">
+                                <div class="ejnavbacimg"></div>
+                                <ul class="erji_nav fadeInDown animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                                    data-wow-offset="1000">
+
+                                    
+                            <li>
+                                <a href="../../gywm/gsgk/">
+                                    公司概况
+                                </a>
+                            </li>
+                        
+                            <li>
+                                <a href="../../gywm/zzjg/">
+                                    组织结构
+                                </a>
+                            </li>
+                        
+                            <li>
+                                <a href="../../gywm/fzlc/">
+                                    发展历程
+                                </a>
+                            </li>
+                        
+
+
+
+                                </ul>
+                                <div class="headnav_img fadeInDown animated" data-wow-duration="1s"
+                                    data-wow-delay="0.2s" data-wow-offset="1000">
+                                    <img src="../../images/headejimg_guanyu.jpg" alt="" />
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+                    <li class="nav nav_hxzy clearfix">
+                        <a class="index_2" href="../../ywly/kcsj/mtyw/">业务领域</a>
+                        <div class="ej_nav">
+                            <div class="ejnavbacimg"></div>
+                            <ul class="erji_nav tshu_789 fadeInDown animated" data-wow-duration="1s"
+                                data-wow-delay="0.2s" data-wow-offset="1000">
+                               <li>
+                                <a href="../../ywly/kcsj/mtyw/">
+                                    勘察设计
+                                </a>
+                                   <ul class="idcl">
+                                     <li>
+                                      <a href="../../ywly/kcsj/mtyw/">
+                                          煤炭设计咨询业务>
+                                      </a>
+                                      </li>
+                                     <li>
+                                      <a href="../../ywly/kcsj/jzyw/">
+                                          建筑业务>
+                                      </a>
+                                      </li>
+                                     <li>
+                                      <a href="../../ywly/kcsj/kcyws/">
+                                          勘测业务>
+                                      </a>
+                                      </li>
+                                  </ul>
+                            	</li>
+                               <li>
+                                <a href="../../ywly/lscy/xnyfd/">
+                                    绿色产业
+                                </a>
+                                 <ul class="idcl">
+                                     <li>
+                                      <a href="../../ywly/lscy/xnyfd/">
+                                          新能源发电>
+                                      </a>
+                                      </li>
+                                     <li>
+                                      <a href="../../ywly/lscy/lsks/">
+                                          绿色矿山>
+                                      </a>
+                                      </li>
+                                     <li>
+                                      <a href="../../ywly/lscy/hjgc/">
+                                          环境工程>
+                                      </a>
+                                      </li>
+                                  </ul>
+                            	</li>
+                               <li>
+                                <a href="../../ywly/qgzx/gczxy/">
+                                    全过程工程咨询
+                                </a>
+                                 <ul class="idcl ">
+                                     <li>
+                                      <a href="../../ywly/qgzx/gczxy/">
+                                          全过程咨询业务>
+                                      </a>
+                                      </li>
+                                     <li>
+                                      <a href="../../ywly/qgzx/jlyw/">
+                                          监理业务>
+                                      </a>
+                                      </li>
+                                    
+                                  </ul>
+                            	</li>
+                            </ul>
+                            <div class="headnav_img fadeInDown animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                                data-wow-offset="1000">
+                                <img src="../../images/headejimg_hexin.jpg" alt="" />
+                            </div>
+                        </div>
+                    </li>
+                    <li class="nav">
+                        <a class="index_4" href="../../xwzx/gsdt/">新闻中心</a>
+                        <div class="ej_nav">
+                            <div class="ejnavbacimg"></div>
+                            <ul class="erji_nav fadeInDown animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                                data-wow-offset="1000">
+
+                                 <li><a href="../../xwzx/gsdt/">公司动态</a></li>
+                              <li><a target="_blank" href="https://gt.cn/xwzx/jtxw/">集团新闻</a></li>
+                                <li><a target="_blank" href="https://www.intlgt.cn/xwzx/gsxw/">国际公司新闻</a></li>
+                              <li><a href="../../xwzx/spzx/">视频中心</a></li>
+                      
+
+                            </ul>
+                            <div class="headnav_img fadeInDown animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                                data-wow-offset="1000">
+                                <img src="../../images/headejimg_keji.jpg" alt="" />
+                            </div>
+                        </div>
+                    </li>
+                    <li class="nav">
+                        <a class="index_6" href="../../zzry/gszz/gczx/">资质荣誉</a>
+                        <div class="ej_nav">
+                            <div class="ejnavbacimg"></div>
+                            <ul class="erji_nav erji_nav_7 fadeInDown animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                                data-wow-offset="1000">
+                                <li><a href="../../zzry/gszz/gczx/">公司资质</a>
+                                  
+                                </li>
+                                <li><a href="../../zzry/ryjx/">荣誉奖项</a>
+
+                                </li>
+                              <li><a href="../../zzry/txrz/">体系认证</a>
+
+                                </li>
+                            </ul>
+                            <div class="headnav_img fadeInDown animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                                data-wow-offset="1000">
+                                <img src="../../images/headejimg_shehui.jpg" alt="" />
+                            </div>
+                        </div>
+                    </li>
+                    <li class="nav">
+                        <a class="index_3" href="../../kjcx/kysl/">科技创新</a>
+                        <div class="ej_nav">
+                            <div class="ejnavbacimg"></div>
+                            <ul class="erji_nav fadeInDown animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                                data-wow-offset="1000">
+
+                                
+                            <li>
+                                <a href="../../kjcx/kysl/">
+                                    科研实力
+                                </a>
+                            </li>
+                        
+                            <li>
+                                <a href="../../kjcx/zdxm/">
+                                    重点项目
+                                </a>
+                            </li>
+                        
+                            <li>
+                                <a href="../../kjcx/kjcg/">
+                                    科技成果
+                                </a>
+                            </li>
+                        
+                            <li>
+                                <a href="../../kjcx/kjdt/">
+                                    科技动态
+                                </a>
+                            </li>
+                        
+
+                               
+
+                            </ul>
+                            <div class="headnav_img fadeInDown animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                                data-wow-offset="1000">
+                                <img src="../../images/headejimg_xinwen.jpg" alt="" />
+                            </div>
+                        </div>
+                    </li>
+
+
+
+                    <li class="nav">
+                        <a class="index_5" href="../../djwh/djgk/">党建与文化</a>
+                        <div class="ej_nav">
+                            <div class="ejnavbacimg"></div>
+                            <ul class="erji_nav fadeInDown animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                                data-wow-offset="1000">
+
+                                
+                            <li>
+                                <a href="../../djwh/djgk/">
+                                    党建概况
+                                </a>
+                            </li>
+                        
+                            <li>
+                                <a href="../../djwh/djhd/">
+                                    党建活动
+                                </a>
+                            </li>
+                        
+                            <li>
+                                <a href="../../djwh/qyln/">
+                                    企业文化
+                                </a>
+                            </li>
+                        
+                            <li>
+                                <a href="../../djwh/qthd/">
+                                    群团活动
+                                </a>
+                            </li>
+                        
+
+                            </ul>
+                            <div class="headnav_img fadeInDown animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                                data-wow-offset="1000">
+                                <img src="../../images/headejimg_dangjian.jpg" alt="" />
+                            </div>
+                        </div>
+                    </li>
+
+                    <li class="nav">
+                        <a class="index_7" href="../../zpdt/">招聘动态</a>
+                        <div class="ej_nav">
+                          
+                        </div>
+                    </li>
+                  
+                    <li class="nav">
+                        <a class="index_9" href="../">信息公开</a>
+                        <div class="ej_nav">
+                          
+                        </div>
+                    </li>
+                    <li class="nav">
+                        <a class="index_8" href="../../lxwm/lxfs/">联系我们</a>
+                        <div class="ej_nav">
+                            <div class="ejnavbacimg"></div>
+                            <ul class="erji_nav fadeInDown animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                                data-wow-offset="1000">
+
+                                
+                            <li>
+                                <a href="../../lxwm/lxfs/">
+                                    联系方式
+                                </a>
+                            </li>
+                        
+
+                                
+
+                            </ul>
+                            <div class="headnav_img fadeInDown animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                                data-wow-offset="1000">
+                                <img src="../../images/headejimg_renli.jpg" alt="" />
+                            </div>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+            <div class="head_right">
+               <!-- <div class="head_language"><a href="#" target="_blank">EN</a></div>-->
+                <!--<div class="head_xiala">
+        <p>融媒矩阵</p>
+        <div class="head_xllogo"></div>
+    </div>-->
+               <!-- <a style="    display: inline-block;" href="">
+                    <div class="head_search" style="margin-left:0rem"></div>
+                </a>-->
+            </div>
+        </div>
+
+    </div>
+
+
+    <div class="body_wrap">
+        <!-- banner -->
+
+
+
+
+
+<div class="abount_gywm">
+    
+         <img src="../../ejbimg/bannzpdt/202208/P020220802597473351631.jpg" alt="" />
+      
+    </div>
+
+<style>
+.index_9{
+      color: #0850b4!important;
+    padding-bottom: 0.1rem;
+    border-bottom: 0.025rem solid #0850b4;
+}
+</style>
+ <!--  base-crumbs begin  -->
+    <div class="base-crumbs">
+        <div class="base-wrapper">
+            <a href="/pub/tysj" class="c-icon"></a>
+            
+            <a href="../" target="_self" title="信息公开" class="CurrChnlCls">信息公开</a>
+            
+        </div>
+    </div>
+
+<div class="sinochem-header sinochem-header-none " style="    display: none;" >
+    <div class="header w1600 clearfix">
+        <!-- logo -->
+        <div class="logo fl">
+            <!-- logo -->
+        </div>
+        <!-- DDRmenu v02.00.01 - Simple template -->
+        <div class="nav fl" id="nav">
+            <div class="close-search-box clearfix">
+                <div class="close-search clearfix">
+                    <div class="mobnav-close"></div>
+                    <div class="mobnav-search" onclick="window.location.href='/16419.html';"></div>
+                </div>
+            </div>
+            <ul class="nav_ul clearfix">
+
+                <li class="nav_li">
+
+                    <div class="navli_tit">
+                        <a href="javascript:void(0);" target="">关于我们</a>
+                        <span class="jt">∨</span>
+                    </div>
+
+                    <div class="sec_box" style="display: none;">
+                        <div class="sec_cont clearfix">
+                            <div class="sec_nav fl">
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">集团概况&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">董事会&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">高管团队&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="../../gywm/zzjg/" target="">组织结构&nbsp;&nbsp;<span class="seclist_jt"
+                                                style="display: inline;">&gt;</span></a>
+                                    </div>
+
+                                    <div class="thr_box">
+                                        <ul class="thr_ul">
+
+                                        </ul>
+                                    </div>
+                                </div>
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">发展战略&nbsp;&nbsp;<span class="seclist_jt"
+                                                style="display: inline;">&gt;</span></a>
+                                    </div>
+
+                                    <div class="thr_box">
+                                        <ul class="thr_ul">
+
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+                    </div>
+                </li>
+
+                <li class="nav_li">
+
+                    <div class="navli_tit">
+                        <a href="javascript:void(0);" target="">核心主业</a>
+                        <span class="jt">∨</span>
+                    </div>
+
+                    <div class="sec_box" style="display: none;">
+                        <div class="sec_cont clearfix">
+                            <div class="sec_nav fl">
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">先进制造与技术服务&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">医药医疗健康&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">贸易与工程服务&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+
+
+                            </div>
+
+                        </div>
+                    </div>
+                </li>
+                <li class="nav_li">
+
+                    <div class="navli_tit">
+                        <a href="javascript:void(0);" target="">科技创新</a>
+                        <span class="jt">∨</span>
+                    </div>
+
+                    <div class="sec_box" style="display: none;">
+                        <div class="sec_cont clearfix">
+                            <div class="sec_nav fl">
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="../../kjcx/kysl/" target="">科研实力&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="../../kjcx/zdxm/" target="">重点项目&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="../../kjcx/kjcg/" target="">科技成果&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="../../kjcx/kjdt/" target="">科技动态&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+
+
+
+                            </div>
+
+                        </div>
+                    </div>
+                </li>
+                <li class="nav_li">
+
+                    <div class="navli_tit">
+                        <a href="javascript:void(0);" target="">品牌与责任</a>
+                        <span class="jt">∨</span>
+                    </div>
+
+                    <div class="sec_box" style="display: none;">
+                        <div class="sec_cont clearfix">
+                            <div class="sec_nav fl">
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="javascript:void(0);" target="">品牌形象&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+                                    <div class="thr_box" style="display: none;">
+                                        <ul class="thr_ul">
+
+                                            <li class="thr_li">
+                                                <a href="" target="">品牌标识&nbsp;&nbsp;<span
+                                                        class="thr_jt">&gt;</span></a>
+                                            </li>
+
+                                            <li class="thr_li">
+                                                <a href="" target="">品牌理念&nbsp;&nbsp;<span
+                                                        class="thr_jt">&gt;</span></a>
+                                            </li>
+
+                                        </ul>
+                                    </div>
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="javascript:void(0);" target="">社会责任&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+                                    <div class="thr_box" style="display: none;">
+                                        <ul class="thr_ul">
+
+                                            <li class="thr_li">
+                                                <a href="" target="">社会责任报告&nbsp;&nbsp;<span
+                                                        class="thr_jt">&gt;</span></a>
+                                            </li>
+
+                                            <li class="thr_li">
+                                                <a href="" target="">社会责任实践&nbsp;&nbsp;<span
+                                                        class="thr_jt">&gt;</span></a>
+                                            </li>
+
+                                        </ul>
+                                    </div>
+                                </div>
+
+
+
+
+                            </div>
+
+                        </div>
+                    </div>
+                </li>
+                <li class="nav_li">
+
+                    <div class="navli_tit">
+                        <a href="javascript:void(0);" target="">新闻中心</a>
+                        <span class="jt">∨</span>
+                    </div>
+
+                    <div class="sec_box" style="display: none;">
+                        <div class="sec_cont clearfix">
+                            <div class="sec_nav fl">
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="../../xwzx/jtxw/" target="">集团新闻&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">国资动态&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">成员企业动态&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="../" target="">信息公开&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">媒体报道&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="../../xwzx/spzx/" target="">视频中心&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">图解图说&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">专题报道&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+
+                            </div>
+
+                        </div>
+                    </div>
+                </li>
+               
+                <li class="nav_li">
+
+                    <div class="navli_tit">
+                        <a href="javascript:void(0);" target="">党建与文化</a>
+                        <span class="jt">∨</span>
+                    </div>
+
+                    <div class="sec_box" style="display: none;">
+                        <div class="sec_cont clearfix">
+                            <div class="sec_nav fl">
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="../../djwh/djgk/" target="">党建概况&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">党建动态&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">企业文化&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="../../djwh/qthd/" target="">群团活动&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+
+
+
+                            </div>
+
+                        </div>
+                    </div>
+                </li>
+              
+                <li class="nav_li">
+
+                    <div class="navli_tit">
+                        <a href="javascript:void(0);" target="">人力资源</a>
+                        <span class="jt">∨</span>
+                    </div>
+
+                    <div class="sec_box" style="display: none;">
+                        <div class="sec_cont clearfix">
+                            <div class="sec_nav fl">
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">人才理念&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">教育培训&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="" target="">招聘信息&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+                                <div class="sec_list">
+
+                                    <div class="seclist_tit">
+                                        <a href="../../zpdt/" target="">招聘动态&nbsp;&nbsp;<span
+                                                class="seclist_jt" style="display: none;">&gt;</span></a>
+                                    </div>
+
+
+                                </div>
+
+
+
+
+                            </div>
+
+                        </div>
+                    </div>
+                </li>
+            </ul>
+            <div class="btmbtn_box clearfix">
+                <div class="btmbtn_text"><a href="../../lxwm/">联系我们</a></div>
+            </div>
+        </div>
+
+
+
+
+
+
+        <!-- �ƶ��˰�ť -->
+        <div id="dnn_BthPane" class="btn-box fr clearfix">
+            <div class="DnnModule DnnModule-DNN_HTML DnnModule-46260"><a id="46260" name="46260" class="module"></a>
+                <div class="GoneContainer_without_title">
+                    <div id="dnn_ctr46260_ContentPane">
+                        <!-- Start_Module_46260 -->
+                        <div id="dnn_ctr46260_ModuleContent">
+                            <div id="dnn_ctr46260_HtmlModule_lblContent" class="Normal">
+                                <div class="btn-search" onclick="window.location.href='';">&nbsp;</div>
+
+                                <div class="btn-en fl" onclick="window.location.href='';">EN</div>
+
+                                <div class="btn fl">&nbsp;</div>
+
+                            </div>
+
+                        </div><!-- End_Module_46260 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- ���� -->
+        <div id="dnn_SearchPane" class="search fr">
+            <div class="DnnModule DnnModule-DNN_HTML DnnModule-46261"><a id="46261" name="46261" class="module"></a>
+                <div class="GoneContainer_without_title">
+                    <div id="dnn_ctr46261_ContentPane">
+                        <!-- Start_Module_46261 -->
+                        <div id="dnn_ctr46261_ModuleContent">
+                            <div id="dnn_ctr46261_HtmlModule_lblContent" class="Normal">
+                                <div class="search_box clearfix">
+
+
+                                </div>
+
+                            </div>
+
+                        </div><!-- End_Module_46261 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+    <!--  base-crumbs end  -->
+        <!-- contert -->
+        <div class="gywm_wrap">
+           
+            
+
+               <div class="wrap_1400_789 clearfix">
+      <div class="ce_left_nav">
+       <ul>
+                        
+                    </ul>
+           </div>
+    <div class="body_wrap_second_xq clearfix imgnews_img">
+        <div class="body_wrap_second_xq_78">
+            <div class="xq_854 ">
+              
+                <h3>
+                    济宁市金桥煤矿安全现状评价报告公示
+                </h3>
+  <div class="xq_time wow fadeInUp animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                    data-wow-offset="10">发布时间:<span>
+                        2025-07-16
+                    </span></div>
+                <div class="page_wrap_box">
+                    <p><br></p><table><tbody><tr class="firstRow"><td>项目名称</td><td style="word-break: break-all;">济宁市金桥煤矿安全现状评价报告</td></tr><tr><td>项目简介</td><td>济宁市金桥煤矿（以下简称“金桥煤矿”）位于山东省济宁市金乡县城东北约5km处，行政区划隶属金乡县高河街道管辖。矿井于1997年1月开工建设，2002年1月建成投产，设计生产能力60万t/a，核定生产能力110万t/a，采用一对立井开拓，中央并列式通风，现开采-430水平，主采3煤层，现布置1个综放采煤工作面、1个连采连充工作面和5个掘进工作面生产。金桥煤矿现持有2022年10月25日由山东省能源局换发的《安全生产许可证》，证号：（鲁）MK安许证字〔2004〕2-111，有效期：2022年11月9日至2025年11月8日。为办理《安全生产许可证》延续，根据《中华人民共和国安全生产法》、《安全 生产许可证条例》（国务院令第397号）、《煤矿企业安全生产许可证实施办法》 （国家安全生产监督管理总局令第89号）、《山东省煤矿企业安全生产许可证实施 细则》以及其他相关法律法规的规定，金桥煤矿委托通用技术集团工程设计有限公司承担矿井安全现状评价工作。</td></tr><tr><td>项目组组长</td><td>谭花文</td></tr><tr><td>项目组成员</td><td>陶可 张辉 郑祥本 杨新恩 孙卫华 刘海泉 李永斌</td></tr><tr><td>技术负责人</td><td>张强</td></tr><tr><td>过程控制负责人</td><td>谭国龙</td></tr><tr><td>报告编写人</td><td>杨新恩 孙卫华</td></tr><tr><td>报告审核人</td><td>张强</td></tr><tr><td>现场服务时间</td><td>2025.6.12～6.13现场调查；2025.6.25复查；2025.7.9修改完善报告</td></tr><tr><td>报告提交时间</td><td>2025.7.9</td></tr></tbody></table><p style="line-height:1.5em;">&nbsp;&nbsp;&nbsp;&nbsp;</p><p style="text-align: center;"><br></p><div class="app_image_container" type="app_image_container" style="text-align: center;"><p class="app_image_wrap" type="app_image_wrap" style="text-align: center;"><img src="./W020250716472434920310.jpg" width="550px" oldsrc="W020250716472434920310.jpg" type="app_image" class="app_image" style="clear: both; max-width: 640px;" /></p><span type="imagenote" class="imagenotePlace"></span></div><p style="line-height: 1.5em;">&nbsp;&nbsp;&nbsp;&nbsp;</p>
+                </div>
+
+            </div>
+            <div class="xq_369 clearfix wow fadeInUp animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                data-wow-offset="10">
+               <!-- 
+                <ul>
+                    <p>分享至：</p>
+                    <li>
+                        <a href=""><img src="wbimg.png" alt="" /></a>
+                    </li>
+                    <li>
+                        <a href=""><img src="wximg.png" alt="" /></a>
+                    </li>
+                    <li>
+                        <a href=""><img src="sjimg.png" alt="" /></a>
+                    </li>
+                    <li>
+                        <a href=""><img src="ksimg.png" alt="" /></a>
+                    </li>
+                    <li>
+                        <a href=""><img src="dyimg.png" alt="" /></a>
+                    </li>
+                </ul>
+ -->
+            </div>
+           
+        </div>
+       <div class="xq_zxzx clearfix">
+        <div class="xq_zxzx_0">
+            <span>
+                <!-- 1 -->
+            </span>
+            <h2>最新资讯</h2>
+        </div>
+        <!-- Swiper -->
+         <div class="jt_85214 clearfix">
+            <div class="swiper swiper_78 wow clearfix fadeInUp animated" data-wow-duration="1s" data-wow-delay="0.2s"
+                data-wow-offset="10">
+                <div class="swiper-wrapper clearfix">
+
+                    
+
+
+
+                        <div class="swiper-slide swiper-slide-78 ">
+
+                            <img src="" alt="" />
+                            <h2><a href="../../xwzx/gsdt/202603/t20260318_56989.html">
+                                    公司党委召开2025年度民主生活会暨巡察整改专题民主生活会
+                                </a></h2>
+                                <div class="xq_893">
+                                    <p>
+                                        
+                                    </p>
+                                </div>
+                         
+                            <span>
+                                2026-03-18
+                            </span>
+                            <h4><a href="../../xwzx/gsdt/202603/t20260318_56989.html">了解详情</a></h4>
+
+                        </div>
+
+                    
+
+
+
+                        <div class="swiper-slide swiper-slide-78 ">
+
+                            <img src="" alt="" />
+                            <h2><a href="https://mp.weixin.qq.com/s/tJITT53AnZMAV_elaoDavA">
+                                    山东广播电视台《新闻午班车》关注公司“零碳建筑 智慧楼宇”示范工程
+                                </a></h2>
+                                <div class="xq_893">
+                                    <p>
+                                        
+                                    </p>
+                                </div>
+                         
+                            <span>
+                                2026-03-11
+                            </span>
+                            <h4><a href="https://mp.weixin.qq.com/s/tJITT53AnZMAV_elaoDavA">了解详情</a></h4>
+
+                        </div>
+
+                    
+
+
+
+                        <div class="swiper-slide swiper-slide-78 ">
+
+                            <img src="" alt="" />
+                            <h2><a href="https://mp.weixin.qq.com/s/U3M0xCRcZxd7st-LWojTpA">
+                                    巾帼绽芳华，奋进新征程｜这场手工花艺活动，致敬每一位了不起的“她”
+                                </a></h2>
+                                <div class="xq_893">
+                                    <p>
+                                        
+                                    </p>
+                                </div>
+                         
+                            <span>
+                                2026-03-11
+                            </span>
+                            <h4><a href="https://mp.weixin.qq.com/s/U3M0xCRcZxd7st-LWojTpA">了解详情</a></h4>
+
+                        </div>
+
+                    
+
+
+
+                        <div class="swiper-slide swiper-slide-78 ">
+
+                            <img src="" alt="" />
+                            <h2><a href="https://mp.weixin.qq.com/s/9gYIBfeO8PqnjXA0gz3Hxg">
+                                    公司荣获“2025年度济南市科技服务业突出贡献先进集体”称号
+                                </a></h2>
+                                <div class="xq_893">
+                                    <p>
+                                        
+                                    </p>
+                                </div>
+                         
+                            <span>
+                                2026-03-11
+                            </span>
+                            <h4><a href="https://mp.weixin.qq.com/s/9gYIBfeO8PqnjXA0gz3Hxg">了解详情</a></h4>
+
+                        </div>
+
+                    
+
+
+
+                        <div class="swiper-slide swiper-slide-78 ">
+
+                            <img src="" alt="" />
+                            <h2><a href="https://mp.weixin.qq.com/s/Di9lRrU8p5dZ-Du8-fkjsw">
+                                    开工大吉｜策马扬鞭，共赴新程！
+                                </a></h2>
+                                <div class="xq_893">
+                                    <p>
+                                        
+                                    </p>
+                                </div>
+                         
+                            <span>
+                                2026-02-25
+                            </span>
+                            <h4><a href="https://mp.weixin.qq.com/s/Di9lRrU8p5dZ-Du8-fkjsw">了解详情</a></h4>
+
+                        </div>
+
+                    
+
+
+
+                        <div class="swiper-slide swiper-slide-78 ">
+
+                            <img src="" alt="" />
+                            <h2><a href="https://mp.weixin.qq.com/s/8BQpEGwyetdll7h6xatblw">
+                                    公司举办2026年新春游园会活动
+                                </a></h2>
+                                <div class="xq_893">
+                                    <p>
+                                        
+                                    </p>
+                                </div>
+                         
+                            <span>
+                                2026-02-25
+                            </span>
+                            <h4><a href="https://mp.weixin.qq.com/s/8BQpEGwyetdll7h6xatblw">了解详情</a></h4>
+
+                        </div>
+
+                    
+
+
+
+                </div>
+
+            </div>
+            <div class="swiper-button-next next_1"></div>
+            <div class="swiper-button-prev prev_1"></div>
+        </div>
+    </div>
+    </div>
+   
+
+</div>
+
+
+
+          
+
+
+            <div class="gywm_fort">
+
+            </div>
+        </div>
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <!-- 底部_嵌套  -->
+    <div>
+ 		<!-- PC  -->
+    <div class="tyjs_footer clearfix ">
+        <div class="footer_top clearfix ">
+            <div class="w clearfix ">
+                <div class="fottop_left clearfix " data-aos="fade-right" data-aos-duration="2000">
+                    <ul>
+                        <li>
+                            <dl>
+                                <dt><a href="../../gywm/gsgk/">关于我们</a></dt>
+                                <dd><a href="../../gywm/gsgk/">公司概况</a></dd>
+                                <dd><a href="../../gywm/zzjg/">组织结构</a></dd>
+                                <dd><a href="../../gywm/fzlc/">发展历程</a></dd>
+
+
+
+
+                            </dl>
+                        </li>
+                        <li>
+                            <dl>
+                                <dt><a href="../../ywly/kcsj/mtyw/">业务领域</a></dt>
+                                <dd><a href="../../ywly/kcsj/mtyw/">勘察设计</a></dd>
+                                <dd><a href="../../ywly/lscy/xnyfd/">绿色产业</a></dd>
+                                <dd><a href="../../ywly/qgzx/gczxy/">全过程工程咨询</a></dd>
+                            
+                            </dl>
+                        </li>
+
+                        <li>
+                            <dl>
+                                <dt><a href="../../xwzx/gsdt/">新闻中心</a></dt>
+                                <dd><a href="../../xwzx/gsdt/">公司动态</a></dd>
+                                <dd><a href="https://gt.cn/xwzx/jtxw/" target="_blank">集团新闻</a></dd>
+                                <dd><a href="../../xwzx/spzx/">视频中心</a></dd>
+                                <dd><a target="_blank" href="https://www.intlgt.cn/xwzx/gsxw/">国际公司新闻</a></dd>
+
+
+
+                            </dl>
+                        </li>
+                        <li>
+                            <dl>
+                                <dt><a href="../../zzry/gszz/gczx/">资质荣誉</a></dt>
+                                <dd><a href="../../zzry/gszz/gczx/">公司资质</a></dd>
+                                <dd><a href="../../zzry/ryjx/">荣誉奖项</a></dd>
+                              <dd><a href="../../zzry/txrz/">体系认证</a></dd>
+                              
+                            </dl>
+                        </li>
+                        <li>
+                            <dl>
+                                <dt><a href="../../kjcx/kysl/">科技创新</a></dt>
+                                <dd><a href="../../kjcx/kysl/">科研实力</a></dd>
+                                <dd><a href="../../kjcx/zdxm/">重点项目</a></dd>
+                                <dd><a href="../../kjcx/kjcg/">科技成果</a></dd>
+                                <dd><a href="../../kjcx/kjdt/">科技动态</a></dd>
+
+
+                            </dl>
+                        </li>
+
+
+                        <li>
+                            <dl>
+                                <dt><a href="../../djwh/djgk/">党建与文化</a></dt>
+                                <dd><a href="../../djwh/djgk/">党建概况</a></dd>
+                                <dd><a href="../../djwh/djhd/">党建活动</a></dd>
+                                <dd><a href="../../djwh/qyln/">企业理念</a></dd>
+                                <dd><a href="../../djwh/qthd/">群团活动</a></dd>
+                            </dl>
+                        </li>
+
+                        <li>
+                            <dl>
+                                <dt><a href="../../zpdt/">招聘动态</a></dt>
+
+                            </dl>
+                        </li>
+                        <li>
+                            <dl>
+                                <dt><a href="../../lxwm/lxfs/">联系我们</a></dt>
+                                <dd><a href="../../lxwm/lxfs/">联系方式</a></dd>
+                         
+
+                            </dl>
+                        </li>
+                    </ul>
+                </div>
+                <div class="fottop_right" data-aos="fade-left" data-aos-duration="2000">
+                    <div class="fotright_logo"></div>
+                    <div class="fotright_wailian">
+                        <ul>
+                            <li class="wbewmhover">
+                                <div class="fot_weibo fot_ewm_1">
+                                    <img src="../../images/weibowei_1.png" alt="" class="img01" /><img src="../../images/weibo_1.png" alt="" class="img02" />
+                                </div>
+                                <div class="wbewm">
+                                    <img src="../../images/wbewm.jpg" alt="" />
+                                </div>
+                            </li>
+
+                            <li class="wxewmhover">
+                                <div class="fot_weixin fot_ewm_2">
+                                    <img src="../../images/weixinwei_1.png" alt="" class="img01" /><img src="../../images/weixin_1.png" alt="" class="img02" />
+                                </div>
+                                <div class="wxewm">
+                                    <img src="../../images/wxewm.jpg" alt="" />
+                                </div>
+                            </li>
+
+
+
+                            <li class="ksewmhover">
+                                <div class="fot_kuaishou fot_ewm_4">
+                                    <img src="../../images/kuaishouwei_1.png" alt="" class="img01" /><img src="../../images/kuaishou_1.png" alt="" class="img02" />
+                                </div>
+                                <div class="ksewm">
+                                    <img src="../../images/ksewm.jpg" alt="" />
+                                </div>
+                            </li>
+
+                            <li class="dyewmhover">
+                                <div class="fot_douyin fot_ewm_5">
+                                    <img src="../../images/douyinwei_1.png" alt="" class="img01" /><img src="../../images/douyin_1.png" alt="" class="img02" />
+                                </div>
+                                <div class="dyewm">
+                                    <img src="../../images/dyewm.jpg" alt="" />
+                                </div>
+                            </li>
+
+                        </ul>
+
+                    </div>
+                    <div class="fotright_xiala" style="display: none;">
+                        <p>融媒矩阵</p>
+                        <div class="fotxl">
+                            <img src="footerxiala_1.png" alt="" />
+                        </div>
+                    </div>
+                    <div class="fotright_lxwm">
+                        <ul>
+                            <li><a href="../../lxwm/">联系我们</a><span>|</span></li>
+                            <li><a href="../../fzlm/wzdt/">网站地图</a><span>|</span></li>
+                            <li><a href="../../fzlm/cjwt/">常见问题</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="footer_bot">
+            <div class="w">
+                <div class="fotbot_left">
+                    <ul>
+                        <li><a href="https://rmtweb.gt.cn/khfw/yyyaq/">隐私与安全</a></li>
+                        <li><span>|</span><a href="https://rmtweb.gt.cn/khfw/flsm/">法律声明</a></li>
+                    </ul>
+                </div>
+                <div class="fotbot_right">
+                    <ul>
+                        <li><a href="https://rmtweb.gt.cn/gywm/jtgk/#">版权所有：通用技术集团工程设计有限公司， ALL RIGHTS RESERVED</a></li>
+                        <li><span>|</span><a href="https://beian.miit.gov.cn">ICP备案/许可证号：鲁ICP备09100779号-3</a></li>
+                        
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- YD   -->
+    <div class="sinochem-footer">
+        <!-- 底部内容 -->
+        <div class="footer-content w1440">
+            <div class="footer-content-top clearfix">
+                <div class="footer-content-top-left fl">
+                    <div class="footer-content-top-left-listbox fctl-listbox fctl-gyzh">
+                        <h2 class=""><a href="javascript:void(0);">关于我们</a></h2>
+
+                        <ul class="footer-content-top-left-ul" style="height: 0px;">
+                          
+                             
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../gywm/gsgk/">公司概况</a>
+                            </li>
+                        
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../gywm/zzjg/">组织结构</a>
+                            </li>
+                        
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../gywm/fzlc/">发展历程</a>
+                            </li>
+                        
+                          
+                           
+
+
+
+
+                        </ul>
+                    </div>
+
+                    <div class="footer-content-top-left-listbox fctl-listbox fctl-gyzh">
+                        <h2 class=""><a href="javascript:void(0);">业务领域</a></h2>
+
+                        <ul class="footer-content-top-left-ul" style="height: 0px;">
+
+                              
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../ywly/kcsj/">勘察设计</a>
+                            </li>
+                                
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../ywly/lscy/">绿色产业</a>
+                            </li>
+                                
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../ywly/qgzx/">全过程工程咨询</a>
+                            </li>
+                                
+                        </ul>
+                    </div>
+
+
+
+                    <div class="footer-content-top-left-listbox fctl-listbox fctl-gyzh">
+                        <h2 class=""><a href="javascript:void(0);">新闻中心</a></h2>
+
+                        <ul class="footer-content-top-left-ul" style="height: 0px;">
+
+                              
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../xwzx/gsdt/">公司动态</a>
+                            </li>
+
+
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../xwzx/jtxw/">集团新闻</a>
+                            </li>
+
+
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../xwzx/spzx/">视频中心</a>
+                            </li>
+
+
+
+                        </ul>
+                    </div>
+
+                    <div class="footer-content-top-left-listbox fctl-listbox fctl-gyzh">
+                        <h2 class=""><a href="javascript:void(0);">资质荣誉</a></h2>
+
+                        <ul class="footer-content-top-left-ul" style="height: 0px;">
+
+                              
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../zzry/gszz/">公司资质</a>
+                            </li>
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../zzry/ryjx/">荣誉奖项</a>
+                            </li>
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../zzry/txrz/">体系认证</a>
+                            </li>
+
+                        </ul>
+                    </div>
+                    <div class="footer-content-top-left-listbox fctl-listbox fctl-gyzh">
+                        <h2 class=""><a href="javascript:void(0);">科技创新</a></h2>
+
+                        <ul class="footer-content-top-left-ul" style="height: 0px;">
+
+                             
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../kjcx/kysl/">科研实力</a>
+                            </li>
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../kjcx/zdxm/">重点项目</a>
+                            </li>
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../kjcx/kjcg/">科技成果</a>
+                            </li>
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../kjcx/kjdt/">科技动态</a>
+                            </li>
+                        </ul>
+                    </div>
+
+
+
+                    <div class="footer-content-top-left-listbox fctl-listbox fctl-gyzh">
+                        <h2 class=""><a href="javascript:void(0);">党建与文化</a></h2>
+
+                        <ul class="footer-content-top-left-ul" style="height: 0px;">
+
+                             
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../djwh/djgk/">党建概况</a>
+                            </li>
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../djwh/djhd/">党建活动</a>
+                            </li>
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../djwh/qyln/">企业文化</a>
+                            </li>
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../djwh/qthd/">群团活动</a>
+                            </li>
+
+                        </ul>
+                    </div>
+
+                    <div class="footer-content-top-left-listbox fctl-listbox fctl-gyzh">
+                        <h2 class=""><a href="javascript:void(0);">招聘动态</a></h2>
+
+                        <ul class="footer-content-top-left-ul" style="height: 0px;">
+
+                              
+
+                        </ul>
+                    </div>
+
+   <div class="footer-content-top-left-listbox fctl-listbox fctl-gyzh">
+                        <h2 class=""><a href="javascript:void(0);">联系我们</a></h2>
+
+                        <ul class="footer-content-top-left-ul" style="height: 0px;">
+
+                              
+                          
+                                 <li class="footer-content-top-left-li"><a href="../../lxwm/lxfs/">联系方式</a>
+                            </li>
+
+                        </ul>
+                    </div>
+
+                </div>
+
+
+            </div>
+
+
+
+        </div>
+        <!-- 底部底部 -->
+
+        <div class="footer-bottom">
+            <div class="copyright"><a class="jgawb" href="http://beian.miit.gov.cn/"
+                    target="_blank">版权所有：中国通用技术（集团）控股有限责任公司</a> <a class="jgawb" href="https://rmtweb.gt.cn/"
+                    target="_blank">京ICP备05047517号-2 京公安备案110401300049</a>
+<script id="_trs_ta_js" src="//ta.trs.cn/c/js/ta.js?mpid=6110" async="async" defer="defer"></script>
+                <div class="bottom-link"><a href="https://rmtweb.gt.cn/16275.html" target="_blank">法律声明</a> <a
+                        href="https://rmtweb.gt.cn/16418.html" target="_blank">隐私与安全声明</a> <a
+                        href="https://rmtweb.gt.cn/16274.html" target="_blank">网站地图</a> <a
+                        href="https://rmtweb.gt.cn/16722.html" target="_blank">联系我们</a></div>
+            </div>
+
+
+
+
+
+
+
+        </div>
+    </div>
+</div>
+
+    <!-- 底部js_嵌套  -->
+    <!-- Swiper JS -->
+    <script src="../../images/jq.js"></script>
+    <script src="../../images/swiper.8.js"></script>
+    <script src="../../images/news_tab.js"></script>
+    <script src="../../images/modernizr.custom.js"></script>
+    <script src="../../images/pingzi_video.js"></script>
+    <script type="text/javascript" src="../../images/wow.min2.js"></script>
+
+    <script src="../../images/mob_yd.js"></script>
+
+
+    <script src="../../images/heard.js"></script>
+
+
+
+    <script>
+        $(".gywm_year  ul li p span").each(function () { var $this = $(this); $this.html($this.html().replace(/,/g, '')); }); 
+    </script>
+
+
+
+    <script type="text/javascript">
+        new WOW().init();  
+    </script>
+    <script>
+        (function flexible(window, document) {
+            var docEl = document.documentElement;
+            var dpr = window.devicePixelRatio || 1;
+            function setBodyFontSize() {
+                if (document.body) {
+                    document.body.style.fontSize = (12 * dpr) + 'px';
+                } else {
+                    document.addEventListener('DOMContentLoaded', setBodyFontSize);
+                }
+            }
+            setBodyFontSize();
+            function setRemUnit() {
+                var rem = docEl.clientWidth / 10;
+                docEl.style.fontSize = rem + 'px';
+            }
+            setRemUnit();
+            window.addEventListener('resize', setRemUnit);
+            window.addEventListener('pageshow', function (e) {
+                if (e.persisted) {
+                    setRemUnit();
+                }
+            })
+            if (dpr >= 2) {
+                var fakeBody = document.createElement('body');
+                var testElement = document.createElement('div');
+                testElement.style.border = '.5px solid transparent';
+                fakeBody.appendChild(testElement);
+                docEl.appendChild(fakeBody)
+                if (testElement.offsetHeight === 1) {
+                    docEl.classList.add('hairlines');
+                }
+                docEl.removeChild(fakeBody);
+            }
+        }(window, document))
+    </script>
+    <!-- Initialize Swiper banner -->
+    <script>
+        var swiper = new Swiper(".tysj-mySwiper", {
+            autoplay: {
+                delay: 10000,
+                disableOnInteraction: false,
+            },
+            pagination: {
+                el: ".tysj-swiper-pagination",
+                clickable: true,
+                renderBullet: function (index, className) {
+                    return '<span class="' + className + '">0' + (index + 1) + "</span>";
+                },
+            },
+        });
+    </script>
+    <!-- 新闻轮播 -->
+    <script>
+        var swiper = new Swiper(".news_mySwiper", {
+            centeredSlides: true,
+            autoplay: {
+                delay: 3000,
+                disableOnInteraction: false,
+            },
+            pagination: {
+                el: ".news-swiper-pagination",
+                clickable: true,
+            },
+
+        });
+    </script>
+    <!-- 新闻切换 -->
+    <script>
+        $(document).ready(function () {
+
+            var $wrapper = $('.tab-wrapper'),
+                $allTabs = $wrapper.find('.tab-content > div'),
+                $tabMenu = $wrapper.find('.tab-menu li'),
+                $line = $('<div class="line"></div>').appendTo($tabMenu);
+
+            $allTabs.not(':first-of-type').hide();
+            $tabMenu.filter(':first-of-type').find(':first').width('100%')
+
+            $tabMenu.each(function (i) {
+                $(this).attr('data-tab', 'tab' + i);
+            });
+
+            $allTabs.each(function (i) {
+                $(this).attr('data-tab', 'tab' + i);
+            });
+
+            $tabMenu.on('click', function () {
+
+                var dataTab = $(this).data('tab'),
+                    $getWrapper = $(this).closest($wrapper);
+
+                $getWrapper.find($tabMenu).removeClass('active');
+                $(this).addClass('active');
+
+                $getWrapper.find('.line').width(0);
+                $(this).find($line).animate({ 'width': '100%' }, 'fast');
+                $getWrapper.find($allTabs).hide();
+                $getWrapper.find($allTabs).filter('[data-tab=' + dataTab + ']').show();
+            });
+
+        });//end ready
+    </script>
+
+    <script>
+        var mycSwiper = new Swiper('.ywly-swiper-container', {
+            slidesPerView: 3,
+            spaceBetween: 30,
+            loop: true,
+            pagination: {
+                el: '.ywly-swiper-pagination',
+                clickable: true,
+            },
+            autoplay: {
+                delay: 400000,
+                disableOnInteraction: false,
+            },
+            navigation: {
+                nextEl: ".next_left",
+                prevEl: ".prev_right",
+            },
+         
+        });
+       mycSwiper.el.onmouseover=function(){
+            mycSwiper.autoplay.stop();
+        }
+        mycSwiper.el.onmouseleave=function(){
+            mycSwiper.autoplay.start();
+
+        }
+
+    </script>
+
+
+    <!--  业务资质-->
+    <script>
+        var swiper = new Swiper(".ywzz_mySwiper", {
+            slidesPerView: 5,
+            spaceBetween: 30,
+
+            loop: true,
+            pagination: {
+                el: ".ywzz_swiper-pagination",
+                clickable: true,
+            },
+            // autoplay: {
+            //     delay: 3500,
+            //     disableOnInteraction: false,
+            // },
+            navigation: {
+                nextEl: ".ywzz_next_left",
+                prevEl: ".ywzz_prev_right",
+            },
+        });
+    </script>
+    <script>
+
+        $(".fctl-listbox").click(function () {
+            screenWidth = window.innerWidth;
+            if (screenWidth < 1020) {
+                $(this).siblings().children('.footer-content-top-left-ul').css('height', '0px');
+                $(this).siblings().find("h2").removeClass("border_btm");
+                if (!$(this).find("h2").hasClass("border_btm")) {
+                    $(this).find("h2").addClass("border_btm");
+                } else {
+                    $(this).find("h2").removeClass("border_btm");
+                }
+
+                var size = $(this).find('.footer-content-top-left-li').length;
+                var hei = $(this).find('.footer-content-top-left-li').innerHeight();
+                if ($(this).children('.footer-content-top-left-ul').innerHeight() == 0) {
+                    $(this).children('.footer-content-top-left-ul').css('height', (size * hei) + 'px');
+                } else {
+                    $(this).children('.footer-content-top-left-ul').css('height', '0px');
+                }
+            }
+        })
+
+    </script>
+
+<script type="text/javascript">
+	var windowTop = 0;
+	$(window).scroll(function(){
+		var scrolls = $(this).scrollTop();
+		if(scrolls>windowTop){
+			$(".tyjs_header").css({
+				'top':'-.7292rem',
+				'transition':" 0.5s"
+			});
+			
+                        if(scrolls>350){
+				$('.nav_1').css({
+					 "position":"fixed",
+					 "top":'0',
+					 'transition':" 0.8s"
+				})
+			}
+			windowTop=scrolls;
+		}else{
+			$(".tyjs_header").css({
+				'top':"0",
+				'transition':" 0.8s"
+			});
+			
+                        $('.nav_1').css({
+				 "top":'76px',
+				 'transition':" 0.8s"
+			})
+                        if(scrolls<350){
+ 				$('.nav_1').css({
+					 "position":"static",
+					 "top":'0',
+					 'transition':" 0.8s"
+				})
+			}
+			windowTop=scrolls;
+		}
+	})
+</script>
+<script type="text/javascript">
+    setTimeout(function(){
+        document.getElementById('body').style.visibility = 'visible';
+    },1);
+</script>
+
+
+
+
+<script>
+        var swiper = new Swiper('.swiper', {
+            slidesPerView: 3,
+            spaceBetween: 50,
+            direction: getDirection(),
+            navigation: {
+                nextEl: '.swiper-button-next',
+                prevEl: '.swiper-button-prev',
+            },
+            on: {
+                resize: function () {
+                    swiper.changeDirection(getDirection());
+                },
+            },
+        });
+
+        function getDirection() {
+            var windowWidth = window.innerWidth;
+            var direction = window.innerWidth <= 760 ? 'vertical' : 'horizontal';
+
+            return direction;
+        }
+    </script>
+   <script>
+        var el = $('.xq_time'); 
+el.html(el.html().replace(/:tm:/ig, ':tm:'));
+    </script>
+    <script>
+        $(".gywm_year  ul li p span").each(function () { var $this = $(this); $this.html($this.html().replace(/,/g, '')); }); 
+    </script>
+
+</body>
+
+</html>

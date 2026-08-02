@@ -1,0 +1,1 @@
+﻿I/com.retro.radio( 7294): HeapTask is not gc_task
