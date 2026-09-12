@@ -4,10 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#000000">
-  <title>复古网络收音机</title>
+  <title>海燕收音机</title>
   <script src="hls.js?v=69"></script>
   <script src="channels.js?v=69"></script>
-  <script src="app.js?v=82"></script>
+  <script src="app.js?v=176"></script>
   <link rel="stylesheet" href="styles.css?v=69">
 </head>
 <body>
@@ -146,6 +146,7 @@
 
         <div class="fp-header-text">
           <div class="fp-status"><span class="fp-dot"></span><span id="fpStatus">正在直播</span></div>
+          <button class="fp-line-btn" id="fpLineBtn" style="display:none;">线路1/1</button>
         </div>
 
         <div class="fp-logo-wrap">
@@ -194,6 +195,14 @@
         <button class="search-clear" id="searchClear" style="display:none;">✕</button>
       </div>
       <div class="search-results" id="searchResults"></div>
+      <!-- V150: 搜索历史 -->
+      <div class="search-history" id="searchHistory" style="display:none;">
+        <div class="search-history-header">
+          <span>最近搜索</span>
+          <button id="searchHistoryClear" class="search-history-clear-btn">清空</button>
+        </div>
+        <div class="search-history-tags" id="searchHistoryTags"></div>
+      </div>
       <button class="search-close-btn" id="searchClose">取消</button>
     </div>
 
@@ -207,9 +216,25 @@
       <div class="sheet-body">
         <div class="sheet-actions">
           <button class="sheet-btn" id="addChannelBtn">➕ 添加电台</button>
-          <button class="sheet-btn" id="exportBtn">📤 导出</button>
-          <button class="sheet-btn" id="importBtn">📥 导入</button>
+          <button class="sheet-btn" id="exportBtn" title="导出电台列表（含编辑的地区/频率等）">📤 导出电台</button>
+          <button class="sheet-btn" id="importBtn" title="导入 .channels.json 电台列表文件">📥 导入电台</button>
           <button class="sheet-btn warn" id="resetBtn">🔄 恢复默认</button>
+        </div>
+        <!-- V143: 用户数据备份/恢复 -->
+        <div class="settings-block" style="margin-top: 14px;">
+          <div class="settings-title" style="font-size: 13px; color: var(--text-2); margin: 4px 4px 10px; font-weight: 500;">
+            数据备份（用户设置与收藏历史等）
+          </div>
+          <!-- V158: 明确两种文件的区别，防止混淆 -->
+          <div style="font-size: 11.5px; color: var(--text-3); margin: 0 4px 8px; line-height: 1.5;">
+            <div style="margin-bottom:4px;">📻 <b>电台导入/导出</b>：生成 <code style="background:var(--surface-2,#f2f2f2);padding:1px 5px;border-radius:4px;">.channels.json</code>，仅电台列表</div>
+            <div style="margin-bottom:4px;">💾 <b>备份/恢复数据</b>：生成 <code style="background:var(--surface-2,#f2f2f2);padding:1px 5px;border-radius:4px;">.backup.json</code>，含收藏/历史/个人电台/编辑/主题/定位等 <b>全部个人数据</b></div>
+            <div>两种文件格式已独立、严格区分，导入/恢复选错会直接提示。</div>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button class="sheet-btn" id="backupBtn" style="flex:1;">💾 备份数据</button>
+            <button class="sheet-btn" id="restoreBtn" style="flex:1;">📂 恢复数据</button>
+          </div>
         </div>
 
         <!-- 主题 & 外观 设置 -->
@@ -346,6 +371,69 @@
       </div>
     </div>
 
+    <!-- 个人电台表单 -->
+    <div class="modal-sheet" id="personalSheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h3 id="personalSheetTitle">添加个人电台</h3>
+        <button class="sheet-close" id="personalSheetClose">✕</button>
+      </div>
+      <div class="sheet-body">
+        <form id="personalForm" class="edit-form">
+          <label><span>电台名称</span><input type="text" name="name" required placeholder="如：我的专属电台"></label>
+          <label><span>频率</span><input type="text" name="frequency" placeholder="如：FM99.1"></label>
+          <label><span>地区</span><input type="text" name="description" placeholder="如：个人"></label>
+          <label><span>播放地址</span><input type="text" name="url" required placeholder="http://...m3u8 / .mp3"></label>
+          <label><span>分类</span>
+            <select name="category">
+              <option value="综合">综合</option>
+              <option value="新闻">新闻</option>
+              <option value="音乐">音乐</option>
+              <option value="经济">经济</option>
+              <option value="文艺">文艺</option>
+              <option value="交通">交通</option>
+              <option value="体育">体育</option>
+              <option value="教育">教育</option>
+              <option value="影视">影视</option>
+              <option value="生活">生活</option>
+              <option value="其它">其它</option>
+            </select>
+          </label>
+          <label class="color-row"><span>主题色</span><input type="color" name="color" value="#d7263d"></label>
+          <div class="edit-actions">
+            <button type="button" class="sheet-btn cancel" id="personalCancel">取消</button>
+            <button type="submit" class="sheet-btn primary">保存</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- 批量导入弹层 -->
+    <div class="modal-sheet" id="batchSheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h3>批量导入电台</h3>
+        <button class="sheet-close" id="batchSheetClose">✕</button>
+      </div>
+      <div class="sheet-body">
+        <div class="batch-intro">
+          <p>📋 <strong>粘贴电台列表到下方文本框</strong></p>
+          <p class="batch-hint">每行一个，格式：<code>名称,URL,分类,主题色</code>（后两列可选）</p>
+        </div>
+        <textarea id="batchTextarea" class="batch-textarea" placeholder="BBC,http://stream.example.com/bbc,新闻,#d7263d&#10;CNN,http://stream.example.com/cnn,新闻"></textarea>
+        <div class="batch-actions-row">
+          <button class="sheet-btn" id="batchCopyTemplate">📋 复制模板</button>
+          <button class="sheet-btn" id="batchClear">🗑️ 清空</button>
+          <label class="sheet-btn file-label" for="personalBatchFile">📁 选文件</label>
+        </div>
+        <div class="batch-info" id="batchInfo"></div>
+        <div class="edit-actions">
+          <button type="button" class="sheet-btn cancel" id="batchCancel">取消</button>
+          <button type="button" class="sheet-btn primary" id="batchImport">导入</button>
+        </div>
+      </div>
+    </div>
+
     <!-- 定时弹层 -->
     <div class="modal-sheet" id="timerSheet">
       <div class="sheet-handle"></div>
@@ -367,8 +455,31 @@
       </div>
     </div>
 
-    <input type="file" id="importFile" accept=".json" style="display:none">
+    <!-- V88 线路切换弹层 -->
+    <div class="modal-sheet" id="lineSheet">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <h3 id="lineSheetTitle">切换线路</h3>
+        <button class="sheet-close" id="lineSheetClose">✕</button>
+      </div>
+      <div class="sheet-body">
+        <div class="line-tip" id="lineTip" style="font-size:13px;color:var(--text-2);margin:4px 10px 12px;padding:10px 12px;border-radius:10px;background:var(--bg-2);">播放异常时自动切换到最佳线路，也可以手动选择线路</div>
+        <div class="line-list" id="lineList"></div>
+      </div>
+    </div>
+
+    <input type="file" id="personalBatchFile" accept=".csv,text/csv" style="display:none">
     <div class="toast" id="toast"></div>
+    <div class="confirm-overlay" id="confirmOverlay">
+      <div class="confirm-dialog">
+        <div class="confirm-title" id="confirmTitle"></div>
+        <div class="confirm-msg" id="confirmMsg"></div>
+        <div class="confirm-actions">
+          <button class="confirm-btn cancel" id="confirmCancel">取消</button>
+          <button class="confirm-btn ok" id="confirmOk">确定</button>
+        </div>
+      </div>
+    </div>
 
   </div>
 </body>

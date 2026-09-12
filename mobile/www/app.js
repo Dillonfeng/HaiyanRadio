@@ -5,7 +5,9 @@ const state = {
   favorites: [],
   history: [],
   customChannels: [],
+  userStations: [],
   currentFilter: '全部',
+  manageFilter: '全部',
   searchQuery: '',
   timer: null,
   timerEnd: 0,
@@ -16,259 +18,21 @@ const state = {
   lastNativeReported: null,
   hasReportedAnyPlayback: false,
   pinnedProvince: '',
-  playbackEngine: 'web',
-  // V84: 管理电台页的当前省市筛选（和播放页 currentFilter 独立互不影响）
-  manageRegionFilter: '全部'
+  playbackEngine: 'web'
 };
 
-const DATA_VERSION = '20260801-V87-FOREGROUND-SERVICE-LOCK';
-const APP_VERSION = 'v1.3.87h (ROOT CAUSE FOUND! ① onerror code=1 MEDIA_ERR_ABORTED 是正常 hls.destroy fallback，直接return不触发任何recovery! ② __wdReloadSourceIfNeeded/__wdFullReinitIfNeeded顶加25s冷启动grace ③ onerror/onemptied/onstalled 3个 setTimeout回调里也加grace → 彻底封死「深圳综艺进度条已播放还弹直播流中断」)';
+const DATA_VERSION = '20260902-V157-USER-EDIT-MERGE-SAFE';  // V158 未涉及频道数据结构，DATA_VERSION 保持 V157 以避免触发 forceReset
+const APP_VERSION = 'v1.3.183 (V183b 冷启动续播门控改走RPC通道,修复ColorOS桥接失效误判无耳机)';
+const VERSION_DISPLAY = 'V183';
+
+
 const DATA_VERSION_KEY = 'radio_data_version';
 const THEME_KEY = 'radio_theme_pref';
 const FONT_KEY = 'radio_font_pref';
 const LOCATION_KEY = 'radio_last_location';
-const SERVER_URL_KEY = 'radio_server_url_v85';   // V85: Native 保存的局域网后端地址
-
-// V86: 锁屏/后台稳定性 - 播放心跳 + 假死自动恢复 watchdogs
-// V87g: 冷启动误判修复 —— 4 层宽限机制防止故城/深圳等慢 CDN 服务器刚点就弹「直播流中断」:
-//   (1) __wdPlayStartAt: playChannel() 时间戳, 启动后 STARTUP_STALL_GRACE_MS(25s) 内跳过 12s 无事件判定
-//       (蜻蜓/CNR 省级台首次 DNS+TCP+首缓冲 10-20s 很常见, 不应算"卡死")
-//   (2) __wdSoftFailGraceUntil: playChannel() 时间戳+15s, 宽限期内 onsuspend/onstalled 不累计 __wdSoftFailCount
-//       (冷启动 Chromium 媒体管道 1-3s 内会有一次初始化 suspend, 不是故障)
-//   (3) playChannel() 入口立刻调 __playbackWatchdogMarkAlive('playChannel-entry'), 不依赖 onloadstart 回调
-//       (部分服务器 onloadstart 2s+才触发, 等于白白损失了 2s 的宽限时间)
-//   (4) onsuspend: 如果 audio.readyState <= 1 (HAVE_NOTHING / HAVE_METADATA) → 直接 return, 不计数也不 reload
-let __wdLastAliveAt = 0;          // 最近一次 timeupdate / playing / waiting 的时间戳
-let __wdLastAutoReload = 0;       // 上次 audio.load() 恢复（避免短时间反复load抖）
-let __wdLastFullReinit = 0;       // 上次 full playChannel() 重初始化
-let __wdTimerId = null;           // 全局 watchdog 定时器
-let __wdSoftFailCount = 0;        // 连续轻度异常（stalled/suspend）计数
-let __wdPlayStartAt = 0;          // V87g: 本次 playChannel 启动时间戳 (ms)
-let __wdSoftFailGraceUntil = 0;   // V87g: 冷启动宽限截止时间戳 (__wdSoftFailCount <= this 之前不计数)
-const __WD_STARTUP_STALL_GRACE_MS = 25000;   // 冷启动 25s 内不做 12s 卡死判定
-const __WD_STARTUP_SOFTFAIL_GRACE_MS = 15000; // 冷启动 15s 内 suspend/stalled 不计数 SoftFail
-
-function __playbackWatchdogMarkAlive(reason) {
-  __wdLastAliveAt = Date.now();
-  __wdSoftFailCount = 0;
-  if (reason) { /* console.debug('[WD] alive reason=' + reason); */ }
-}
-// V87g: playChannel 启动时立刻重置宽限窗口 + 标 alive (在 setupAudio 事件之前)
-function __playbackWatchdogResetForNewPlay() {
-  __wdPlayStartAt = Date.now();
-  __wdSoftFailGraceUntil = __wdPlayStartAt + __WD_STARTUP_SOFTFAIL_GRACE_MS;
-  __wdSoftFailCount = 0;
-  __wdLastAutoReload = 0;   // 新的台清空 reload 限流, 真需要时立刻能救
-  __playbackWatchdogMarkAlive('playChannel-entry');
-}
-
-function __ensureWatchdogRunning() {
-  if (__wdTimerId != null) return;
-  __playbackWatchdogMarkAlive('start-watchdog');
-  __wdTimerId = setInterval(function() {
-    // 只在"播放中 + 有当前台 + 用 Web 引擎"时做检查
-    if (!state || !state.isPlaying || !state.currentChannel || state.playbackEngine !== 'web') return;
-    var audio = state.audioElement;
-    if (!audio) return;
-    // V87g: COLD-START GRACE — 如果是新台启动 25s 之内，不做"12s 无事件 = 卡死"判定。
-    // 但是"audio.paused=true 但 state.isPlaying=true"的真死还继续救（这是锁屏被系统 pause，跟冷启动无关）。
-    var now = Date.now();
-    var inStartupGrace = (__wdPlayStartAt > 0) && ((now - __wdPlayStartAt) < __WD_STARTUP_STALL_GRACE_MS);
-    // 如果 audio.paused 但 state.isPlaying=true：系统锁屏/网络打断静默pause了 → 立刻救（任何时候都救）
-    if (audio.paused && !audio.ended) {
-      console.warn('[WD] state.isPlaying=true but audio.paused=true → try play() rescue' + (inStartupGrace ? ' (startup-grace active, still rescue paused)' : ''));
-      try {
-        audio.play().then(function(){ __playbackWatchdogMarkAlive('rescued-paused-flag'); })
-          .catch(function(e){ console.warn('[WD] rescue play() catch:', e && e.message || e);
-            // V87g: 真需要 full reinit 时也必须等 grace 过了才弹 toast，否则冷启动首缓冲里还会误弹「直播流中断」
-            if (inStartupGrace) {
-              console.warn('[WD] startup-grace active: delay full-reinit toast until grace expires');
-            } else {
-              __wdFullReinitIfNeeded('paused-play-reject');
-            }
-          });
-      } catch (e2) { console.warn('[WD] rescue play() throw:', e2);
-        if (!inStartupGrace) __wdFullReinitIfNeeded('paused-play-throw');
-      }
-      return;
-    }
-    if (inStartupGrace) {
-      // 启动宽限期: 不做 stall 检测, 但 log 一次 (调试用, 不占 logcat)
-      // console.debug('[WD] startup-grace active ('+Math.round((now-__wdPlayStartAt)/1000)+'s / '+__WD_STARTUP_STALL_GRACE_MS/1000+'s): skip 12s-stall check. readyState='+audio.readyState+' ns='+audio.networkState);
-      return;
-    }
-    var since = now - __wdLastAliveAt;
-    if (since >= 12000) {
-      // 12 秒没任何 timeupdate/playing：先轻救 play() → 重 load() → 重 playChannel()
-      console.warn('[WD] STALL DETECTED: ' + Math.round(since/1000) + 's no media event. audio.paused=' + audio.paused + ' ended=' + audio.ended + ' readyState=' + audio.readyState + ' networkState=' + audio.networkState + ' src=' + String(audio.src||'').substring(0,60));
-      // Step 1: play()
-      try {
-        var p = audio.play();
-        if (p && p.then) {
-          p.then(function(){ __playbackWatchdogMarkAlive('wd-play'); })
-           .catch(function(){ __wdReloadSourceIfNeeded('wd-play-reject'); });
-        }
-      } catch (e) { console.warn('[WD] step1 play throw', e); __wdReloadSourceIfNeeded('wd-play-throw'); }
-    }
-  }, 2500);
-}
-// Step 2: 重载数据源（防止 TCP 中断/缓冲耗尽）
-function __wdReloadSourceIfNeeded(reason) {
-  if (!state || !state.isPlaying || !state.currentChannel || state.playbackEngine !== 'web') return;
-  var now = Date.now();
-  // V87h: COLD-START GRACE (top-level GATE) — 冷启动宽限期内不允许任何 reload()！
-  // Reason 1: __wdPlayStartAt+25s 内 ABORT/ERR/EMPTIED 99% = hls.js fallback机制主动abort 或
-  //           慢 CDN 服务器仍在做 DNS/TLS/首缓冲，此时 reload = kill current socket = 更慢。
-  // Reason 2: The #1 ACTUAL ROOT CAUSE of "深圳综艺进度条已经在走 还弹「直播流中断」":
-  //           setupAudio()里 audio.src=xxx → audio.load() 启动hlsjs (T+0)
-  //           hlsjs 8s deadline没到 → ABORT_ERR(code=1)触发 onerror
-  //           onerror setTimeout(1200ms) 后调用 __wdReloadSourceIfNeeded('onerror-code-1')
-  //           __wdLastAutoReload 仍然=0 (reset for new play) → now - 0 < 15000 条件为 true
-  //           → 立即 __wdFullReinitIfNeeded() → 立即 showToast('直播流中断') 💥💥💥
-  //           但实际上 hls.destroy() 后 fallback 到 playDirectNative() 已经成功（进度条在走了！）
-  //           → full reinit 反而把正在播放的 direct-native 引擎打断 → 真的要重播
-  var inSoftGrace   = (now < __wdSoftFailGraceUntil);
-  var inStallGrace  = (__wdPlayStartAt > 0) && ((now - __wdPlayStartAt) < __WD_STARTUP_STALL_GRACE_MS);
-  if (inSoftGrace || inStallGrace) {
-    console.warn('[WD] step2 RELOAD BLOCKED: cold-start grace active (softfail-grace=' + inSoftGrace + ' stall-grace=' + inStallGrace + '). Skip reload for reason=' + (reason || '') + ' — likely hls.js fallback ABORT or slow-CDN buffering, NOT a real failure.');
-    return;
-  }
-  if (now - __wdLastAutoReload < 15000) {
-    // 15s 内已经 load 过，还没救回来 → 上 Step 3: full reinit
-    __wdFullReinitIfNeeded('wd-reload-rate-limited-' + (reason || ''));
-    return;
-  }
-  __wdLastAutoReload = now;
-  console.warn('[WD] step2 reload() audio src, reason=' + (reason || ''));
-  var audio = state.audioElement;
-  try {
-    audio.load();
-    var p = audio.play();
-    if (p && p.then) p.then(function(){ __playbackWatchdogMarkAlive('wd-reload-play'); })
-     .catch(function(e){ console.warn('[WD] step2 play catch', e && e.message || e); __wdFullReinitIfNeeded('wd-reload-play-failed-' + (reason||'')); });
-  } catch (e) {
-    console.warn('[WD] step2 load throw', e);
-    __wdFullReinitIfNeeded('wd-reload-throw');
-  }
-}
-// Step 3: 重新走完整 playChannel (重建 hls/重新绑定所有事件/清空 dead src)
-function __wdFullReinitIfNeeded(reason) {
-  if (!state || !state.isPlaying || !state.currentChannel || state.playbackEngine !== 'web') return;
-  var now = Date.now();
-  // V87h: COLD-START GRACE (FINAL GATE) — 冷启动宽限期内绝对不允许 full reinit + showToast！
-  // 即使所有其他路径都漏了，这里作为最后一道墙拦住一切误触发。
-  var inStallGrace = (__wdPlayStartAt > 0) && ((now - __wdPlayStartAt) < __WD_STARTUP_STALL_GRACE_MS);
-  if (inStallGrace) {
-    console.warn('[WD] step3 FULL-REINIT BLOCKED: stall-grace active (' + Math.round((now-__wdPlayStartAt)/1000) + 's / ' + (__WD_STARTUP_STALL_GRACE_MS/1000) + 's). Skip. Reason=' + (reason||'') + ' ch=' + (state.currentChannel && state.currentChannel.name || '') + ' — this was a FALSE POSITIVE during slow-CD startup.');
-    return;
-  }
-  if (now - __wdLastFullReinit < 30000) return;  // 30 秒内只给一次强力恢复，避免死循环
-  __wdLastFullReinit = now;
-  var ch = state.currentChannel;
-  console.warn('[WD] step3 FULL playChannel() REINIT reason=' + (reason || '') + ' ch=' + (ch && ch.name || ''));
-  try { if (els.fpStatus) els.fpStatus.textContent = '重新连接...'; } catch(ign){}
-  try { showToast('直播流中断，自动重连…'); } catch(ign){}
-  setTimeout(function(){
-    if (!state || !state.currentChannel || state.currentChannel.id !== ch.id) return;
-    playChannel(ch);
-  }, 200);
-}
+const LAST_PLAY_KEY = 'radio_last_play';
 
 const isNativeApp = (typeof window.Capacitor !== 'undefined' && window.Capacitor.isNativePlatform) || (typeof window.NativeRadio !== 'undefined');
-
-/* ===== V85: 局域网后端地址管理 =====
- * PC Web 模式 → 自动用当前页面 host（比如 localhost:8080 或局域网IP:8080）
- * Native APP 模式 → 读用户在管理页填的地址，保存到 localStorage
- * 只要能拿到后端地址，Native 端也能实时调 /api/*、读 /logos/* 新图
- */
-let __cachedServerUrl = '';
-function loadSavedServerUrl() {
-  try { __cachedServerUrl = (localStorage.getItem(SERVER_URL_KEY) || '').toString().trim(); }
-  catch (e) { __cachedServerUrl = ''; }
-  return __cachedServerUrl || '';
-}
-function saveServerUrl(url) {
-  var s = (url || '').toString().trim();
-  if (s && !s.match(/^https?:\/\//i)) s = 'http://' + s;    // 自动补 http://
-  if (s) s = s.replace(/\/+$/, '');                         // 去掉末尾斜杠
-  __cachedServerUrl = s;
-  try {
-    if (s) localStorage.setItem(SERVER_URL_KEY, s);
-    else localStorage.removeItem(SERVER_URL_KEY);
-  } catch (e) {}
-  return s;
-}
-// 返回服务器基础地址（末尾不带斜杠）。Native 模式若未配置返回空字符串
-function getServerBase() {
-  if (!isNativeApp) {
-    // PC Web: 用当前 host
-    if (typeof window !== 'undefined' && window.location && window.location.host) {
-      var proto = (window.location.protocol || 'http:').toLowerCase();
-      if (proto !== 'http:' && proto !== 'https:') proto = 'http:';
-      return proto + '//' + window.location.host;
-    }
-    return '';
-  }
-  // Native: 必须用户配置
-  if (!__cachedServerUrl) loadSavedServerUrl();
-  return __cachedServerUrl || '';
-}
-// 构造接口绝对/相对 URL。只要有 getServerBase() 就拼绝对地址（Native 必须绝对，PC 也能走绝对）
-function apiUrl(path) {
-  var p = String(path || '');
-  if (p.charAt(0) !== '/') p = '/' + p;
-  var base = getServerBase();
-  return base ? base + p : p;
-}
-// 构造 logo 图片 URL。相对路径 logos/xxx.png → 若服务器地址存在则走 HTTP，便于 Native 显示 PC 端新拉到的图
-function logoUrl(src) {
-  var s = String(src || '');
-  if (!s) return s;
-  if (/^https?:\/\//i.test(s)) return s;            // 远程图（http/https）原样返回
-  // 相对路径：'logos/xxx.png'、'./logos/xxx.png'、'/logos/xxx.png' 都归一化
-  var norm = s.replace(/^\.?\//, '');
-  if (!norm.startsWith('logos/')) return s;         // 不是 logos 前缀的相对路径原样
-  var base = getServerBase();
-  if (base) return base + '/' + norm;
-  return s;                                          // PC Web 用相对路径也能访问到
-}
-// 判断是否具备调用后端接口（含台标按需拉取）的能力
-function hasBackendBridge() {
-  return !!getServerBase();
-}
-// 管理页：保存按钮事件绑定
-function initServerUrlConfigUI() {
-  if (!els.serverUrlConfig) return;
-  if (!isNativeApp) {
-    // PC 浏览器永远不显示这个配置区（因为能从 location.host 自动拿）
-    els.serverUrlConfig.style.display = 'none';
-    return;
-  }
-  els.serverUrlConfig.style.display = 'block';
-  var saved = loadSavedServerUrl();
-  if (saved && els.serverUrlInput) els.serverUrlInput.value = saved;
-  __refreshServerUrlHint();
-  if (els.saveServerUrlBtn) {
-    els.saveServerUrlBtn.addEventListener('click', function() {
-      var v = els.serverUrlInput ? els.serverUrlInput.value : '';
-      var s = saveServerUrl(v);
-      if (els.serverUrlInput) els.serverUrlInput.value = s;
-      __refreshServerUrlHint();
-      showToast(s ? '已保存服务器地址' : '已清空服务器地址');
-      // 保存后立刻验证一次
-      fetchLogoProgress().catch(function(){});
-    });
-  }
-}
-function __refreshServerUrlHint() {
-  if (!els.serverUrlHint) return;
-  var s = getServerBase();
-  if (!s) {
-    els.serverUrlHint.innerHTML = '未配置。<b style="color:#b91c1c;">请先在电脑端运行 <code>node server.js</code>，把控制台里打印的「局域网访问」地址填到上面。</b>';
-    return;
-  }
-  els.serverUrlHint.innerHTML = '✅ 当前：<b style="color:#166534;">' + escapeHtml(s) + '</b>；可播放任意无台标电台触发后台拉取，或看下方批量进度条同步电脑端 batch 进度。';
-}
 
 const els = {};
 let editingId = null;
@@ -276,142 +40,50 @@ let editingId = null;
 function $(id) { return document.getElementById(id); }
 
 function hasNative() { return typeof window.NativeRadio !== 'undefined' && window.NativeRadio; }
-
-// =============================================================================
-// V87e: __debouncedNativeNotify(name, sub, playing, opts)
-//   JavaScript-side 120ms debounce + exact-key dedupe for ALL native notify
-//   pathways (notifyPlaybackIntent / reportMeta / reportPlaying /
-//   reportPlayingCurrent / reportNativeState).
-//
-// WHY: playChannel() used to fire 3~5 equivalent (same name, same sub, same
-// playing=true) calls within 80ms:
-//   1) playChannel → notifyPlaybackIntent(N, S, true)      at L1814
-//   2) playChannel → reportNativeState(true) →
-//      notifyPlaybackIntent(N, S, true) + reportMeta()     at L1827
-//   3) setupAudio → audio.onplaying → reportNativeState()  again
-//   4) maybeFetchLogoOnDemand → reportPlayingCurrent()      again
-// Each trip into @JavascriptInterface triggers:
-//   (a) JNI bridge crossing (5-10ms per call)
-//   (b) Java apiMetaFromBinder → rebuild MediaStyle Notification (15-40ms
-//       because of RemoteViews inflation + MediaSession metadata rebuild)
-//   (c) startForeground() → binder IPC to ActivityManager (another 5-10ms)
-// Result: 4 bursts → 120ms+ of UI-thread burn inside the system server, which
-// delays HTMLAudioElement.canplaythrough → *exactly* the "故城县 radio takes
-// forever to start + toasts" and "经济之声 skips/stutters at start" that the
-// user reported. Fast channel switches then race the Java serialized state
-// machine and can trip ColorOS assertions.
-//
-// STRATEGY: All JS→Java notify calls funnel through ONE entry:
-//   __debouncedNativeNotify(name, sub, playing, {force? , immediateStop?}).
-// - Debounce window = 120ms (sliding). Any new call within 120ms replaces
-//   the pending payload and resets the timer. This collapses 4 in 80ms → 1.
-// - Key dedupe: After 120ms, if (name, sub, playing) matches the LAST key we
-//   already delivered → SKIP the JNI call entirely. Nothing changed.
-// - STOP (playing=false with empty name) does NOT debounce → posted to the
-//   bridge immediately so the system can free WakeLock/WifiLock right away.
-// - Force=true overrides key dedupe (e.g. user manually tapped stop → ensure
-//   it goes through even if the key looks identical).
-// =============================================================================
-var __dnd_timer = null;
-var __dnd_pending = null;      // {name, sub, playing, force}
-var __dnd_lastKey = '';        // "playing|name|sub" last delivered to Java
-var __dnd_DENOUNCE_MS = 120;
-function __debouncedNativeNotify(name, sub, playing, opts) {
-  if (!hasNative()) return;
-  name = name || '';
-  sub = sub || '';
-  playing = !!playing;
-  opts = opts || {};
-  var force = !!opts.force;
-  var stop = !playing && name.length === 0;
-  var key = `${playing ? 1 : 0}|${name}|${sub}`;
-
-  // STOP/cleanup path: deliver immediately, do not coalesce — we want locks
-  // released NOW, not 120ms from now (that's 120ms of wasted WifiLock mA).
-  if (stop || opts.immediate) {
-    if (__dnd_timer) { clearTimeout(__dnd_timer); __dnd_timer = null; __dnd_pending = null; }
-    __dnd_flush({ name, sub, playing, force, reason: stop ? 'stop-immediate' : 'immediate' });
-    return;
-  }
-
-  // Replace any pending payload with the latest. Sliding window restarts.
-  __dnd_pending = { name, sub, playing, force };
-  if (__dnd_timer) clearTimeout(__dnd_timer);
-  __dnd_timer = setTimeout(function () {
-    __dnd_timer = null;
-    var p = __dnd_pending;
-    __dnd_pending = null;
-    if (!p) return;
-    __dnd_flush({ name: p.name, sub: p.sub, playing: p.playing, force: p.force, reason: 'debounce' });
-  }, __dnd_DENOUNCE_MS);
+// V118: 检查原生 ExoPlayer 引擎是否可用 — 通过 shouldInterceptRequest RPC 通道 (addJavascriptInterface在ColorOS失效)
+function hasNativeAudio() {
+  return !!window.__NATIVE_AUDIO_READY;
 }
-function __dnd_flush(ctx) {
-  if (!hasNative()) return;
-  var k = `${ctx.playing ? 1 : 0}|${ctx.name}|${ctx.sub}`;
-  if (!ctx.force && k === __dnd_lastKey) {
-    // Not a single bit changed from the notify we ALREADY sent to Java. Skip —
-    // this is THE most important optimization, because reportNativeState runs
-    // on literally every audio event (play/pause/volume/timeupdate) and the
-    // (name, sub, playing) tuple barely ever changes. Saves ~95% of all JNI
-    // notify calls once a station is actually playing.
-    return;
-  }
+// V118: 通过 shouldInterceptRequest RPC 通道调用原生 ExoPlayer
+// 使用同步 XMLHttpRequest (async:false) — 因为走 shouldInterceptRequest 本地拦截，
+// 延迟 <1ms，不会卡顿。同步调用确保 togglePlay 中状态立即正确更新，避免闪烁和竞争。
+function nativeAudioRpc(action, params) {
   try {
-    if (window.NativeRadio && typeof window.NativeRadio.notifyPlaybackIntent === 'function') {
-      window.NativeRadio.notifyPlaybackIntent(ctx.name, ctx.sub, !!ctx.playing);
-    } else if (window.NativeRadio && window.NativeRadio.reportMeta) {
-      window.NativeRadio.reportMeta(ctx.name, ctx.sub, !!ctx.playing);
+    var q = '/__nativeaudio__/' + action;
+    if (params) {
+      var parts = [];
+      for (var k in params) {
+        if (params.hasOwnProperty(k)) {
+          parts.push(encodeURIComponent(k) + '=' + encodeURIComponent(params[k] || ''));
+        }
+      }
+      if (parts.length) q += '?' + parts.join('&');
     }
-    __dnd_lastKey = k;
-  } catch (e) {
-    console.warn('[__dnd_flush@' + ctx.reason + '] top-level JNI catch', e && e.message || e);
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', q, false);  // 同步！
+    xhr.send(null);
+    if (xhr.status >= 200 && xhr.status < 300) {
+      var resp = JSON.parse(xhr.responseText || '{}');
+      if (resp && resp.ok) {
+        return resp;  // V121: 返回完整响应对象（含 isPlaying）
+      } else {
+        console.warn('[V121-RPC] server returned error:', resp && resp.err);
+        return null;
+      }
+    } else {
+      console.warn('[V121-RPC] HTTP', xhr.status, 'for', action);
+      return null;
+    }
+  } catch(e) {
+    console.warn('[V121-RPC] error:', action, e);
+    return null;
   }
 }
 
 function reportNativeState(force) {
   if (!hasNative()) return;
-  // V87e: 95% of reportNativeState calls are periodic audio event callbacks
-  // (playing/pause/timeupdate) with identical (name, sub, playing) tuple.
-  // The new __debouncedNativeNotify already does key dedupe internally, so we
-  // don't need the old state.lastNativeReported key logic anymore — but we
-  // still keep state.lastNativeReported for stop/empty detection (it is used
-  // by the explicit-stop path below and by other modules' "did we already
-  // report stop" assertions).
-  const ch = state.currentChannel;
-  var isPlaying_ = !!state.isPlaying;
-  if (ch) {
-    const nm = ch.name || '';
-    const sub_ = (ch.frequency || '') + (ch.description ? ' · ' + ch.description : '');
-    try {
-      // V87e: funneled through debounced notify → 4-way burst during
-      // playChannel startup collapses to exactly 1 actual JNI call.
-      __debouncedNativeNotify(nm, sub_, isPlaying_, { force: !!force });
-      // V87-FIX (legacy, still valid): reportMeta fallback if notifyPlaybackIntent isn't present.
-      //   The debouncer already picks notifyPlaybackIntent over reportMeta; we do NOT additionally
-      //   call reportMeta here (that would double-send and defeat debounce).
-      //   Only exception: if notifyPlaybackIntent function is MISSING on old bridge AND force=true,
-      //   make sure we hit reportMeta ONCE with the force flag bypassing any in-JS dedupe (Java
-      //   will still dedupe inside apiMetaFromBinder itself, which is good).
-      if (!(window.NativeRadio && typeof window.NativeRadio.notifyPlaybackIntent === 'function')) {
-        if (force || (state.playbackEngine !== 'native' && (!state.lastNativeReported || state.lastNativeReported !== `${isPlaying_}|${nm}|${sub_}`))) {
-          try { window.NativeRadio.reportMeta && window.NativeRadio.reportMeta(nm, sub_, isPlaying_); }
-          catch (eOld) { console.warn('V87 legacy reportMeta fallback err', eOld); }
-        }
-      }
-    } catch (e) { console.warn('V87 reportNativeState debounced-notify top-level err', e); }
-  } else if (state.hasReportedAnyPlayback) {
-    // 没有当前台 → 明确通知 Service 暂停（释放 WakeLock/WifiLock/取消前台）.
-    // IMMEDIATE = do not debounce stop (locks should release now).
-    try {
-      __debouncedNativeNotify('', '', false, { immediate: true });
-      if (force || state.lastNativeReported !== 'stopped') {
-        state.lastNativeReported = 'stopped';
-        try { window.NativeRadio.reportStopped && window.NativeRadio.reportStopped(); } catch (e) {}
-      }
-    } catch (e) { console.warn('V87 stop intent (debounced-immediate) err', e); }
-  }
-
   if (state.playbackEngine === 'native') {
+    const ch = state.currentChannel;
     if (!ch) {
       if (!state.hasReportedAnyPlayback) return;
       if (force || state.lastNativeReported !== 'stopped') {
@@ -420,27 +92,20 @@ function reportNativeState(force) {
       }
       return;
     }
-    const name = ch.name || '';
-    const sub = (ch.frequency || '') + (ch.description ? ' · ' + ch.description : '');
-    const playing = isPlaying_;
-    const key = `${playing}|${name}|${sub}|native`;
-    if (force || state.lastNativeReported !== key) {
-      state.lastNativeReported = key;
-      state.hasReportedAnyPlayback = true;
-      try {
-        // V87: native engine 下同样 reportPlayingCurrent / reportMeta（通知栏 + 锁屏媒体控件用）
-        // V87e: debounced via new helper so these don't double-flush.
-        if (playing) {
-          window.NativeRadio.reportPlayingCurrent && window.NativeRadio.reportPlayingCurrent(name, sub);
-        } else {
-          __debouncedNativeNotify(name, sub, false, { force: !!force });
-        }
-      } catch (e) { console.warn('native engine report err', e); }
-    }
+    // V159 FIX: native引擎也要通知Service播放/暂停状态，否则Service不知道用户暂停了→降级Timer永远不触发
+    const nName = ch.name || '';
+    const nSub = (ch.frequency || '') + (ch.description ? ' · ' + ch.description : '');
+    const nPlaying = !!state.isPlaying;
+    const nKey = `native|${nPlaying}|${nName}|${nSub}`;
+    if (!force && state.lastNativeReported === nKey) return;
+    state.lastNativeReported = nKey;
+    state.hasReportedAnyPlayback = true;
+    try {
+      window.NativeRadio.reportMeta && window.NativeRadio.reportMeta(nName, nSub, nPlaying);
+    } catch (e) { console.warn('native report err', e); }
     return;
   }
-
-  // --- web engine 原 reportMeta 逻辑（保留 dedupe + 通知栏 metadata）---
+  const ch = state.currentChannel;
   if (!ch) {
     if (!state.hasReportedAnyPlayback) return;
     if (force || state.lastNativeReported !== 'stopped') {
@@ -451,90 +116,278 @@ function reportNativeState(force) {
   }
   const name = ch.name || '';
   const sub = (ch.frequency || '') + (ch.description ? ' · ' + ch.description : '');
-  const playing = isPlaying_;
+  const playing = !!state.isPlaying;
   const key = `${playing}|${name}|${sub}`;
-  // V87e: __debouncedNativeNotify + __dnd_lastKey already deduplicate on the
-  // SAME key; state.lastNativeReported still acts as a short-circuit to avoid
-  // even creating the __debouncedNativeNotify closure.
   if (!force && state.lastNativeReported === key) return;
   state.lastNativeReported = key;
   state.hasReportedAnyPlayback = true;
-  // V87e: DO NOT direct-call reportMeta here (that would be a 5th parallel
-  // flush!). reportMeta is ALREADY invoked as the bridge-fallback path inside
-  // __debouncedNativeNotify → __dnd_flush when notifyPlaybackIntent is absent.
-  // If both methods exist, we must NOT call reportMeta redundantly; flush()
-  // guarantees exactly one delivery.
-  __debouncedNativeNotify(name, sub, playing, { force: !!force });
+  try {
+    window.NativeRadio.reportMeta && window.NativeRadio.reportMeta(name, sub, playing);
+  } catch (e) { console.warn('native report err', e); }
 }
 
 function setupPowerOptimization() {
-  const onVis = () => {
+  // ═══════════════════════════════════════════════════════════════════════
+  // V159 POWER: 统一CSS动画开关 —— 只有「前台可见 && 正在播放」才运行动画，否则暂停省GPU
+  //   控制元素：.fp-dot（播放指示灯脉冲）、.fp-logo-inner（封面旋转）、.card-logo img（列表卡片封面旋转）
+  //   挂到 window 上，updatePlayerUI() 播放/暂停切换时能即时同步状态
+  // ═══════════════════════════════════════════════════════════════════════
+  window._applyAnimationsState = function() {
     try {
-      const hidden = document.hidden || document.visibilityState !== 'visible';
-      document.documentElement.classList.toggle('app-hidden', hidden);
-      if (hidden) {
-        document.querySelectorAll('.fp-logo-inner, .card-logo img').forEach(el => {
-          try { el.style.animationPlayState = 'paused'; } catch(ign){}
-        });
-      } else {
-        document.querySelectorAll('.fp-logo-inner, .card-logo img').forEach(el => {
-          try { el.style.animationPlayState = ''; } catch(ign){}
-        });
-        // V86: 解锁屏 / 切回前台：立刻尝试恢复播放（防系统后台暂停 audio）
-        __playbackWatchdogMarkAlive('visibility-visible');
-        // V87e: 额外再刷一次 startForeground（续前台服务 + 锁续期）—— 但走 debounced 路径。
-        //   旧代码直接 notifyPlaybackIntent → 如果和 playChannel 的 pending flush 同 key 会是 2 次 JNI。
-        //   新代码：如果有 currentChannel 并且 playing → immediate=true（立刻刷，不 120ms 等，但还是 key dedupe）
-        //   immediate=true 保证解锁屏瞬间续，不会被 debounce 等 120ms 错过续期窗口。
-        try {
-          if (state && state.currentChannel && hasNative()) {
-            var nm = state.currentChannel.name || '';
-            var ns = (state.currentChannel.frequency || '') + (state.currentChannel.description ? ' · ' + state.currentChannel.description : '');
-            __debouncedNativeNotify(nm, ns, !!state.isPlaying, { immediate: true });
-          }
-        } catch (e) { console.warn('[PowerOpt] foreground debounced-notify err', e); }
-        try {
-          if (state && state.isPlaying && state.currentChannel && state.playbackEngine === 'web' && state.audioElement) {
-            var a = state.audioElement;
-            if (a.paused && !a.ended) {
-              console.log('[PowerOpt] resume: foreground, was paused, call audio.play() rescue');
-              var p = a.play();
-              if (p && p.catch) p.catch(function(e){
-                console.warn('[PowerOpt] resume play catch', e && e.message || e);
-                // V87: play() 失败（典型：AudioTrack 被系统释放 / MediaPlayer 死了 / src 丢了）
-                // → 立刻 reload audio，再不行给 full reinit
-                __wdReloadSourceIfNeeded('foreground-play-reject');
-              });
-            }
-          }
-        } catch (e) { console.warn('[PowerOpt] resume err', e); try { __wdFullReinitIfNeeded('foreground-resume-throw'); } catch(ign){} }
-      }
-    } catch (topLevelIgnore) {
-      // 绝对不能抛到全局（否则会被 window.onerror 捕成那个红色弹窗）
-      console.warn('[PowerOpt] onVis top-level catch:', topLevelIgnore && topLevelIgnore.message || topLevelIgnore);
+      const running = !document.hidden && state && state.isPlaying;
+      document.querySelectorAll('.fp-dot, .fp-logo-inner, .card-logo img').forEach(el => { el.style.animationPlayState = running ? '' : 'paused'; });
+    } catch(e) {}
+  };
+  const onVis = () => {
+    const hidden = document.hidden || document.visibilityState !== 'visible';
+    document.documentElement.classList.toggle('app-hidden', hidden);
+    if (hidden) {
+      // V159: 后台 → 无论播不播，用户都看不见 → 立刻暂停所有CSS动画
+      window._applyAnimationsState && window._applyAnimationsState();
+    } else {
+      // V154+V159: 前台 → 延迟3秒等音频路由稳定再恢复，只在播放时才启动动画
+      setTimeout(function() { try { window._applyAnimationsState && window._applyAnimationsState(); } catch(ign){} }, 3000);
     }
   };
   document.addEventListener('visibilitychange', onVis);
-  window.addEventListener('blur', function(){ try { onVis(); } catch(ign){} });
-  window.addEventListener('pagehide', function(){ try { onVis(); } catch(ign){} });
-  window.addEventListener('focus', function() {
-    try { document.documentElement.classList.remove('app-hidden'); } catch(ign){}
-    try { __playbackWatchdogMarkAlive('window-focus'); } catch(ign){}
+  window.addEventListener('blur', onVis);
+  window.addEventListener('pagehide', onVis);
+  window.addEventListener('focus', () => { document.documentElement.classList.remove('app-hidden'); });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // V154 锁屏恢复逻辑（解锁卡顿优化版）
+  //
+  //  核心修复：解锁瞬间卡顿几率 > 锁屏无声几率
+  //    → 所有非关键操作全部延后，让音频输出先稳定！
+  //
+  //  改动：
+  //   1. 解锁恢复检查：1s → 2.5s（等媒体路由切换稳定）
+  //   2. CSS动画恢复：立即 → 3s（避免与音频抢CPU）
+  //   3. 解锁冷却期：10s内Watchdog不做RPC（防止误判媒体路由切换为"暂停"）
+  //   4. native 正常在播时什么都不做（不更新UI、不重设isPlaying、不重绘）
+  // V159 FIX: 添加 _userPaused 标志，用户主动暂停时不自动恢复（防止看门狗干扰用户操作）
+  // ═══════════════════════════════════════════════════════════════════════
+  let _unlockRecoveryBusy = false;
+  let _watchdogTimer = null;
+  let _hiddenSince = 0;          // 页面隐藏的时间戳
+  let _watchdogFailCount = 0;    // 连续检测到异常的次数
+  let _justUnlockedAt = 0;       // 解锁完成的时间戳（冷却期10s）
+  let _userPaused = false;       // V159: 用户主动暂停标志，true时不自动恢复
+  window._getUserPaused = () => _userPaused;   // 供外部读取
+  window._setUserPaused = (v) => { _userPaused = v; };  // 供外部设置
+  // V171 BT-AUDIO: 蓝牙音频输出丢失标志。
+  //   true=蓝牙已断开，解锁屏幕/看门狗均不自动恢复；只有蓝牙重连才清除。
+  //   由 Java 端 registerBtAudioMonitor() 通过 evaluateJavascript 调用 handleBtAudioDisconnect/Reconnect 设置。
+  //   用户主动播放（togglePlay/playChannel）也会清除，尊重用户意图。
+  let _btAudioDisconnected = false;
+  window._getBtAudioDisconnected = () => _btAudioDisconnected;
+  window._setBtAudioDisconnected = (v) => { _btAudioDisconnected = !!v; };
+
+  function checkAndResumePlayback() {
+    if (_unlockRecoveryBusy) return;
+    if (!state.currentChannel || !state.currentChannel.url) return;
+    // V159 FIX: 用户主动暂停时不自动恢复（防止看门狗干扰用户操作）
+    if (_userPaused) { console.log('[V159-RECOVER] 用户主动暂停，跳过自动恢复'); return; }
+    // V171 BT-AUDIO: 蓝牙断开期间不自动恢复，等重连
+    //   双重检查：JS 标志(_btAudioDisconnected) + RPC status 字段(btAudioDisconnected)
+    //   原因：锁屏时 WebView 可能冻结，evaluateJavascript 不执行 → JS 标志未设置
+    //   但 RPC(shouldInterceptRequest) 不受冻结影响，Java 端 btAudioDisconnected 标志准确
+    if (_btAudioDisconnected) { console.log('[V171-BT-RECOVER] 蓝牙音频已断开(JS标志)，跳过自动恢复'); return; }
+    _unlockRecoveryBusy = true;
+    try {
+      if (hasNativeAudio() && state.playbackEngine === 'native') {
+        try {
+          var st = nativeAudioRpc('status');
+          // V171 BT-AUDIO: 通过 RPC status 检查 Java 端蓝牙标志（防止 JS 标志因冻结未同步）
+          if (st && st.btAudioDisconnected) {
+            _btAudioDisconnected = true;
+            _userPaused = true;
+            console.log('[V171-BT-RECOVER] RPC status 返回 btAudioDisconnected=true，同步 JS 标志，跳过恢复');
+            if (els.fpStatus) els.fpStatus.textContent = '蓝牙断开，已暂停';
+            updatePlayerUI();
+            return;
+          }
+          if (st && st.hasSource && !st.isPlaying) {
+            console.log('[V154-RECOVER] native 有源但暂停，尝试 resume');
+            var resp = nativeAudioRpc('resume');
+            state.isPlaying = resp ? !!resp.isPlaying : true;
+            if (els.fpStatus) els.fpStatus.textContent = '正在直播';
+            updatePlayerUI();
+          } else if (st && !st.hasSource) {
+            console.log('[V154-RECOVER] native 无源，重新 playChannel');
+            if (els.fpStatus) els.fpStatus.textContent = '恢复播放中...';
+            playChannel(state.currentChannel);
+          }
+          // st.isPlaying === true → 完全什么都不做！不重绘不设值（否则会卡）
+        } catch(e) {
+          try { nativeAudioRpc('resume'); } catch(ign){}
+        }
+      } else if (state.playbackEngine === 'web' && state.audioElement) {
+        if (state.isPlaying && state.audioElement.paused) {
+          state.audioElement.play().catch(function() {});
+        }
+      }
+    } catch(e) {} finally {
+      _unlockRecoveryBusy = false;
+    }
+  }
+
+  // visibilitychange → 只在页面隐藏超过10秒后恢复时才触发
+  document.addEventListener('visibilitychange', function onVisibilityForPlayback() {
+    if (document.hidden) {
+      _hiddenSince = Date.now();
+    } else {
+      var hiddenDuration = _hiddenSince ? Date.now() - _hiddenSince : 0;
+      _hiddenSince = 0;
+      // V154 标记解锁冷却期（10s内watchdog不做RPC）
+      _justUnlockedAt = Date.now();
+      if (hiddenDuration > 10000) {
+        // V154 1s → 2.5s，先等媒体路由切换稳定
+        setTimeout(checkAndResumePlayback, 2500);
+      }
+    }
   });
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // V159 Watchdog：功耗优化 —— 真正双档 Interval（前台省CPU/后台不断流）
+  //
+  //   后台息屏 (hidden=true)  + playing → 15s 严格检查（连续2次失败才恢复，防160s断流）
+  //   前台可见 (hidden=false) + playing → 60s 粗检查（前台系统不会冻结，减少75% evaluateJavascript）
+  //   未播放 / 非native引擎 → 最轻量判断、不做 nativeAudioRpc（接近零开销）
+  //   解锁冷却期 10s 内全部跳过
+  // ═══════════════════════════════════════════════════════════════════════
+  var _bgWd = null; // 后台 15s
+  var _fgWd = null; // 前台 60s
+
+  function _wdTick(kind) {
+    if (_justUnlockedAt && (Date.now() - _justUnlockedAt) < 10000) return;
+    if (_userPaused) { _watchdogFailCount = 0; return; }  // V159: 用户主动暂停时不做恢复检查
+    // V171 BT-AUDIO: 蓝牙断开期间不做恢复检查（等重连）
+    if (_btAudioDisconnected) { _watchdogFailCount = 0; return; }
+    if (!state.currentChannel || !state.isPlaying) { _watchdogFailCount = 0; return; }
+    if (state.playbackEngine !== 'native' || !hasNativeAudio()) { _watchdogFailCount = 0; return; }
+    try {
+      var st = nativeAudioRpc('status');
+      // V171 BT-AUDIO: watchdog 也通过 RPC 检查蓝牙状态（防止 JS 标志因冻结未同步）
+      if (st && st.btAudioDisconnected) {
+        _btAudioDisconnected = true;
+        _userPaused = true;
+        _watchdogFailCount = 0;
+        console.log('[V171-BT-WD] RPC status 返回 btAudioDisconnected=true，同步 JS 标志，跳过恢复');
+        if (els.fpStatus) els.fpStatus.textContent = '蓝牙断开，已暂停';
+        updatePlayerUI();
+        return;
+      }
+      if (st && st.hasSource && !st.isPlaying) {
+        _watchdogFailCount++;
+        var threshold = kind === 'bg' ? 2 : 1;
+        if (_watchdogFailCount >= threshold) {
+          console.log('[V159-WD-'+kind+'] failCount>=threshold → resume');
+          var resp = nativeAudioRpc('resume');
+          if (resp && resp.isPlaying) {
+            state.isPlaying = true;
+            if (els.fpStatus) els.fpStatus.textContent = '正在直播';
+            updatePlayerUI();
+          } else {
+            playChannel(state.currentChannel);
+          }
+          _watchdogFailCount = 0;
+        }
+      } else { _watchdogFailCount = 0; }
+    } catch(e) { _watchdogFailCount = 0; }
+  }
+  function _applyWdByVis() {
+    try {
+      if (document.hidden) {
+        if (!_bgWd) _bgWd = setInterval(function() { _wdTick('bg'); }, 15000);
+        if (_fgWd)  { clearInterval(_fgWd); _fgWd = null; }
+      } else {
+        if (!_fgWd) _fgWd = setInterval(function() { _wdTick('fg'); }, 60000);
+        if (_bgWd)  { clearInterval(_bgWd); _bgWd = null; }
+      }
+    } catch(e) {}
+  }
+  // 启动期不启用（避免初始化时一堆JS抢占CPU），15s后再挂
+  setTimeout(function() {
+    _applyWdByVis();
+    document.addEventListener('visibilitychange', _applyWdByVis);
+  }, 15000);
   window.addEventListener('nativeRadio', (e) => {
     const type = e && e.detail ? e.detail.type : null;
     if (!type) return;
     console.log('[nativeRadio] event=' + type);
     switch (type) {
       case 'play':
-        if (state.playbackEngine === 'web' && state.currentChannel && state.audioElement) {
+        // V175 FIX(冷启动音箱播放键无声): 判断native不能用 state.playbackEngine==='native'！
+        //   冷启动时从未播放过，playbackEngine 还是初始值 'web'（只有 playChannel 成功后才切 'native'），
+        //   但 native RPC 已就绪(hasNativeAudio()=true)。旧条件导致：native分支被跳过、web分支的
+        //   audioElement 又无 src → 收到 PLAY 却无声。native app 里 RPC 可用即走 native（优先级高于web）。
+        if (hasNativeAudio()) {
+          try {
+            var _ps = nativeAudioRpc('status');
+            var _ch = state.currentChannel || window.__lastPlayChannel;
+            if (_ps && _ps.hasSource) {
+              nativeAudioRpc('resume');
+              state.isPlaying = true;
+              window._setUserPaused && window._setUserPaused(false);
+              window._setBtAudioDisconnected && window._setBtAudioDisconnected(false);
+              setLastPlayPlaying(true);  // V183: 外部播放键恢复 → 播放意愿
+              console.log('[nativeRadio-V175] external PLAY → native resume');
+            } else if (_ch && _ch.url) {
+              // 冷启动/无源：用上次电台(或当前电台)重新加载播放
+              console.log('[nativeRadio-V175] external PLAY no-source → playChannel(' + (_ch.name||'') + ')');
+              state.currentChannel = _ch;
+              window._setUserPaused && window._setUserPaused(false);
+              window._setBtAudioDisconnected && window._setBtAudioDisconnected(false);
+              playChannel(_ch);
+              break;
+            } else {
+              // 无任何电台记忆 → 播当前列表第一个（与屏幕 togglePlay 兜底一致）
+              var _chs = (typeof getFilteredChannels === 'function') ? getFilteredChannels() : [];
+              if (_chs.length) {
+                console.log('[nativeRadio-V175] external PLAY no-channel → first station');
+                window._setUserPaused && window._setUserPaused(false);
+                playChannel(_chs[0]);
+              }
+              break;
+            }
+            if (els.fpStatus) els.fpStatus.textContent = '正在直播';
+            updatePlayerUI();
+            try { reportNativeState(); } catch(ign){}
+          } catch(e) { console.warn('[nativeRadio-V175] external PLAY failed:', e && e.message); }
+        } else if (state.playbackEngine === 'web' && state.currentChannel && state.audioElement) {
           state.audioElement.play().catch((err) => { console.warn('[nativeRadio] play() catch:', err && err.message ? err.message : err); });
+          state.isPlaying = true; updatePlayerUI();
         }
-        state.isPlaying = true; updatePlayerUI();
         break;
       case 'pause':
-        if (state.playbackEngine === 'web' && state.audioElement) state.audioElement.pause();
-        state.isPlaying = false; updatePlayerUI();
+        // V183: 蓝牙断开引起的内部暂停镜像（Java pauseForBt 带bt标记；或JS断开流程自己RPC pause时
+        //   _btAudioDisconnected已置位）→ 绝不当作用户主动暂停：保留wasPlaying播放意愿、
+        //   不设_userPaused（标志/UI由handleBtAudioDisconnect统一处理），只静默同步播放态。
+        if ((e.detail && e.detail.bt) ||
+            (window._getBtAudioDisconnected && window._getBtAudioDisconnected())) {
+          console.log('[nativeRadio-V183] pause 来自蓝牙断开 → 保留播放意愿，跳过用户暂停副作用');
+          state.isPlaying = false;
+          try { updatePlayerUI(); } catch(ign){}
+          break;
+        }
+        // V175: 同样用 hasNativeAudio() 判断（native优先），不依赖 playbackEngine 标志
+        if (hasNativeAudio()) {
+          try {
+            nativeAudioRpc('pause');
+            state.isPlaying = false;
+            window._setUserPaused && window._setUserPaused(true);
+            setLastPlayPlaying(false);  // V183: 用户(媒体键/通知栏)主动暂停 → 取消冷启动自动续播
+            console.log('[nativeRadio-V175] external PAUSE → native pause');
+            if (els.fpStatus) els.fpStatus.textContent = '已暂停';
+            updatePlayerUI();
+            try { reportNativeState(); } catch(ign){}
+          } catch(e) { console.warn('[nativeRadio-V175] external PAUSE failed:', e && e.message); }
+        } else if (state.playbackEngine === 'web' && state.audioElement) {
+          state.audioElement.pause();
+          state.isPlaying = false; updatePlayerUI();
+          setLastPlayPlaying(false);  // V183
+        }
         break;
       case 'stop':
         stopPlaying({ fromNativeBroadcast: true });
@@ -560,6 +413,40 @@ function init() {
       const hasHls = typeof Hls !== 'undefined';
       if (hasHls) console.log('[APP BOOT] hls.js loaded: v' + (Hls.version||'?') + ' isSupported=' + Hls.isSupported());
       else console.log('[APP BOOT] Hls UNDEFINED / NOT LOADED');
+      // ════════════════════════════════════════════════════════════
+      // V118 NativeAudio可用性确认 — 通过 shouldInterceptRequest RPC 通道
+      //   addJavascriptInterface 在 ColorOS 失效 (window.NativeAudio=undefined)
+      //   改用 window.__NATIVE_AUDIO_READY 标志 (由 Java evaluateJavascript 设置)
+      //   playChannel 每次调用 hasNativeAudio() 重新检查，不缓存
+      const rpcReady = !!window.__NATIVE_AUDIO_READY;
+      console.log('[APP BOOT] NativeAudio RPC: window.__NATIVE_AUDIO_READY=' + rpcReady
+                  + ' → Native ExoPlayer V118引擎：' + (rpcReady ? '✅ RPC READY' : '⏳ 等待Java注入 (playChannel会重新检查)'));
+      // ════════════════════════════════════════════════════════════
+      // V168: 恢复数据/location.reload()后，原生ExoPlayer可能残留上一页的播放(孤儿流)
+      //   → 启动时停掉，防止与新点击的台双声。冷启动时进程重建无残留，此调用为无害空操作。
+      // V170: 播放器是进程级单例，锁屏被ColorOS销毁Activity后它仍在播放(!)。
+      //   此时若盲目stop → 锁屏存活的播放被误杀，解锁后还要重播(旧bug「锁屏无声」)。
+      //   规则：status.isPlaying=true 说明播放合法存活 → 保留并同步UI；否则才stop(防reload双声)。
+      // ════════════════════════════════════════════════════════════
+      if (rpcReady) {
+        setTimeout(function() {
+          try {
+            var _bst = nativeAudioRpc('status');
+            if (_bst && _bst.isPlaying) {
+              state.playbackEngine = 'native';
+              state.isPlaying = true;
+              window.__lastPlayChannel = state.currentChannel || window.__lastPlayChannel;
+              if (els.fpStatus) els.fpStatus.textContent = '正在直播';
+              try { updatePlayerUI(); } catch(ign){}
+              console.log('[V170-BOOT] 原生播放器存活且正在播放(Activity重建/锁屏恢复)，保留播放不打断 hasSource=' + _bst.hasSource);
+            } else {
+              nativeAudioRpc('stop');
+              console.log('[V168-BOOT] 原生未在播放，执行stop清理残留(reload防双声)');
+            }
+          } catch(ign){}
+        }, 300);
+      }
+      // ════════════════════════════════════════════════════════════
     } catch(ign){}
     initElements();
     // V82: 版本号移到"管理→关于"，不再弹启动Toast
@@ -577,18 +464,131 @@ function init() {
     loadFavorites();
     loadHistory();
     loadCustomChannels();
+    loadUserStations();
+    // ---- 恢复最后播放状态：先于自动定位，以免定位覆盖 currentFilter ----
+    try {
+      const lp = loadLastPlay();
+      if (lp && lp.id) {
+        // 2. 先找 channel 对象，找到后才能确定它实际的分类
+        let ch = null;
+        if (lp.isUserStation) {
+          ch = state.userStations.find(s => s.id === lp.id);
+          if (ch) ch = { ...ch, isUserStation: true };
+        }
+        if (!ch) {
+          const all = [...(state.channels.radio||[]), ...(state.channels.tv||[])];
+          ch = all.find(c => c.id === lp.id);
+        }
+        // 如果找不到（数据变了），就用保存的信息构造一个
+        if (!ch && lp.url) {
+          ch = {
+            id: lp.id, name: lp.name, url: lp.url,
+            description: lp.description, category: lp.category,
+            frequency: lp.frequency, color: lp.color,
+            isUserStation: !!lp.isUserStation
+          };
+        }
+        if (ch) {
+          state.currentChannel = ch;
+          // V141: 优先恢复上次保存的 lp.filter（用户当时在看哪个 tab），
+          //   前提是该 tab 里确实能看到这个电台（收藏/历史/自定义/省份都行）；
+          //   如果 lp.filter 不匹配（比如收藏已移除），才回退到电台实际省份。
+          const cats = getCategoryList();
+          const actualCat = String(ch.description || ch.category || '').trim();
+          let filterToUse = '';
+          if (lp.filter && cats.indexOf(lp.filter) >= 0) {
+            // 验证该电台是否真的出现在这个 filter 的列表里
+            var inThisFilter = false;
+            if (lp.filter === '收藏') {
+              inThisFilter = state.favorites.indexOf(ch.id) >= 0;
+            } else if (lp.filter === '历史') {
+              // V163修复: history存的是id字符串数组，原some(h=>h.id)永远false → 冷启动总是回落到省份
+              inThisFilter = state.history.indexOf(ch.id) >= 0;
+            } else if (lp.filter === '自定义') {
+              inThisFilter = state.customChannels.indexOf(ch.id) >= 0;
+            } else if (lp.filter === '个人') {
+              // V162: 个人tab → 检查是否为用户自建电台（个人电台地区可能是任意省份，不能用actualCat匹配）
+              inThisFilter = state.userStations.some(s => s.id === ch.id) || !!ch.isUserStation;
+            } else {
+              // 省份/全部：用电台实际分类匹配
+              inThisFilter = (lp.filter === '全部') || (actualCat === lp.filter);
+            }
+            if (inThisFilter) filterToUse = lp.filter;
+          }
+          if (!filterToUse && actualCat && cats.indexOf(actualCat) >= 0) {
+            filterToUse = actualCat;          // 兜底：电台实际所在的省份
+          }
+          if (filterToUse) { state.currentFilter = filterToUse; console.log('[V163 lastPlay恢复] lp.filter=' + (lp.filter||'') + ' → filter=' + filterToUse + ' 电台=' + (ch.name||'') + ' isUserStation=' + !!ch.isUserStation); }
+          // V138: 为 init 末尾的"滚动到当前电台"打一个需要滚动的标记
+          window.__INIT_SCROLL_NEEDED = { id: ch.id, name: ch.name };
+        }
+      }
+    } catch(e) {}
     initAnalogClock();
     renderCategories();
     renderChannels();
     updateTopRegion();
+    updatePlayerUI();
     setupEventListeners();
     setupThemeSwitcher();
     setupFontSwitcher();
     setupLocateBtn();
     setupAudio();
+    initNativeAudioListener_once();
     reportNativeState(true);
     startMiniProgressTicker();
     autoDetectProvinceOnLaunch();
+    // V138: 所有 DOM 都渲染好后，再滚动一次到当前电台（启动时 pinnedProvince 排序、分类切换都已完成）
+    //       用 requestAnimationFrame 两次确保下一帧 paint 后再滚动，避免被 renderChannels 末尾的"smooth scroll"覆盖
+    try {
+      if (window.__INIT_SCROLL_NEEDED && state.currentChannel) {
+        var sn = window.__INIT_SCROLL_NEEDED;
+        var doScroll = function() {
+          try {
+            var curId = sn.id;
+            var curName = sn.name;
+            var activeEl = null;
+            if (els.channelList) {
+              var allItems = els.channelList.querySelectorAll('.channel-list-item');
+              for (var i = 0; i < allItems.length; i++) {
+                var fav = allItems[i].querySelector('.channel-list-fav');
+                if (fav && fav.getAttribute('data-id') == curId) { activeEl = allItems[i]; break; }
+              }
+              if (!activeEl && curName) {
+                var nms = els.channelList.querySelectorAll('.channel-list-name');
+                for (var k = 0; k < nms.length; k++) {
+                  if (nms[k].textContent === curName) {
+                    activeEl = nms[k].closest('.channel-list-item');
+                    break;
+                  }
+                }
+              }
+            }
+            if (activeEl) {
+              // 对齐到顶部（像用户截图那样："BTV生活伴音"正好在列表最上面），block:'start' + 一点 padding 偏移
+              activeEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              // 再补一次：如果顶栏/搜索栏遮住了，再微调一次（setTimeout 100ms）
+              setTimeout(function(){
+                try {
+                  if (els.channelList) {
+                    var pad = 110; // 顶部时钟+标题区高度，让item不要贴在最顶端（和截图里"BTV生活伴音"在第二格的位置一致）
+                    var y = activeEl.getBoundingClientRect().top + els.channelList.scrollTop - pad;
+                    els.channelList.scrollTo({ top: y, behavior: 'smooth' });
+                  }
+                } catch(e){}
+              }, 350);
+            }
+          } catch (ex) { console.warn('INIT_SCROLL_NEEDED ex', ex && ex.message); }
+        };
+        window.requestAnimationFrame(function(){
+          window.requestAnimationFrame(doScroll);
+        });
+      }
+    } catch (scrollInitEx) { console.warn('scrollInit wrapper ex', scrollInitEx && scrollInitEx.message); }
+    // V152: 渲染进程崩溃恢复检测 — 如果上次是渲染崩溃恢复，强制重连播放
+    try { checkRenderCrashRecovery(); } catch(e) { console.warn('checkRenderCrashRecovery ex', e); }
+    // V183: 冷启动自动续播（wasPlaying + 外部音频输出门控；无输出则布防等耳机连接）
+    try { coldResumeIfNeeded(); } catch(e) { console.warn('coldResumeIfNeeded ex', e); }
   } catch (e) {
     const msg = '[init.err] ' + (e && e.message ? e.message : String(e)) + (e && e.stack ? '\n' + String(e.stack).slice(0, 400) : '');
     console.error(msg);
@@ -734,7 +734,17 @@ function initAnalogClock() {
     }
   }
   updateAnalogClock();
-  setInterval(updateAnalogClock, 1000);
+  // V164 POWER: 锁屏/后台时停掉每秒时钟定时器（原来仅跳过秒针绘制，但每秒仍唤醒CPU）。
+  //   回前台时立即刷新一次并重启定时器，指针无感知差异。
+  let _clockTimer = setInterval(updateAnalogClock, 1000);
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+      if (_clockTimer) { clearInterval(_clockTimer); _clockTimer = null; }
+    } else {
+      if (!_clockTimer) _clockTimer = setInterval(updateAnalogClock, 1000);
+      updateAnalogClock();
+    }
+  });
 }
 
 function updateAnalogClock() {
@@ -751,7 +761,8 @@ function updateAnalogClock() {
   // SVG pointer-events rotate around center (50,50)
   if (he) he.setAttribute('transform', `rotate(${hourDeg} 50 50)`);
   if (me) me.setAttribute('transform', `rotate(${minDeg} 50 50)`);
-  if (se) se.setAttribute('transform', `rotate(${secDeg} 50 50)`);
+  // V159 POWER: 后台息屏时用户看不见 → 跳过秒针setAttribute（省2/3的DOM写入）
+  if (se && !document.hidden) se.setAttribute('transform', `rotate(${secDeg} 50 50)`);
 }
 
 function initElements() {
@@ -807,6 +818,10 @@ function initElements() {
   els.searchClear = $('searchClear');
   els.searchClose = $('searchClose');
   els.searchResults = $('searchResults');
+  // V150: 搜索历史
+  els.searchHistory = $('searchHistory');
+  els.searchHistoryTags = $('searchHistoryTags');
+  els.searchHistoryClear = $('searchHistoryClear');
 
   els.modalSheet = $('modalSheet');
   els.sheetTitle = $('sheetTitle');
@@ -815,23 +830,18 @@ function initElements() {
   els.exportBtn = $('exportBtn');
   els.importBtn = $('importBtn');
   els.resetBtn = $('resetBtn');
+  els.backupBtn = $('backupBtn');
+  els.restoreBtn = $('restoreBtn');
   els.channelManageList = $('channelManageList');
+  els.manageRegionTabs = $('manageRegionTabs');
+  els.manageRegionSummary = $('manageRegionSummary');
+  els.manageRegionCurrent = $('manageRegionCurrent');
   els.logoProgressSection = $('logoProgressSection');
   els.progressFetched = $('progressFetched');
   els.progressFailed = $('progressFailed');
   els.progressTotal = $('progressTotal');
   els.progressFill = $('progressFill');
   els.fetchLogoBtn = $('fetchLogoBtn');
-  // V84: 台标按需获取状态 + 管理页省市分类导航
-  els.onDemandStatus = $('onDemandStatus');
-  els.manageRegionTabs = $('manageRegionTabs');
-  els.manageRegionSummary = $('manageRegionSummary');
-  els.manageRegionCurrent = $('manageRegionCurrent');
-  // V85: Native 局域网后端地址配置
-  els.serverUrlConfig = $('serverUrlConfig');
-  els.serverUrlInput = $('serverUrlInput');
-  els.saveServerUrlBtn = $('saveServerUrlBtn');
-  els.serverUrlHint = $('serverUrlHint');
 
   els.themeSwitcher = $('themeSwitcher');
   els.themeBtns = document.querySelectorAll('.theme-btn');
@@ -852,8 +862,29 @@ function initElements() {
   els.timerSheetClose = $('timerSheetClose');
   els.timerCountdown = $('timerCountdown');
 
-  els.importFile = $('importFile');
+  els.personalBatchFile = $('personalBatchFile');
   els.toast = $('toast');
+
+  els.personalSheet = $('personalSheet');
+  els.personalSheetTitle = $('personalSheetTitle');
+  els.personalSheetClose = $('personalSheetClose');
+  els.personalForm = $('personalForm');
+  els.personalCancel = $('personalCancel');
+
+  els.batchSheet = $('batchSheet');
+  els.batchSheetClose = $('batchSheetClose');
+  els.batchTextarea = $('batchTextarea');
+  els.batchCopyTemplate = $('batchCopyTemplate');
+  els.batchClear = $('batchClear');
+  els.batchImport = $('batchImport');
+  els.batchCancel = $('batchCancel');
+  els.batchInfo = $('batchInfo');
+
+  els.confirmOverlay = $('confirmOverlay');
+  els.confirmTitle = $('confirmTitle');
+  els.confirmMsg = $('confirmMsg');
+  els.confirmCancel = $('confirmCancel');
+  els.confirmOk = $('confirmOk');
 }
 
 /* ============ CLOCK ============ */
@@ -865,7 +896,8 @@ function startClock() {
     els.clock.textContent = `${h}:${m}`;
   }
   update();
-  setInterval(update, 1000);
+  // V159 POWER: 只显示HH:MM → 60秒刷新足够（之前1秒有98%的更新是重复写入相同字符串）
+  setInterval(update, 60000);
 }
 
 /* ============ STORAGE ============ */
@@ -876,9 +908,57 @@ function loadHistory() { try { state.history = JSON.parse(localStorage.getItem('
 function saveHistory() { try { localStorage.setItem('radio_history', JSON.stringify(state.history)); } catch(e){} }
 function loadCustomChannels() { try { state.customChannels = JSON.parse(localStorage.getItem('radio_custom_channels')||'[]'); } catch(e){ state.customChannels=[]; } }
 function saveCustomChannels() { try { localStorage.setItem('radio_custom_channels', JSON.stringify(state.customChannels)); } catch(e){} }
+function loadUserStations() { try { state.userStations = JSON.parse(localStorage.getItem('radio_user_stations')||'[]'); } catch(e){ state.userStations=[]; } }
+function saveUserStations() { try { localStorage.setItem('radio_user_stations', JSON.stringify(state.userStations)); } catch(e){} }
+function saveLastPlay(ch, wasPlaying) {
+  try {
+    if (!ch) return;
+    localStorage.setItem(LAST_PLAY_KEY, JSON.stringify({
+      id: ch.id,
+      name: ch.name || '',
+      url: ch.url || '',
+      description: ch.description || '',
+      category: ch.category || '',
+      frequency: ch.frequency || '',
+      color: ch.color || '',
+      isUserStation: !!ch.isUserStation,
+      filter: state.currentFilter || '全部',
+      // V183: 播放意愿标记。播放/重连恢复=true；用户手动暂停/停止=false；
+      //   蓝牙断开导致的暂停保持true（语义：还想听，只是设备断了），供冷启动自动续播门控使用。
+      wasPlaying: wasPlaying !== false,
+      ts: Date.now()
+    }));
+  } catch(e) {}
+}
+// V183: 只更新播放意愿，不改动电台信息/时间戳（暂停、resume 等轻量场景）
+function setLastPlayPlaying(flag) {
+  try {
+    const raw = localStorage.getItem(LAST_PLAY_KEY);
+    if (!raw) return;
+    const lp = JSON.parse(raw);
+    if (!lp) return;
+    lp.wasPlaying = !!flag;
+    localStorage.setItem(LAST_PLAY_KEY, JSON.stringify(lp));
+  } catch(e) {}
+}
+function loadLastPlay() {
+  try {
+    const raw = localStorage.getItem(LAST_PLAY_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch(e) { return null; }
+}
 
 /* ============ Electron版 processChannels (100%字节级复制自根目录app.js第119-669行) ============ */
 function processChannels(data) {
+  // ============ V102d 双重防御 (V1.3.89同款BUG根因) ============
+  //  旧代码致命缺陷：
+  //    1. channels.js有时没tv字段 → data.tv = undefined → data.tv.length直接TypeError
+  //    2. processChannels任何异常→函数崩溃→不写localStorage→forceReset+无缓存=空列表0个电台
+  //  修复：函数开头就把data.radio/data.tv兜底为[]，整个函数wrap try/catch，失败返回backupStations保底（至少有1600+ backup台）
+  if (!data) { console.error('V102d processChannels: data为空，兜底backupStations'); data = {radio:[], tv:[]}; }
+  if (!Array.isArray(data.radio)) { console.warn('V102d processChannels: data.radio非数组，兜底=[]'); data.radio = []; }
+  if (!Array.isArray(data.tv))    { console.warn('V102d processChannels: data.tv非数组，兜底=[] (this is normal if channels.js lacks tv field)'); data.tv = []; }
+  try {
   const badChars = ['鏂', '缃', '鍖', '浜', '闊', '涓', '鍗', '浣', '娌', '閮', '杈', '姹', '娴', '灞', '鍝', '瑗', '榛', '瀹', '娓', '闀', '榫'];
   
   const backupStations = [
@@ -1304,8 +1384,7 @@ function processChannels(data) {
       url: url,
       color: ch.color || '#d4af37',
       description: region,
-      category: category,
-      logo: ch.logo || undefined
+      category: category
     });
   }
   
@@ -1330,8 +1409,7 @@ function processChannels(data) {
             url: station.url,
             color: '#4a90e2',
             description: station.region,
-            category: station.category,
-            logo: radio[j].logo || undefined
+            category: station.category
           };
           found = true;
           break;
@@ -1346,8 +1424,7 @@ function processChannels(data) {
         url: station.url,
         color: '#4a90e2',
         description: station.region,
-        category: station.category,
-        logo: undefined
+        category: station.category
       });
     }
   }
@@ -1388,17 +1465,137 @@ function processChannels(data) {
       if (ngcdnOverride[r.name]) { r.url = ngcdnOverride[r.name]; replaced = true; }
       else if (ngcdnOverride[core1]) { r.url = ngcdnOverride[core1]; replaced = true; }
       if (!replaced) {
-        const lm = r.url.match(/(\/live\/[a-z0-9]+\/playlist\.m3u8)/i);
-        if (lm) r.url = 'https://satellitepull.cnr.cn' + lm[1];
+        // V104 CRITICAL FIX: satellitepull wsSession=XXXXX 参数=短期CDN签名，160秒左右必过期导致精确断流！
+        //  如果backupStations没有对应的ngcdn官方源兜底，就把URL里的wsSession/wsIPSercert参数全部strip掉！
+        //  satellitepull.cnr.cn/live/xxx/playlist.m3u8 裸链是不需要鉴权的，只有带wsSession参数才会校验过期时间！
+        try {
+          const qIdx = r.url.indexOf('?');
+          if (qIdx > 0) r.url = r.url.substring(0, qIdx); // 直接剥离所有query参数=永固裸链
+        } catch (e) { console.warn('[V104-FIX] strip wsSession FAIL:', r.url.substring(0,40), e&&e.message); }
       }
     }
+  }
+  // ============================================================
+  //  V105-MERGE-SWITCH 电台合并功能总开关（默认false=不合并=您现在5分钟稳定的状态！）
+  //  用户刚才实测数据：
+  //    ① V102d 不合并=1652台，WebEngine+hls.js+CORShijack+ngcdn永固源 → 息屏5分钟+稳定✅
+  //    ② 合并功能不完整（缺V1.3.89名称归一化："中央文艺之声"="文艺之声"="CNR-9 文艺之声"没合并）→ 当前合并=1623台，合并不彻底
+  //    ③ 之前V88合并版无声=不是合并功能本身，是"排序错误→satellitepull.wsSession过期源排线路1默认播放"
+  //  所以：默认ENABLE_MERGE=false=完全回到现在5分钟稳定的不合并状态！
+  //  想启用合并版功能的话：把ENABLE_MERGE改成true（将启用：精确name合并+未来V1.3.89名称归一化+CDN priority排序+多线路urls数组）
+  // ============================================================
+  const ENABLE_MERGE = false; // ⭐ DEFAULT FALSE = 不合并！5分钟稳定版！
+  // ⭐ 永久生效防御（无论ENABLE_MERGE真假）：uniqueRadio里每台的URL都经过上面的wsSession strip，防过期签名！
+  // ============================================================
+  //  V104-FINAL 恢复电台合并功能 (V1.3.88核心 完全恢复)
+  //  修复1: 按name归一化 → 合并多个重复名称电台为1个 → urls[]=多线路
+  //  修复2(最关键): 同电台内多条线路 按【CDN稳定度优先级】严格排序，稳定的放前=默认线路！
+  //     P0: ngcdn001/002.cnr.cn 中央台官方CDN(无鉴权参数，永久有效！)=必须排线路1！
+  //     P1: qtfm.cn/qingting.fm/xmcdn 蜻蜓/喜马拉雅(稳定MP3流)=线路2/3
+  //     P2: alicdn.com/myalicdn.com 阿里云CDN=线路3/4
+  //     P3: 省级/地方台CDN(zbbf2.*等)=线路4/5
+  //     P9(最末): satellitepull.cnr.cn + wsSession(即使strip了参数，也尽量排最后！裸链效果不如ngcdn官方)=仅手动兜底
+  //  修复3(先不启用自动切线路): LineMonitor后台定时器在息屏时JS冻结=异常。暂时不启动它，只保留UI手动"线路N"按钮切换
+  // ============================================================
+  function cdnPriorityOf(url) {
+    // 数值越大=越稳定=排越前 (最后urls.sort的reverse顺序)
+    if (!url) return -999;
+    if (/ngcdn00[12]\.cnr\.cn/i.test(url))                          return 900; // P0 中央台官方CDN 永固
+    if (/ngcdn\.cnr\.cn|cnr\.cn\/live/i.test(url))                  return 850; // P0b 中央台其他官方
+    if (/lhttp\.qtfm\.cn|qingting\.fm|qtfm\.cn/i.test(url))         return 700; // P1 蜻蜓 稳定MP3
+    if (/xmcdn\.com|ximalaya\.com|fms\.od\.xiaomi/i.test(url))      return 650; // P1b 喜马拉雅/小米
+    if (/alicdn\.com|myalicdn\.com/i.test(url))                     return 500; // P2 阿里云CDN
+    if (/\.douyincdn\.com|douyin\.com|huoshan\.com/i.test(url))     return 450; // P2b 字节CDN
+    // P3: 各种省级/地方台自建CDN
+    if (/zbbf2\.|ahbztv\.com|sctv\.com|tv\.cctv|cctv\.com/i.test(url)) return 300;
+    if (/\.m3u8$/i.test(url))                                       return 150; // P4: 任何HLS裸链
+    if (/\.mp3$|\.aac$/i.test(url))                                 return 100; // P5: 任何MP3裸链
+    // P9 satellitepull排最后 (即使strip了wsSession参数，这个CDN本身连通率不如ngcdn官方)
+    if (/satellitepull\.cnr\.cn/i.test(url))                        return 5;
+    return 50; // unknown = 中性偏低
+  }
+  function labelOfCdn(url) {
+    if (!url) return '未知线路';
+    if (/ngcdn00[12]\.cnr\.cn/i.test(url)) return '央广官方CDN';
+    if (/ngcdn\.cnr\.cn/i.test(url))       return '央广CDN';
+    if (/satellitepull\.cnr\.cn/i.test(url)) return '央广卫星pull';
+    if (/qtfm\.cn|qingting/i.test(url))    return '蜻蜓FM';
+    if (/xmcdn|ximalaya/i.test(url))       return '喜马拉雅';
+    if (/alicdn|myalicdn/i.test(url))      return '阿里云CDN';
+    if (/mp3$/i.test(url))                 return 'MP3直链';
+    try { const m = url.match(/https?:\/\/([^\/:]+)/); if (m) return m[1].substring(0, 16); } catch(e) {}
+    return '线路';
+  }
+  // finalRadio声明在块外(ES5 var，非块级作用域)，无论走那个分支都能取到最终值
+  var finalRadio = uniqueRadio; // 默认=不合并=V102d稳定态1652台
+  var mergedRadio = []; // ⭐ V105修复：mergedRadio也声明在块外，ENABLE_MERGE=false时不会ReferenceError（即使第1100行已改用finalRadio）
+  if (!ENABLE_MERGE) {
+    console.log('[V105 合并开关] ENABLE_MERGE=false → 跳过合并(保持V102d完全稳定态)，uniqueRadio='+uniqueRadio.length+'台，直接作为finalRadio返回。wsSession strip防御永久生效(44个satellitepull源已删除过期wsSession参数)。');
+    // 给每台手动挂urls[]=单元素数组(兼容UI未来可能访问ch.urls不报错)
+    for (let si = 0; si < uniqueRadio.length; si++) {
+      if (!uniqueRadio[si].urls) uniqueRadio[si].urls = [{ url: uniqueRadio[si].url, cdn: labelOfCdn(uniqueRadio[si].url), priority: cdnPriorityOf(uniqueRadio[si].url) }];
+      if (!uniqueRadio[si].lineLabels) uniqueRadio[si].lineLabels = ['线路1 · ' + labelOfCdn(uniqueRadio[si].url)];
+    }
+    // finalRadio = uniqueRadio; 已经在上面设为默认了
+  } else {
+    // ============ ENABLE_MERGE=true：启用完整合并功能 ============
+  const byNameMap = new Map();
+  let mergePairs = 0;
+  for (let i = 0; i < uniqueRadio.length; i++) {
+    const r = uniqueRadio[i];
+    const normName = (r.name || '').trim();
+    if (!normName) continue;
+    let entry = byNameMap.get(normName);
+    if (!entry) {
+      // 首次出现：作为主条目模板
+      entry = JSON.parse(JSON.stringify(r)); // deep copy防止污染
+      entry.urls = [{ url: r.url, cdn: labelOfCdn(r.url), priority: cdnPriorityOf(r.url) }];
+      byNameMap.set(normName, entry);
+    } else {
+      // 合并：把当前r的URL添加到urls[]数组，CDN去重
+      let dupUrl = false;
+      for (let k = 0; k < entry.urls.length; k++) {
+        if (entry.urls[k].url === r.url) { dupUrl = true; break; }
+      }
+      if (!dupUrl) {
+        entry.urls.push({ url: r.url, cdn: labelOfCdn(r.url), priority: cdnPriorityOf(r.url) });
+        mergePairs++;
+      }
+      // 保留更多元信息：如果新r里color有颜色但旧entry没有，就继承
+      if ((!entry.color || entry.color==='#d4af37') && r.color && r.color!=='#d4af37') entry.color = r.color;
+      if (!entry.frequency && r.frequency)  entry.frequency = r.frequency;
+      if (!entry.description && r.description) entry.description = r.description;
+    }
+  }
+  // 排序：每个entry.urls[] 按priority DESC → priority最高的(900=ngcdn002官方)放urls[0]=默认播放！
+  mergedRadio.length = 0; // ⭐ V105修复：已经在块外声明了var mergedRadio=[]，这里清空复用（不能再const声明，否则块级作用域覆盖）
+  for (const [name, entry] of byNameMap.entries()) {
+    entry.urls.sort(function(a, b) { return (b.priority||0) - (a.priority||0); });
+    // 默认播放url = urls[0].url (最高CDN优先级的那条，V104最核心的修复！)
+    entry.url = entry.urls[0].url;
+    // lineLabels: 给UI展示，"线路1(央广官方CDN) / 线路2(蜻蜓FM)"
+    entry.lineLabels = entry.urls.map(function(u, i) { return '线路'+(i+1)+' · '+u.cdn; });
+    mergedRadio.push(entry);
+  }
+  console.log('[V104 合并统计] 去重前uniqueRadio='+uniqueRadio.length+' → 按name合并后mergedRadio='+mergedRadio.length+'，有'+mergePairs+'条重复线路被合并(多线路电台='+(byNameMap.size - uniqueRadio.length + mergePairs < 0 ? 0 : (function(){let c=0; byNameMap.forEach(e=>{if(e.urls.length>1)c++}); return c})())+') 个电台≥2条线路)');
+  // 额外打印前15个多线路电台的线路排序，验证ngcdn官方是否排在线路1
+  let debugMulti = [];
+  byNameMap.forEach(function(e, nm) {
+    if (e.urls.length > 1 && debugMulti.length < 15) {
+      debugMulti.push({ name: nm, lines: e.urls.map(u=>u.cdn+':'+(u.priority||0)).join(' > '), default: e.url.substring(0,55) });
+    }
+  });
+  console.log('[V104 合并调试] 前15个多线路电台(CDN priority DESC排序):', debugMulti);
+  // ============ ENABLE_MERGE=true分支结束：finalRadio=mergedRadio ============
+  finalRadio = mergedRadio;
   }
   const regionCounts = {};
   const regionNames = new Set();
   const debugInfo = [];
   const duplicateInfo = [];
-  for (let i = 0; i < uniqueRadio.length; i++) {
-    const r = uniqueRadio[i];
+  // V105: finalRadio 已在前面正确赋值(ENABLE_MERGE=false=uniqueRadio=1652；true=mergedRadio=1623)
+  for (let i = 0; i < finalRadio.length; i++) {
+    const r = finalRadio[i];
     let desc = r.description;
     desc = desc.trim().replace(/[\uFEFF]/g, '').replace(/\s+/g, '').replace(/[\uFF01-\uFF5E]/g, function(c) { return String.fromCharCode(c.charCodeAt(0) - 0xFEE0); });
     regionNames.add(desc);
@@ -1418,11 +1615,11 @@ function processChannels(data) {
     }
   }
   console.log('重复分类详情:', duplicateInfo);
-  console.log('分类数量总和:', total, ', uniqueRadio长度:', uniqueRadio.length);
+  console.log('分类数量总和:', total, ', finalRadio长度(合并分支=mergedRadio，不合并分支=uniqueRadio):', finalRadio.length, ', uniqueRadio(URL处理+strip wsSession后):', uniqueRadio.length);
   console.log('分类统计对象的键数量:', Object.keys(regionCounts).length);
-  const hongKongStations = uniqueRadio.filter(r => r.name.includes('香港'));
+  const hongKongStations = finalRadio.filter(r => r.name.includes('香港'));
   console.log('所有包含"香港"的电台:', hongKongStations.map(r => ({ name: r.name, desc: r.description })));
-  const unclassifiedStations = uniqueRadio.filter(r => !regions.some(reg => reg.name === r.description));
+  const unclassifiedStations = finalRadio.filter(r => !regions.some(reg => reg.name === r.description));
   console.log('未被正确归类的电台数量:', unclassifiedStations.length);
   console.log('未被正确归类的电台示例:', unclassifiedStations.slice(0, 10).map(r => ({ name: r.name, desc: r.description })));
   
@@ -1446,17 +1643,33 @@ function processChannels(data) {
       url: url,
       color: ch.color || '#d4af37',
       description: region,
-      category: ch.category || 'tv-documentary',
-      logo: ch.logo || undefined
+      category: ch.category || 'tv-documentary'
     });
   }
   
-  return { radio: uniqueRadio, tv };
+  // V104核心：用mergedRadio返回(按name合并+CDN优先级排序ngcdn002官方线路1)，不是uniqueRadio
+  return { radio: finalRadio, tv };
+  // V102d 最后兜底catch：任何异常都至少返回backupStations保底（backupStations里120+台，保证用户永远能看到电台）
+  } catch (processFatal) {
+    console.error('V104 processChannels FATAL exception (fallback to backupStations only): ' + processFatal.message, processFatal.stack);
+    try {
+      const fallback = { radio: [], tv: [] };
+      for (let bi = 0; bi < backupStations.length; bi++) {
+        const s = backupStations[bi];
+        fallback.radio.push({
+          id: 'fb'+bi, name: s.name, frequency: s.frequency || '网络电台',
+          url: s.url, color: '#d4af37', description: s.region || '全国', category: s.category || '综合'
+        });
+      }
+      console.warn('V102d processChannels FATAL resolved: fallback radio.length=' + fallback.radio.length);
+      return fallback;
+    } catch (ultraFatal) { return { radio:[], tv:[] }; }
+  }
 }
 
 // Electron版真实分类顺序（来自app.js provinceOrder）
 const ELECTRON_REGION_ORDER = [
-  '全部','收藏','历史',
+  '全部','收藏','历史','个人',
   '全国','中央','电视伴音','国际',
   '北京','上海','天津','重庆',
   '香港','澳门','台湾',
@@ -1479,7 +1692,7 @@ const ELECTRON_PROVINCE_ORDER = [
   '河南', '湖北', '湖南', '广东', '广西', '海南',
   '四川', '贵州', '云南', '西藏',
   '陕西', '甘肃', '青海', '宁夏', '新疆',
-  '内蒙古', '海外', '其它'
+  '内蒙古', '海外', '个人', '其它'
 ];
 const ELECTRON_CITY_ORDER = {
   '北京': ['北京'],
@@ -1541,49 +1754,145 @@ function electronStationSort(regionName, stationsArr) {
 }
 
 /* ============ 加载频道（100% Electron逻辑 - 直接调processChannels） ============ */
+// V157 加固：DATA_VERSION升级导致 forceReset=true 时，从旧 saved radio_channels
+//   按 id 合并用户编辑字段（地区/频率/分类/Logo/主题色/播放地址/名称），避免编辑内容被覆盖复位
+//   用户可编辑字段 = 管理台编辑表单 (submitEditForm/submitPersonalForm) 可修改的所有字段
+const USER_EDITABLE_FIELDS = ['description','region','frequency','category','logo',
+                              'theme_color','color','url','name','cityOrder','_edited'];
+// V161: 检测乱码地区名（含U+FFFD替换符/控制符/私用区，或完全不含中日韩文字与字母数字）
+function isGarbledRegion(name) {
+  if (!name) return false;
+  const s = String(name);
+  if (s.indexOf('\uFFFD') >= 0) return true;
+  let hasText = false;
+  for (const ch of s) {
+    const cp = ch.codePointAt(0);
+    if ((cp >= 0x4E00 && cp <= 0x9FFF) || (cp >= 0x3400 && cp <= 0x4DBF) ||
+        (cp >= 0x30 && cp <= 0x39) || (cp >= 0x41 && cp <= 0x5A) ||
+        (cp >= 0x61 && cp <= 0x7A)) { hasText = true; break; }
+  }
+  return !hasText;
+}
+// V161: 把频道里乱码的 description 归入「其它」，防止左侧导航出现乱码分类
+function sanitizeChannelDescriptions() {
+  var fixed = 0;
+  var walk = function(arr) {
+    if (!Array.isArray(arr)) return;
+    arr.forEach(function(c) {
+      if (c && isGarbledRegion(c.description)) { c.description = '其它'; fixed++; }
+    });
+  };
+  walk(state.channels && state.channels.radio);
+  walk(state.channels && state.channels.tv);
+  if (fixed > 0) console.log('[V161 sanitizeChannelDescriptions] 已把 ' + fixed + ' 个乱码地区归入「其它」');
+}
 function loadChannels() {
   const STORAGE_KEY = 'radio_channels';
   try {
     const savedVer = localStorage.getItem(DATA_VERSION_KEY);
     const forceReset = savedVer !== DATA_VERSION;
-    console.log('[V66 loadChannels]['+APP_VERSION+'] savedVer='+(savedVer||'')+' required='+DATA_VERSION+' forceReset='+forceReset);
-    
+    console.log('[V157 loadChannels]['+APP_VERSION+'] savedVer='+(savedVer||'')+' required='+DATA_VERSION+' forceReset='+forceReset);
+
+    // 版本没变时从 localStorage 加载，保留用户编辑（地区、频率等）
+    if (!forceReset) {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        state.channels = JSON.parse(saved);
+        sanitizeChannelDescriptions();
+        console.log('[loadChannels] 从 localStorage 加载（保留用户编辑），总台数='+(state.channels.radio||[]).length);
+        return;
+      }
+    }
+
+    // ============= V157: 版本变了 → 从 CHANNEL_DATA 重新处理，但先把用户编辑字段合并回来 =============
+    // Step1: 先读取旧 saved radio_channels，构建 id→编辑值 映射
+    var userEditsMap = {}; // { [id]: {field: value, ...} }
+    var userPersonalStations = []; // 保留用户自建电台
+    try {
+      const oldStr = localStorage.getItem(STORAGE_KEY);
+      if (oldStr) {
+        const oldObj = JSON.parse(oldStr);
+        var collectFn = function(arr) {
+          if (!Array.isArray(arr)) return;
+          arr.forEach(function(c) {
+            if (!c || !c.id) return;
+            // 自建电台（isPersonal/userCreated）或者不在CHANNEL_DATA原始列表里的用户添加台 → 整体保留
+            if (c.isPersonal || c.userCreated || c._userAdded) {
+              userPersonalStations.push(JSON.parse(JSON.stringify(c)));
+              return;
+            }
+            var edits = {};
+            var hasEdit = false;
+            USER_EDITABLE_FIELDS.forEach(function(f) {
+              if (c[f] !== undefined && c[f] !== null && c[f] !== '') { edits[f] = c[f]; hasEdit = true; }
+            });
+            if (hasEdit) userEditsMap[c.id] = edits;
+          });
+        };
+        collectFn(oldObj.radio);
+        collectFn(oldObj.tv);
+      }
+      console.log('[V157 loadChannels] 从旧缓存恢复用户编辑：'+Object.keys(userEditsMap).length+' 个预置电台有编辑值，自建电台 '+userPersonalStations.length+' 个');
+    } catch(parseErr) {
+      console.warn('[V157 loadChannels] 解析旧saved失败，无法合并用户编辑: '+parseErr);
+      userEditsMap = {}; userPersonalStations = [];
+    }
+
+    // 版本变了或无保存数据，从 CHANNEL_DATA 重新处理
     if (typeof CHANNEL_DATA !== 'undefined' && CHANNEL_DATA.radio) {
       const processed = processChannels(CHANNEL_DATA);
+      // Step2: 合并 userEditsMap 到 processed
+      var mergedCount = 0;
+      var mergeToArr = function(arr) {
+        if (!Array.isArray(arr)) return;
+        arr.forEach(function(c) {
+          if (!c || !c.id) return;
+          var edits = userEditsMap[c.id];
+          if (!edits) return;
+          USER_EDITABLE_FIELDS.forEach(function(f) {
+            if (edits[f] !== undefined) { c[f] = edits[f]; }
+          });
+          mergedCount++;
+        });
+      };
+      mergeToArr(processed.radio);
+      mergeToArr(processed.tv);
+      console.log('[V157 loadChannels] 合并到新processed：'+mergedCount+' 个电台编辑值已还原');
+      // Step3: 把自建台追加到 radio 列表末尾（去重：id相同跳过）
+      if (userPersonalStations.length > 0) {
+        if (!Array.isArray(processed.radio)) processed.radio = [];
+        var existIds = {};
+        processed.radio.forEach(function(c) { if (c && c.id) existIds[c.id] = true; });
+        userPersonalStations.forEach(function(ps) {
+          if (ps && ps.id && !existIds[ps.id]) { processed.radio.push(ps); existIds[ps.id] = true; }
+        });
+        console.log('[V157 loadChannels] 恢复自建个人电台 '+userPersonalStations.length+' 个到列表');
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(processed));
       localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION);
       state.channels = processed;
-      
+      sanitizeChannelDescriptions();
+
       // 校验统计
       const gucheng = processed.radio.filter(c => /故城/.test(c.name));
       const jjzsArr = processed.radio.filter(c => /经济之声/.test(c.name));
       const centralRaw = processed.radio.filter(c => c.description === '中央');
-      // === 关键点：中央排序按Electron buildStationTree的localeCompare(zh-CN)排序（和用户截图一致）===
       const centralSorted = electronStationSort('中央', centralRaw);
       console.log('[loadChannels] 总台数='+processed.radio.length+' 中央='+centralSorted.length+' 故城='+gucheng.length);
-      console.log('[loadChannels] 中央明细(Electron排序后): '+centralSorted.map(function(c,i){ return (i+1)+'.'+c.name+'|'+c.url.substring(0,50); }).join(' · '));
       if (jjzsArr.length > 0) {
         console.log('[loadChannels] 经济之声URL='+jjzsArr[0].url+' id='+jjzsArr[0].id);
       }
-      if (gucheng.length > 0) {
-        console.log('[loadChannels] 故城县电台明细: '+gucheng.map(c => c.name+' desc='+c.description).join(' | '));
-      }
-      const toastMsg = APP_VERSION + ' 总数='+processed.radio.length+' 中央='+centralSorted.length+' URL1='+(jjzsArr[0]?jjzsArr[0].url.substring(jjzsArr[0].url.indexOf('//')+2, jjzsArr[0].url.indexOf('/live')):'?');
-      try {
-        showToast(toastMsg);
-        clearTimeout(showToast._t);
-        showToast._t = setTimeout(function(){ try { els.toast.classList.remove('show'); } catch(e){} }, 8000);
-      } catch(tErr){}
       return;
     }
   } catch (e) {
-    console.warn('[V66 loadChannels] 处理频道数据失败', e);
+    console.warn('[V157 loadChannels] 处理频道数据失败', e);
   }
   // fallback
   try {
     const saved = localStorage.getItem('radio_channels');
     if (saved) { state.channels = JSON.parse(saved); }
     else { state.channels = { radio: [], tv: [] }; }
+    sanitizeChannelDescriptions();
   } catch(e2) {
     state.channels = { radio: [], tv: [] };
   }
@@ -1591,20 +1900,24 @@ function loadChannels() {
 
 /* ============ CATEGORIES (严格Electron顺序 - 左侧垂直导航) ============ */
 // 不参与「省份排序」的前几个功能分类（永远在最前）
-const HEADER_CATEGORIES = ['全部', '收藏', '历史', '全国', '中央', '电视伴音', '国际'];
+const HEADER_CATEGORIES = ['全部', '收藏', '历史', '个人', '全国', '中央', '电视伴音', '国际'];
 // 不参与「省份排序」的后几个功能分类（永远在最后）
 const TAIL_CATEGORIES = ['海外', '其它', '自定义'];
 
 function getCategoryList() {
   const all = [...state.channels.radio || [], ...state.channels.tv || []];
   const hasRegion = {};
-  all.forEach(ch => { hasRegion[ch.description || '全国'] = true; });
+  all.forEach(ch => {
+    const d = ch.description || '全国';
+    hasRegion[isGarbledRegion(d) ? '其它' : d] = true;  // V161: 乱码地区归入「其它」
+  });
   if (state.favorites.length) hasRegion['收藏'] = true;
   if (state.history.length) hasRegion['历史'] = true;
   hasRegion['全部'] = true;
+  hasRegion['个人'] = true;
   const MAIN_REGIONS = ELECTRON_REGION_ORDER.filter(r => !['其它'].includes(r));
   let list = MAIN_REGIONS.filter(r => {
-    if (['全部','收藏','历史'].includes(r)) return true;
+    if (['全部','收藏','历史','个人'].includes(r)) return true;
     return true;
   });
   Object.keys(hasRegion).forEach(r => { if (!list.includes(r)) list.push(r); });
@@ -1625,13 +1938,14 @@ function getCategoryList() {
 
 function updateTopRegion() {
   if (els.topRegion) {
-    const map = { '全部':'全部', '收藏':'收藏', '历史':'历史', '自定义':'自定义' };
+    const map = { '全部':'全部', '收藏':'收藏', '历史':'历史', '自定义':'自定义', '个人':'个人' };
     els.topRegion.textContent = map[state.currentFilter] || state.currentFilter;
   }
 }
 
 function renderCategories() {
   const cats = getCategoryList();
+  console.log('[renderCategories] pinnedProvince=' + (state.pinnedProvince||'') + ' cats[0..12]=' + cats.slice(0,13).join(','));
   const labelMap = {
     '全部':'全部', '收藏':'收藏', '历史':'历史',
     '全国':'全国', '中央':'中央', '电视伴音':'伴音', '国际':'国际',
@@ -1643,7 +1957,7 @@ function renderCategories() {
     '四川':'四川', '贵州':'贵州', '云南':'云南', '西藏':'西藏',
     '陕西':'陕西', '甘肃':'甘肃', '青海':'青海', '宁夏':'宁夏', '新疆':'新疆',
     '内蒙古':'内蒙', '海外':'海外', '其它':'其它',
-    '自定义':'自定义'
+    '自定义':'自定义', '个人':'个人'
   };
   // 通用兜底：带「省/市/自治区/维吾尔/壮族/回族」后缀的去掉后截前 2 字
   const shortenRegion = (r) => {
@@ -1675,17 +1989,114 @@ function renderCategories() {
 
 /* ============ CHANNELS - 列表式（100% Electron buildStationTree排序逻辑） ============ */
 function getFilteredChannels() {
+  // V126: 个人Tab → 显示用户自建电台
+  if (state.currentFilter === '个人') {
+    const userList = state.userStations.map(s => ({
+      id: s.id,
+      name: s.name,
+      url: s.url,
+      frequency: s.frequency || '',
+      description: s.description || '',
+      category: s.category || '综合',
+      color: s.color || '#d7263d',
+      isUserStation: true
+    }));
+    // V176: 个人电台也按地区(省份)分组排序，与省市tab/收藏tab逻辑一致：相同地区电台排一块。
+    //   有正常地区(description) → 按省份分组 → 组内 electronStationSort(cityOrder+localeCompare)
+    //   → 省份顺序按 ELECTRON_PROVINCE_ORDER + localeCompare；无地区/乱码地区的电台放最后。
+    const regionGroups = {};
+    const noRegion = [];
+    userList.forEach(function(ch) {
+      const region = ch.description;
+      if (region && !isGarbledRegion(region)) {
+        if (!regionGroups[region]) regionGroups[region] = [];
+        regionGroups[region].push(ch);
+      } else {
+        noRegion.push(ch);
+      }
+    });
+    Object.keys(regionGroups).forEach(function(rName) {
+      regionGroups[rName] = electronStationSort(rName, regionGroups[rName]);
+    });
+    const regionNames = Object.keys(regionGroups);
+    regionNames.sort(function(a, b) {
+      const idxA = ELECTRON_PROVINCE_ORDER.indexOf(a);
+      const idxB = ELECTRON_PROVINCE_ORDER.indexOf(b);
+      if (idxA !== idxB) return idxA - idxB;
+      return a.localeCompare(b, 'zh-CN');
+    });
+    const flat = [];
+    regionNames.forEach(function(r) { flat.push(...regionGroups[r]); });
+    return [...flat, ...noRegion];
+  }
+
   let list = [...state.channels.radio || [], ...state.channels.tv || []];
 
-  // 功能分类：收藏/历史/自定义 - 保持原始顺序（按收藏/收听顺序）
-  if (state.currentFilter === '收藏') return list.filter(ch => state.favorites.includes(ch.id));
-  if (state.currentFilter === '历史') return list.filter(ch => state.history.includes(ch.id));
+  // 功能分类：收藏 - 按省份分组+electronStationSort排序，有地区的个人电台参与省份排序，无地区的放最后
+  if (state.currentFilter === '收藏') {
+    const favNormal = list.filter(ch => state.favorites.includes(ch.id));
+    const favUser = state.userStations
+      .filter(s => state.favorites.includes(s.id))
+      .map(s => ({
+        id: s.id, name: s.name, url: s.url,
+        frequency: s.frequency || '', description: s.description || '',
+        category: s.category || '综合', color: s.color || '#d7263d',
+        isUserStation: true
+      }));
+    // 普通收藏按省份分组+electronStationSort排序
+    const regionGroups = {};
+    favNormal.forEach(function(ch) {
+      const region = ch.description || '其它';
+      if (!regionGroups[region]) regionGroups[region] = [];
+      regionGroups[region].push(ch);
+    });
+    // 有地区的个人电台参与省份分组排序，无地区的放最后
+    const favUserNoRegion = [];
+    favUser.forEach(function(ch) {
+      const region = ch.description;
+      if (region) {
+        if (!regionGroups[region]) regionGroups[region] = [];
+        regionGroups[region].push(ch);
+      } else {
+        favUserNoRegion.push(ch);
+      }
+    });
+    Object.keys(regionGroups).forEach(function(rName) {
+      regionGroups[rName] = electronStationSort(rName, regionGroups[rName]);
+    });
+    const regionNames = Object.keys(regionGroups);
+    regionNames.sort(function(a, b) {
+      const idxA = ELECTRON_PROVINCE_ORDER.indexOf(a);
+      const idxB = ELECTRON_PROVINCE_ORDER.indexOf(b);
+      if (idxA !== idxB) return idxA - idxB;
+      return a.localeCompare(b, 'zh-CN');
+    });
+    const flat = [];
+    regionNames.forEach(function(r) { flat.push(...regionGroups[r]); });
+    // 有地区的个人电台已参与省份排序；没有地区的个人电台放最后
+    return [...flat, ...favUserNoRegion];
+  }
+  if (state.currentFilter === '历史') {
+    // V163: 严格按播放时间倒序（最近播放在最上），普通电台与个人电台按时间混合排列
+    const byId = {};
+    list.forEach(function(ch) { byId[ch.id] = ch; });
+    state.userStations.forEach(function(s) {
+      byId[s.id] = {
+        id: s.id, name: s.name, url: s.url,
+        frequency: s.frequency || '', description: s.description || '',
+        category: s.category || '综合', color: s.color || '#d7263d',
+        isUserStation: true
+      };
+    });
+    return state.history.map(function(id) { return byId[id]; }).filter(Boolean);
+  }
   if (state.currentFilter === '自定义') return list.filter(ch => state.customChannels.includes(ch.id));
 
   // 按description分region，每个region内严格按Electron排序
   const regionGroups = {};
   list.forEach(function(ch) {
-    const region = ch.description || '其它';
+    const rawDesc = ch.description || '其它';
+    const region = isGarbledRegion(rawDesc) ? '其它' : rawDesc;  // V161: 乱码地区归入「其它」
     if (!regionGroups[region]) regionGroups[region] = [];
     regionGroups[region].push(ch);
   });
@@ -1713,15 +2124,40 @@ function getFilteredChannels() {
   return regionGroups[state.currentFilter] || list.filter(ch => (ch.description||'') === state.currentFilter);
 }
 
-function makeChannelListItem(ch) {
+function makeChannelListItem(ch, opts) {
+  opts = opts || {};
   const isActive = state.currentChannel && state.currentChannel.id === ch.id;
   const isFavorite = state.favorites.includes(ch.id);
+  const isUser = !!ch.isUserStation;
+  const mode = opts.mode || 'browse';  // 'browse'浏览页(个人列表) / 'manage'管理页 / 其它普通列表
   const el = document.createElement('div');
   el.className = 'channel-list-item' + (isActive ? ' active' : '');
   const subParts = [];
   if (ch.frequency) subParts.push(ch.frequency);
   if (ch.description) subParts.push(ch.description);
   const hasLive = isActive && !!state.isPlaying;
+
+  let actionsHtml;
+  if (isUser && mode === 'manage') {
+    // 管理页：显示编辑/删除
+    actionsHtml = `
+      <div class="channel-list-user-actions">
+        <button class="channel-list-act edit" data-act="edit" data-id="${ch.id}" aria-label="编辑">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+        </button>
+        <button class="channel-list-act del" data-act="del" data-id="${ch.id}" aria-label="删除">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+        </button>
+      </div>
+    `;
+  } else {
+    // 浏览页(个人列表)/收藏/历史/其它：统一显示收藏toggle
+    actionsHtml = `
+      <button class="channel-list-fav ${isFavorite?'active':''}" data-id="${ch.id}" aria-label="收藏">
+        <svg viewBox="0 0 24 24" fill="${isFavorite?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+      </button>
+    `;
+  }
   el.innerHTML = `
     <div class="channel-list-logo">${getChannelIcon(ch)}</div>
     <div class="channel-list-info">
@@ -1731,18 +2167,25 @@ function makeChannelListItem(ch) {
         <span>${escapeHtml(subParts.join(' · ') || '网络电台')}</span>
       </div>
     </div>
-    <button class="channel-list-fav ${isFavorite?'active':''}" data-id="${ch.id}" aria-label="收藏">
-      <svg viewBox="0 0 24 24" fill="${isFavorite?'currentColor':'none'}" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-    </button>
+    ${actionsHtml}
   `;
   el.addEventListener('click', e => {
-    if (e.target.closest('.channel-list-fav')) return;
+    if (e.target.closest('.channel-list-fav') || e.target.closest('.channel-list-act')) return;
     playChannel(ch);
   });
   const favBtn = el.querySelector('.channel-list-fav');
-  favBtn.addEventListener('click', e => {
+  if (favBtn) favBtn.addEventListener('click', e => {
     e.stopPropagation();
     toggleFavorite(ch.id);
+  });
+  el.querySelectorAll('.channel-list-act').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const act = btn.dataset.act;
+      const id = btn.dataset.id;
+      if (act === 'edit') openPersonalEdit(id);
+      else if (act === 'del') deleteUserStation(id);
+    });
   });
   return el;
 }
@@ -1758,15 +2201,37 @@ function renderChannels() {
     );
   }
   els.channelList.innerHTML = '';
+  // V126: 个人Tab → 顶部显示"添加电台"按钮条
+  if (state.currentFilter === '个人') {
+    const bar = document.createElement('div');
+    bar.className = 'personal-bar';
+    bar.innerHTML = `
+      <div class="personal-bar-info">
+        <div class="personal-bar-title">📻 自建</div>
+        <span class="personal-bar-count">${state.userStations.length}</span>
+      </div>
+      <div class="personal-bar-actions">
+        <button class="personal-add-btn" id="personalBatchBtn" title="批量导入" style="color:var(--text-primary)!important;background:var(--surface-hover);border:1px solid var(--border);white-space:nowrap;">📥 批量</button>
+        <button class="personal-add-btn" id="personalAddBtn" style="color:var(--text-primary)!important;background:var(--surface-hover);border:1px solid var(--border);white-space:nowrap;">➕ 添加</button>
+      </div>
+    `;
+    els.channelList.appendChild(bar);
+    const addBtn = bar.querySelector('#personalAddBtn');
+    if (addBtn) addBtn.addEventListener('click', openPersonalAdd);
+    const batchBtn = bar.querySelector('#personalBatchBtn');
+    if (batchBtn) batchBtn.addEventListener('click', openPersonalBatch);
+  }
   if (!channels.length) {
-    if (state.currentFilter !== '全部' && state.currentFilter !== '收藏' && state.currentFilter !== '历史') {
-      els.emptyState.querySelector('.empty-text').textContent = state.currentFilter + '暂无电台';
+    if (state.currentFilter === '个人') {
+      els.emptyState.querySelector('.empty-text').textContent = '还没有个人电台，点击上方"添加电台"创建';
     } else if (state.searchQuery) {
       els.emptyState.querySelector('.empty-text').textContent = '没有找到相关电台';
     } else if (state.currentFilter === '收藏') {
       els.emptyState.querySelector('.empty-text').textContent = '还没有收藏任何电台';
     } else if (state.currentFilter === '历史') {
       els.emptyState.querySelector('.empty-text').textContent = '还没有收听历史';
+    } else if (state.currentFilter !== '全部') {
+      els.emptyState.querySelector('.empty-text').textContent = state.currentFilter + '暂无电台';
     } else {
       els.emptyState.querySelector('.empty-text').textContent = '暂无电台';
     }
@@ -1778,6 +2243,10 @@ function renderChannels() {
   const frag = document.createDocumentFragment();
   channels.forEach(ch => frag.appendChild(makeChannelListItem(ch)));
   els.channelList.appendChild(frag);
+  // V140: 删除 V137-V139 中 unconditional 的 scrollIntoView(block:'center')——
+  //       它导致"每次点击任何电台→列表强制滚动"的反体验bug。
+  //       启动恢复lastPlay的滚动已在 init() 里通过双 rAF + pad=110px 处理好了（更精准）。
+  //       用户手动切分类 / 点播放 / 搜索时，保持用户当前滚动位置不动 = 正确交互。
   setupLogoFallbacks();
 }
 
@@ -1786,7 +2255,7 @@ function getChannelIcon(ch) {
   const n = ch.name||'', c = ch.category||'', f = ch.frequency||'', col = ch.color||'#e63946';
   if (ch.logo) {
     const local = ch.logo.startsWith('logos/') || !ch.logo.startsWith('http');
-    return `<img src="${logoUrl(ch.logo)}" data-name="${n}" data-cat="${c}" data-freq="${f}" data-color="${col}" class="channel-logo ${local?'local-logo':'remote-logo'}" alt=""/>`;
+    return `<img src="${ch.logo}" data-name="${n}" data-cat="${c}" data-freq="${f}" data-color="${col}" class="channel-logo ${local?'local-logo':'remote-logo'}" alt=""/>`;
   }
   return generateSvgLogo(n, c, f, col);
 }
@@ -1845,45 +2314,18 @@ function hexToRgba(hex, a) {
   return `rgba(${n>>16},${(n>>8)&0xff},${n&0xff},${a})`;
 }
 
-// V87: 统一处理"img 加载失败→替换为 fallback"，防止 img 已脱离 DOM 时
-// 设置 outerHTML 抛出 NoModificationAllowedError（就是你截图里那个红色弹窗错误）
-function __safeReplaceImgWithFallback(img, fallbackHtml) {
-  try {
-    if (!img) return;
-    if (typeof img.onerror === 'function') { try { img.onerror = null; } catch(_){} }
-    img.removeAttribute('onerror');
-    var p = img.parentNode;
-    if (!p) return;                           // 已脱离 DOM：不报错、不处理
-    try { p.replaceChild(document.createRange().createContextualFragment(fallbackHtml), img); }
-    catch (_) {
-      // createContextualFragment 失败（极少见）→ 退化为 insertBefore + remove
-      try {
-        var wrap = document.createElement('span');
-        wrap.innerHTML = fallbackHtml;
-        while (wrap.firstChild) p.insertBefore(wrap.firstChild, img);
-        if (img.parentNode === p) p.removeChild(img);
-      } catch(__) {}
-    }
-  } catch (ign) {}
-}
-
 function setupLogoFallbacks() {
   document.querySelectorAll('.channel-logo').forEach(img => {
     img.onerror = function() {
       const name = this.dataset.name||'', cat=this.dataset.cat||'', freq=this.dataset.freq||'', col=this.dataset.color||'#d4af37';
-      __safeReplaceImgWithFallback(this, generateSvgLogo(name, cat, freq, col));
+      this.outerHTML = generateSvgLogo(name, cat, freq, col);
     };
     if (img.complete && img.naturalWidth===0) img.onerror();
   });
 }
 
 function getLogoInnerHtml(ch) {
-  if (ch.logo) {
-    // V87: 不写内联 outerHTML（会因为脱离DOM抛全局错误），而用 data-role 让
-    // setupLogoFallbacks 统一处理，或者直接走图片404的onerror回调到安全 helper
-    return `<img src="${logoUrl(ch.logo)}" alt="" data-role="card-logo-fallback"
-      onerror="(function(el){try{if(!el||!el.parentNode)return;el.onerror=null;el.removeAttribute('onerror');var p=el.parentNode;var s=document.createElement('span');s.style.fontSize='40px';s.textContent='📻';p.replaceChild(s,el);}catch(_){}})(this)"/>`;
-  }
+  if (ch.logo) return `<img src="${ch.logo}" alt="" onerror="this.onerror=null;this.outerHTML='<div style=&quot;font-size:40px&quot;>📻</div>'"/>`;
   return `<span style="font-size:58px">📻</span>`;
 }
 
@@ -1949,54 +2391,471 @@ function stopPlaying(opts) {
     try { window.NativeRadio.stopPlayer && window.NativeRadio.stopPlayer(); } catch (ign) {}
   }
   state.isPlaying = false;
+  setLastPlayPlaying(false);  // V183: 主动停止 → 取消冷启动自动续播
   if (els.fpStatus) els.fpStatus.textContent = '已暂停';
   updatePlayerUI();
   reportNativeState();
 }
 
+// ========================================================================
+// V152 稳定性增强：网络切换自动重连 + 渲染崩溃恢复
+// ========================================================================
+
+/**
+ * 网络恢复后自动重连当前电台（由 Java ConnectivityManager.NetworkCallback 调用）
+ * 无线↔5G 切换时 hls.js/Icecast 可能断流，这里重新播放当前电台
+ * 节流：10秒内只触发一次，避免网络抖动导致频繁重连
+ */
+window.handleNetworkReconnect = function() {
+  try {
+    if (!window.__lastPlayChannel && !state.currentChannel) {
+      console.log('[NET-RECONNECT] 无当前电台，跳过');
+      return;
+    }
+    // V172 FIX: 尊重用户意图——用户主动暂停/蓝牙断开期间，网络恢复不自动重播
+    try {
+      if (window._getUserPaused && window._getUserPaused()) { console.log('[NET-RECONNECT-V172] 用户已暂停，跳过自动重播'); return; }
+      if (window._getBtAudioDisconnected && window._getBtAudioDisconnected()) { console.log('[NET-RECONNECT-V172] 蓝牙断开中，跳过自动重播'); return; }
+    } catch(ign){}
+    const now = Date.now();
+    const last = window.__lastReconnectTs || 0;
+    if (now - last < 10000) {
+      console.log('[NET-RECONNECT] 节流跳过（10秒内已触发）');
+      return;
+    }
+    window.__lastReconnectTs = now;
+    const ch = window.__lastPlayChannel || state.currentChannel;
+    console.log('[NET-RECONNECT] 网络已恢复，检查播放器状态: ' + (ch.name || ch.id || '?'));
+    // 延迟500ms等网络真正稳定后再重连
+    setTimeout(function() {
+      try {
+        if (ch && ch.url) {
+          // V170/V172: ExoPlayer(WAKE_MODE_NETWORK)自带网络恢复+V164退避重试(预算8次约77秒)。
+          //   正在播放/缓冲中→完全不打扰（Java门控已过滤大半，这里再兜底一次）；
+          //   有源但停了(IDLE/错误)→先轻量resume（保留原MediaSource，ExoPlayer继续退避自愈），
+          //   6秒复查仍无声才playChannel全量重载（兜底签名URL过期刷新）。
+          if (state.playbackEngine === 'native' && hasNativeAudio()) {
+            var _rst = null;
+            try { _rst = nativeAudioRpc('status'); } catch(eStat) { console.warn('[NET-RECONNECT] status查询失败: ' + (eStat && eStat.message)); }
+            if (_rst && _rst.isPlaying && _rst.hasSource) {
+              console.log('[NET-RECONNECT-V172] 原生播放器仍在正常播放，跳过，避免打断');
+              if (els.fpStatus) els.fpStatus.textContent = '正在直播';
+              return;
+            }
+            if (_rst && _rst.hasSource && !_rst.isPlaying) {
+              console.log('[NET-RECONNECT-V172] 有源但已停止(IDLE)，尝试轻量resume（保留退避自愈）');
+              var rresp = null;
+              try { rresp = nativeAudioRpc('resume'); } catch(eRes) { console.warn('[NET-RECONNECT] resume失败: ' + (eRes && eRes.message)); }
+              state.isPlaying = !!(rresp && rresp.isPlaying);
+              if (els.fpStatus) els.fpStatus.textContent = state.isPlaying ? '正在直播' : '已暂停';
+              updatePlayerUI();
+              if (state.isPlaying) {
+                // 6秒后复查：resume后若仍无声(URL过期等)，playChannel全量重载兜底
+                setTimeout(function() {
+                  try {
+                    var re = nativeAudioRpc('status');
+                    if (re && re.hasSource && !re.isPlaying) {
+                      console.log('[NET-RECONNECT-V172] resume后6秒复查仍无声 → playChannel全量重载兜底');
+                      if (els.fpStatus) els.fpStatus.textContent = '网络已恢复，重新连接...';
+                      playChannel(ch);
+                    } else {
+                      console.log('[NET-RECONNECT-V172] 复查正常(isPlaying=' + (re && re.isPlaying) + ')');
+                    }
+                  } catch(e2) {}
+                }, 6000);
+              } else {
+                // resume立即返回未播放（罕见）→ 直接全量重载
+                console.log('[NET-RECONNECT-V172] resume未生效 → playChannel全量重载');
+                if (els.fpStatus) els.fpStatus.textContent = '网络已恢复，重新连接...';
+                playChannel(ch);
+              }
+              return;
+            }
+            console.log('[NET-RECONNECT-V172] 无源(hasSource=false) → playChannel重载');
+          }
+          if (els.fpStatus) els.fpStatus.textContent = '网络已恢复，重新连接...';
+          playChannel(ch);
+        }
+      } catch(e) { console.warn('[NET-RECONNECT] 重连失败:', e); }
+    }, 500);
+  } catch(e) { console.error('[NET-RECONNECT] 异常:', e); }
+};
+
+// ========================================================================
+// V171 BT-AUDIO: 蓝牙音频输出状态处理（由 Java MainActivity.registerBtAudioMonitor 通过 evaluateJavascript 调用）
+//   - 蓝牙断开/耳机拔出 → 立即暂停，设置 _btAudioDisconnected=true
+//   - 蓝牙重连 → 清除 _btAudioDisconnected=false，允许后续自动恢复
+//   关键：解锁屏幕后 checkAndResumePlayback 检查此标志，断开期间不自动恢复
+//   V171a FIX: 本函数在顶层作用域，_btAudioDisconnected/_userPaused 是闭包变量（ReferenceError！）
+//     必须通过 window._get/_setBtAudioDisconnected、window._setUserPaused 读写闭包标志。
+// ========================================================================
+window.handleBtAudioDisconnect = function() {
+  try {
+    if (window._getBtAudioDisconnected && window._getBtAudioDisconnected()) { console.log('[V171-BT] 已是断开状态，跳过'); return; }
+    window._setBtAudioDisconnected && window._setBtAudioDisconnected(true);
+    console.log('[V171-BT] 蓝牙音频输出丢失，暂停播放');
+    // 标记用户暂停态，避免 watchdog/恢复逻辑误触发
+    window._setUserPaused && window._setUserPaused(true);
+    try {
+      if (els.fpStatus) els.fpStatus.textContent = '蓝牙断开，已暂停';
+      state.isPlaying = false;
+      updatePlayerUI();
+    } catch(ign){}
+    // V173: 只 pause 不 stop！蓝牙断开是临时事件，保留播放源(MediaSource)，
+    //   重连时 resume 秒级恢复；若 stopPlaying 会 clearMediaItems 清空源 + 释放FGS/锁，
+    //   重连只能全量 playChannel 重载（慢、重新缓冲）。
+    // Java端已 nativeAudioPlayer.pause()（wantPlaying=false，退避不重试），这里JS同步状态。
+    try {
+      if (state.playbackEngine === 'native' && hasNativeAudio()) {
+        nativeAudioRpc('pause');
+      } else if (state.audioElement) {
+        state.audioElement.pause();
+      }
+    } catch(e) { console.warn('[V173-BT] pause 异常:', e); }
+    try { reportNativeState(); } catch(ign){}
+    try { showToast('蓝牙断开，已暂停播放'); } catch(ign){}
+    console.log('[V173-BT] disconnect 处理完成（已暂停并保留播放源，UI已同步）');
+  } catch(e) { console.error('[V171-BT] disconnect 处理异常:', e); }
+};
+
+window.handleBtAudioReconnect = function() {
+  try {
+    window._setBtAudioDisconnected && window._setBtAudioDisconnected(false);
+    console.log('[V173-BT] 蓝牙重新连接：清除断开标志，自动恢复播放');
+    // 清除用户暂停态，允许自动恢复
+    window._setUserPaused && window._setUserPaused(false);
+    try { showToast('蓝牙已连接，恢复播放'); } catch(ign){}
+    // 自动恢复播放当前电台（V173死循环已修复：内部resume走ACTION_META不广播，无回环）
+    if (state.currentChannel && state.currentChannel.url) {
+      try {
+        if (hasNativeAudio() && state.playbackEngine === 'native') {
+          var st = nativeAudioRpc('status');
+          if (st && st.hasSource && !st.isPlaying) {
+            console.log('[V173-BT] 蓝牙重连 → native resume');
+            var resp = nativeAudioRpc('resume');
+            state.isPlaying = resp ? !!resp.isPlaying : true;
+            window._setUserPaused && window._setUserPaused(!state.isPlaying);
+            if (state.isPlaying) setLastPlayPlaying(true);  // V183: 蓝牙重连恢复 → 播放意愿保持
+            if (els.fpStatus) els.fpStatus.textContent = state.isPlaying ? '正在直播' : '已暂停';
+            updatePlayerUI();
+          } else if (st && !st.hasSource) {
+            console.log('[V173-BT] 蓝牙重连 → 无源，playChannel 重载');
+            if (els.fpStatus) els.fpStatus.textContent = '恢复播放中...';
+            playChannel(state.currentChannel);
+          } else {
+            console.log('[V173-BT] 蓝牙重连 → 已在播放 isPlaying=' + (st && st.isPlaying));
+            state.isPlaying = true;
+            window._setUserPaused && window._setUserPaused(false);
+            if (els.fpStatus) els.fpStatus.textContent = '正在直播';
+            updatePlayerUI();
+          }
+        } else {
+          console.log('[V173-BT] 蓝牙重连 → web 引擎，playChannel 重载');
+          if (els.fpStatus) els.fpStatus.textContent = '恢复播放中...';
+          playChannel(state.currentChannel);
+        }
+      } catch(e) { console.warn('[V173-BT] 恢复播放异常:', e); }
+    } else {
+      console.log('[V173-BT] 无当前电台，不自动恢复');
+    }
+  } catch(e) { console.error('[V173-BT] reconnect 处理异常:', e); }
+};
+
+
+/**
+ * 渲染进程崩溃恢复检测（页面加载后调用）
+ * 如果检测到崩溃标记，强制重新播放最后电台
+ */
+function checkRenderCrashRecovery() {
+  try {
+    if (!window.NativeRadio || !NativeRadio.wasRenderCrashed) return;
+    const crashed = NativeRadio.wasRenderCrashed();
+    if (!crashed) return;
+    window.__RENDER_CRASH_RESUMING = true;  // V183: 告知冷启动续播让位，避免双重playChannel
+    console.log('[RENDER-CRASH-RECOVER] 检测到渲染崩溃恢复，尝试重连播放');
+    // 等待 init() 完成恢复 state.currentChannel 后再重连
+    setTimeout(function() {
+      try {
+        const ch = state.currentChannel || window.__lastPlayChannel;
+        if (ch && ch.url) {
+          console.log('[RENDER-CRASH-RECOVER] 重连电台: ' + (ch.name || '?'));
+          if (els.fpStatus) els.fpStatus.textContent = '恢复播放中...';
+          playChannel(ch);
+        }
+      } catch(e) { console.warn('[RENDER-CRASH-RECOVER] 重连失败:', e); }
+    }, 2000); // 延迟2秒等 init 完全完成
+  } catch(e) { console.error('[RENDER-CRASH-RECOVER] 检测异常:', e); }
+}
+
+// V183: 冷启动自动续播。
+//   背景：app被系统回收/force-stop/装更新后冷启动，旧代码只恢复电台选中态从不自动播放；
+//   媒体键冷启动则由 Java Service 直接读持久化URL播放（见 RadioPlaybackService.coldStartPlayLastChannel）。
+//   本函数处理"用户点开图标启动"路径，严格门控：
+//     1) localStorage lastPlay.wasPlaying === true（播放/蓝牙断开保持，用户主动暂停/停止为false）
+//     2) 当前存在外部音频输出（蓝牙耳机/有线/USB），手机扬声器状态绝不自动响
+//   无外部输出但有播放意愿 → 调 armPendingBtRestore() 给Service布防，耳机后续连上即自动恢复。
+function coldResumeIfNeeded() {
+  if (!isNativeApp) { console.log('[V183-COLD] 非native环境，跳过冷启动续播'); return; }
+  if (window.__COLD_RESUME_STARTED) return;
+  window.__COLD_RESUME_STARTED = true;
+  var lp = null;
+  try { lp = loadLastPlay(); } catch(e) {}
+  if (!lp || lp.wasPlaying !== true || !lp.url) {
+    console.log('[V183-COLD] 无播放意愿/无URL，不自动续播 (wasPlaying=' + (lp ? lp.wasPlaying : 'no-lp') + ')');
+    return;
+  }
+  console.log('[V183-COLD] 上次为播放中，等待native引擎就绪后检查外部音频输出...');
+  var tries = 0;
+  var tick = function() {
+    tries++;
+    try {
+      if (window.__RENDER_CRASH_RESUMING) { console.log('[V183-COLD] 渲染崩溃恢复接管，冷启动续播让位'); return; }
+      if (!window.__NATIVE_AUDIO_READY || !hasNativeAudio || !hasNativeAudio()) {
+        if (tries < 30) { setTimeout(tick, 300); return; }
+        console.log('[V183-COLD] native引擎久未就绪，放弃自动续播'); return;
+      }
+      // 1) 媒体键冷启动可能已被Service在Java层直起播放 → 仅同步UI，绝不重复playChannel
+      var st = null;
+      try { st = nativeAudioRpc('status'); } catch(e) {}
+      if (st && st.isPlaying) {
+        state.playbackEngine = 'native';
+        state.isPlaying = true;
+        window.__lastPlayChannel = state.currentChannel || window.__lastPlayChannel;
+        if (els.fpStatus) els.fpStatus.textContent = '正在直播';
+        try { updatePlayerUI(); } catch(ign){}
+        console.log('[V183-COLD] Service已在播放(媒体键冷启动Java直连)，仅同步UI不重复播放');
+        return;
+      }
+      // 2) 门控：必须有外部音频输出，杜绝扬声器自己响
+      //    V183 FIX: 必须走nativeAudioRpc(shouldInterceptRequest通道)——ColorOS上
+      //    addJavascriptInterface失效，window.NativeRadio=undefined，直接查永远false
+      var hasOut = false;
+      try {
+        var hr = nativeAudioRpc('hasextaudio');
+        hasOut = !!(hr && hr.ok && hr.has);
+      } catch(e) {}
+      if (!hasOut) {
+        console.log('[V183-COLD] 无外部音频输出 → 不自动播放，向Service布防(耳机后续连上即恢复)');
+        try { nativeAudioRpc('armbtrestore'); } catch(e) {}
+        return;
+      }
+      // 3) 门控通过 → 自动续播上次电台
+      var ch = state.currentChannel;
+      if ((!ch || !ch.url) && lp.url) {
+        ch = {
+          id: lp.id, name: lp.name, url: lp.url,
+          description: lp.description, category: lp.category,
+          frequency: lp.frequency, color: lp.color,
+          isUserStation: !!lp.isUserStation
+        };
+        state.currentChannel = ch;
+      }
+      if (ch && ch.url) {
+        console.log('[V183-COLD] 外部输出在线 → 自动续播: ' + (ch.name || ch.id || '?'));
+        if (els.fpStatus) els.fpStatus.textContent = '恢复播放中...';
+        playChannel(ch);
+      }
+    } catch(e) { console.warn('[V183-COLD] tick异常:', e && e.message); }
+  };
+  setTimeout(tick, 1200);  // 等init渲染/数据加载/native注入
+}
+
+// V165: 云听等 radio.cn 时效签名URL检测 —— key&time 约24小时有效，过期后服务器403（无声）
+function isSignedExpiringUrl(url) {
+  try { return !!url && String(url).indexOf('radio.cn') >= 0 && String(url).indexOf('key=') >= 0 && String(url).indexOf('time=') >= 0; }
+  catch(e) { return false; }
+}
+function signedUrlExpired(url) {
+  try {
+    const m = /[?&]time=([0-9a-fA-F]+)/.exec(String(url));
+    if (!m) return false;
+    const issuedAt = parseInt(m[1], 16) * 1000;
+    if (!issuedAt) return false;
+    return Date.now() - issuedAt > 25 * 3600 * 1000;  // 签发25小时后视为过期（保守值）
+  } catch(e) { return false; }
+}
+
+// V165: 在内置频道里找同台稳定源 —— 去尾部「广播/电台」后前缀匹配（东莞交通广播↔东莞交通音乐广播）
+function _coreStationName(s) {
+  return String(s || '').replace(/[\s·]/g, '').replace(/(广播|电台)$/, '');
+}
+function findStableAlternative(ch) {
+  try {
+    const nm = _coreStationName(ch.name);
+    if (nm.length < 3) return null;
+    const pools = (state.channels.radio || []).concat(state.channels.tv || []);
+    for (let i = 0; i < pools.length; i++) {
+      const c = pools[i];
+      if (!c || c.id === ch.id || !c.url || isSignedExpiringUrl(c.url)) continue;
+      const cn = _coreStationName(c.name);
+      if (cn.length < 3) continue;
+      if (cn.indexOf(nm) === 0 || nm.indexOf(cn) === 0) return c;
+    }
+  } catch(e) {}
+  return null;
+}
+
 function playChannel(ch) {
   if (!ch) return;
-  // V61: Log version + radio id + url to logcat, tiny visual toast too to PROOF NEW CODE RUNS!
-  console.log('[playChannel]['+APP_VERSION+'] id=' + (ch.id||'?') + ' name=' + ch.name + ' url=' + ch.url + ' desc=' + (ch.description||''));
-  // V82: 不再在播放时弹Toast，只保留console日志
-  // try { showToast('▶ 播放 '+ch.name); clearTimeout(showToast._t); showToast._t=setTimeout(()=>{try{els.toast.classList.remove('show')}catch(ign){}},2200); } catch(ign){}
-  const switchingAway = (state.currentChannel && state.currentChannel.id !== ch.id);
-  // v56: Soft pre-clean only. No audio.pause(), no src wipe. Destroy any
-  // attached prior hls.js instance before we hand off to the new load.
+  // V165: 签名URL已过期 → 优先自动切换内置同名稳定源；无替代才提示更新链接。不打断当前播放。
+  if (isSignedExpiringUrl(ch.url) && signedUrlExpired(ch.url)) {
+    console.warn('[V165-SIGNED] 签名链接已过期(签发超25h): ' + (ch.name || ch.id));
+    const _stable = ch._noSignFallback ? null : findStableAlternative(ch);
+    if (_stable && _stable.url) {
+      console.log('[V165-SIGNED] 自动切换稳定源: ' + _stable.name + ' (' + _stable.id + ') ' + String(_stable.url).substring(0, 60));
+      showToast && showToast('「' + (ch.name || '') + '」云听链接已过期，已自动切换稳定源「' + _stable.name + '」');
+      playChannel(Object.assign({}, _stable, { _noSignFallback: true }));
+      return;
+    }
+    if (els.fpStatus) els.fpStatus.textContent = '云听链接已过期，请更新该电台链接';
+    showToast && showToast('「' + (ch.name || '') + '」的云听链接已过期（约24小时有效），请更新链接或改用稳定源');
+    return;
+  }
+  // ════════════════════════════════════════════════════════════════════
+  // V169 FIX(第一次点击慢): 点击「当前已暂停的同一电台」→ 直接resume秒级出声。
+  //   实测(logcat 12:25:59): 同台暂停后再点走了全量重载(重新拉HLS流) → 5.5秒才READY；
+  //   而首次播放/正常换台只需0.7-1.1秒。resume路径与togglePlay一致，带hasSource检查防递归。
+  // ════════════════════════════════════════════════════════════════════
+  if (state.currentChannel && state.currentChannel.id === ch.id && !state.isPlaying &&
+      state.playbackEngine === 'native' && hasNativeAudio()) {
+    var _pausedSt = null;
+    try { _pausedSt = nativeAudioRpc('status'); } catch (ign) {}
+    if (_pausedSt && _pausedSt.hasSource) {
+      try {
+        nativeAudioRpc('resume');
+        state.isPlaying = true;
+        window._setUserPaused && window._setUserPaused(false);
+        window._setBtAudioDisconnected && window._setBtAudioDisconnected(false);  // V171: 用户主动恢复，清除蓝牙断开标志
+        setLastPlayPlaying(true);  // V183
+        window.__lastPlayChannel = ch;
+        if (els.fpStatus) els.fpStatus.textContent = '正在直播';
+        updatePlayerUI();
+        reportNativeState();
+        console.log('[playChannel-V169] 同台已暂停 → RPC resume 秒级恢复(跳过全量重载)');
+        return;
+      } catch (eResume) {
+        console.warn('[playChannel-V169] resume失败，回落全量播放: ' + (eResume && eResume.message || eResume));
+      }
+    }
+  }
+  // V159: 切换电台时清除用户暂停标志（新电台自动播放）
+  window._setUserPaused && window._setUserPaused(false);
+  window._setBtAudioDisconnected && window._setBtAudioDisconnected(false);  // V171: 用户主动播放，清除蓝牙断开标志
+  // V152-RECONNECT: 记录正在播放的电台，供网络恢复/渲染崩溃后重连使用
+  window.__lastPlayChannel = ch;
+  console.log('[playChannel-V119] id=' + (ch.id||'?') + ' name=' + (ch.name||'').substring(0,24) + ' | url=' + (ch.url||'').substring(0,90));
+  // 清理上一个引擎的资源（防止 web↔native 切换时双音轨）
   if (state.hls) { try { state.hls.destroy(); } catch(ign){} state.hls = null; }
+  if (state.audioElement) { try { state.audioElement.pause(); } catch(ign){} try { state.audioElement.removeAttribute('src'); } catch(ign){} try { state.audioElement.load(); } catch(ign){} }
   state.currentChannel = ch;
-  state.playbackEngine = 'web';
-  state.isPlaying = true;   // V87-FIX: 先把 playing 状态立为 true（否则 reportNativeState 会带 playing=false）
+  saveLastPlay(ch);
+  if (els.fpStatus) els.fpStatus.textContent = '缓冲中...';
   updatePlayerUI();
   renderChannels();
   addToHistory(ch.id);
-  if (els.fpStatus) els.fpStatus.textContent = '缓冲中...';
-  // V84: 台标按需获取 - 播放无台标电台时，后台触发 /api/fetch-logo 获取（Web 模式）
-  try { maybeFetchLogoOnDemand(ch); __updateOnDemandStatusUI(); } catch(ign){}
-  // V87g: 冷启动宽限重置 - playChannel() 瞬间就把 25s 卡死判定宽限和 15s SoftFail 宽限打开，
-  //        同时立刻标 alive (不用等 onloadstart, 有些服务器 onloadstart 2s 才回调)。
-  //        这个调用必须在 setupAudio() 之前，保证 setupAudio 里的 onsuspend 在 T+0.5s 触发时已经有宽限窗口。
-  __playbackWatchdogResetForNewPlay();
-  __ensureWatchdogRunning();   // V87g: 也立刻启动 watchdog (不用等 onplaying，提前监控 paused=true 真死情况)
-
-  // ========== V87e-THE-FIX: playChannel 入口只发 1 次 notify，去重统一交给 __debouncedNativeNotify ==========
-  // V87c 旧代码在此同时：① notifyPlaybackIntent(N,S,true) ② reportNativeState(true) → 同 key 立刻发两遍
-  //      → @JavascriptInterface 爆炸：4 次 rebuild notification + re-request audio focus → 120ms JNI burn
-  //      → "故城县电台首次打开长时间才播放 + toast" / "经济之声开头卡一下" 的真正根因。
-  // V87e 统一通过 __debouncedNativeNotify(name, sub, true, {force:true})：
-  //      (a) 即使紧接着 setupAudio.onplaying 立刻又调一次同 key reportNativeState(true)，
-  //          120ms debounce window 内会合并（pending payload 替换→同 key dedupe→只实际 JNI 1 次）
-  //      (b) force=true 保证"真的切台，JS 显式要求"这次 notify 不会被 __dnd_lastKey 误吞（
-  //          比如上一台停了之后秒切下一台，playing 都是 true，但 name 变了 → key 不同，flush 正常发）
-  // 额外：不再独立调 reportNativeState(true)，因为 debounced notify + reportNativeState 的 dedupe
-  //       结果完全一致，但 reportNativeState 再读一次 state.currentChannel 也是同值（我们已经 set），
-  //       所以没必要。如果 force=true 的 stop 路径才需要 reportNativeState 单独兜底。
-  try {
-    __debouncedNativeNotify((ch.name||'') + '', ((ch.frequency||'') + (ch.description?' · '+ch.description:'')), true, { force: true });
-    console.log('[V87e] playChannel: __debouncedNativeNotify(playing=true, force=true) enqueued (120ms debounce collapse) name=[' + (ch.name||'') + ']');
-  } catch (eTop) { console.warn('[V87e] playChannel debounced-notify CATCH: ', eTop && eTop.message || eTop); }
-
+  // V118: 优先使用原生 ExoPlayer 引擎 — 通过 shouldInterceptRequest RPC 通道调用
+  //       音频跑在系统 media cgroup，不受 ColorOS 锁屏 WebView 冻结影响
+  //       NativeAudioPlayer.java 含 V108-VIDEO-AUDIO-ONLY 修复：禁用视频轨道，纯音频不需 Surface
+  if (hasNativeAudio()) {
+    state.playbackEngine = 'native';
+    state.isPlaying = false;
+    reportNativeState(true);
+    try {
+      var _sub = (ch.frequency || '') + (ch.description ? ' · ' + ch.description : '');
+      var resp = nativeAudioRpc('play', { url: ch.url, name: ch.name || '', sub: _sub });
+      state.isPlaying = resp ? !!resp.isPlaying : false;
+      console.log('[playChannel-V121] → native ExoPlayer RPC isPlaying=' + state.isPlaying);
+      updatePlayerUI();
+      return;
+    } catch(e) {
+      console.warn('[playChannel-V121] native RPC 异常，回退 WebEngine:', e && e.message || e);
+      state.playbackEngine = 'web';
+    }
+  }
+  state.playbackEngine = 'web';
   playChannelWithWebEngine(ch);
+}
+
+// ========================================================================
+//  V100 NATIVE EXOPLAYER EVENT HANDLER
+//  window.addEventListener('nativeaudio', evt => evt.detail = {type, url, ...})
+//  These are dispatched FROM Java NativeAudioPlayer.NativeAudioEvents cb via
+//  wv.evaluateJavascript. They run on MAIN looper, so we can do minimal work.
+// ========================================================================
+function initNativeAudioListener_once() {
+  if (initNativeAudioListener_once._done) return;
+  initNativeAudioListener_once._done = true;
+  window.addEventListener('nativeaudio', function onNativeAudio(evt) {
+    const d = evt && evt.detail; if (!d) return;
+    const tp = d.type || '';
+    // V121: state.isPlaying 由同步 RPC 响应驱动，事件只更新状态文字
+    if (state.playbackEngine !== 'native') return;
+    switch (tp) {
+      case 'isplaying':
+        // 只更新状态文字，不改 state.isPlaying（RPC 已同步设置）
+        if (els.fpStatus) els.fpStatus.textContent = (d.isPlaying ? '正在直播' : '缓冲中...');
+        break;
+      case 'state':
+        if (d.state === 'BUFFERING') { if (els.fpStatus) els.fpStatus.textContent = '缓冲中...'; }
+        else if (d.state === 'READY') { if (els.fpStatus) els.fpStatus.textContent = '正在直播'; }
+        else if (d.state === 'ENDED') { if (els.fpStatus) els.fpStatus.textContent = '播放结束'; state.isPlaying = false; stopPlaying(); updatePlayerUI(); }
+        break;
+      case 'error':
+        console.error('[NativeEngine] ERROR '+d.code+' '+d.name+': '+d.msg);
+        if (els.fpStatus) els.fpStatus.textContent = '播放失败 (原生 '+d.name+')';
+        const ch = state.currentChannel;
+        if (ch && !onNativeAudio._fb) {
+          onNativeAudio._fb = true;
+          console.warn('[NativeEngine] native engine errored — one-time soft fallback to Web engine');
+          state.playbackEngine = 'web';
+          try { nativeAudioRpc('stop'); } catch(ign){}
+          playChannelWithWebEngine(ch);
+        }
+        updatePlayerUI();
+        break;
+      case 'play':
+        if (els.fpStatus) els.fpStatus.textContent = '缓冲中...';
+        break;
+      case 'pause':
+        if (els.fpStatus) els.fpStatus.textContent = '已暂停';
+        break;
+      case 'resume':
+        if (els.fpStatus) els.fpStatus.textContent = '正在直播';
+        break;
+      case 'stop':
+        state.isPlaying = false;
+        if (els.fpStatus) els.fpStatus.textContent = '已停止';
+        reportNativeState(); updatePlayerUI();
+        break;
+      case 'fatal':
+        console.error('[NativeEngine] FATAL setup error -> web engine permanently', d.msg);
+        const chF = state.currentChannel;
+        state.playbackEngine = 'web';
+        if (chF) playChannelWithWebEngine(chF);
+        break;
+    }
+  });
+  // Also: patch stopPlaying/pausePlaying/mini player so they call NativeAudio.stop/pause too
+  const origStop = window.stopPlaying;
+  window.stopPlaying = function patchedStop(opts) {
+    // V167 FIX(致命死循环根因): 此包装器原来无视 fromNativeBroadcast 一律调 rpc stop：
+    //   删除正在播的电台 → stop → Service广播STOP → JS广播handler再调stopPlaying → 又rpc stop
+    //   → 无限循环(每15ms一轮 exo.stop+startFGS+stopSelf) → 点击新电台立即被循环杀掉(无声)
+    //   → CPU空转被ColorOS杀应用("应用自己退出了")
+    if (state.playbackEngine === 'native' && !(opts && opts.fromNativeBroadcast)) {
+      try { nativeAudioRpc('stop'); } catch(ign){}
+    }
+    return origStop ? origStop.call(window, opts) : void 0;
+  };
+  // Pause button patches (fp-play, mini-play, etc.) are handled via DOM clicks.
+  // For non-click pauses, expose helpers:
+  window.__nativePause = function() {
+    if (state.playbackEngine === 'native') try { nativeAudioRpc('pause'); } catch(ign){}
+  };
+  window.__nativeResume = function() {
+    if (state.playbackEngine === 'native') try { nativeAudioRpc('resume'); } catch(ign){}
+  };
+  console.log('[NativeEngine] global listener installed');
 }
 
 function describeMediaError(err) {
@@ -2050,176 +2909,38 @@ function playChannelWithWebEngine(ch) {
     ' (page scheme=http per capacitor.config, so HTTP radio URLs are NOT Mixed Content)');
 
   // --- Audio event handlers are the SINGLE SOURCE OF TRUTH for state.isPlaying ---
-  // V86: 新增 stalled / suspend / emptied / abort / loadeddata / progress / timeupdate / canplaythrough / durationchange 监听
-  // + watchdog + 自动轻救/重救。事件名参考 https://html.spec.whatwg.org/multipage/media.html#mediaevents
   audio.onerror = () => {
     if (state.currentChannel && state.currentChannel.id !== chIdAtStart) return;
     const errDesc = describeMediaError(audio.error);
     console.error('[WebEngine] onerror ' + ch.name + ' url=' + ch.url + ' err=' + errDesc);
-    // V87h-THE-FIX: code=1 MEDIA_ERR_ABORTED = 用户切台 / hls.destroy() fallback 主动 abort
-    //                     → 99.99% 是正常流程，不是故障，**绝对不能触发任何 recovery!**
-    //               这是 V87g 下「深圳综艺进度条已经在走了但还弹「直播流中断」」的 #1 触发路径：
-    //               hls.js 8s deadline 触发 state.hls.destroy() → html5 onerror code=1 →
-    //               旧代码 1.2s 后自动 __wdReloadSourceIfNeeded → 因为冷启动刚 load 过就走
-    //               15s rate-limited 分支 → __wdFullReinitIfNeeded → showToast 💥
-    //               但此时 hls.destroy() 后已经 fallback 到 direct-native 引擎正在正常加载！
-    //               → full reinit 会打断 direct-native → 真的要重加载 + 用户看到 toast
-    const errCode = (audio.error && audio.error.code) ? audio.error.code : 0;
-    if (errCode === 1) {
-      console.warn('[WebEngine] onerror code=1 (MEDIA_ERR_ABORTED) → SKIP ALL RECOVERY (expected: user switch / hls.js fallback destroy). This is NOT a failure.');
-      return;
-    }
+    // V82: 不再弹Toast，仅保留日志+状态栏文字
+    // try { showToast('播放失败: ' + ch.name); } catch(ign){}
     if (els.fpStatus) els.fpStatus.textContent = '播放失败';
     state.isPlaying = false;
     updatePlayerUI();
     reportNativeState();
-    // V86: error 后自动尝试恢复（非解码错误的 case）
-    try {
-      // code=2 MEDIA_ERR_NETWORK = 网络中断 → reload()
-      // code=3 MEDIA_ERR_DECODE  = 解码格式不支持 → full reinit (可能要换引擎 fallback)
-      // code=4 MEDIA_ERR_SRC_NOT_SUPPORTED = 源格式不支持 → full reinit
-      if (audio.error && audio.error.code === 2) {
-        console.log('[WebEngine] error code=2 (NETWORK) → auto reload in 1.2s');
-        setTimeout(function(){
-          // V87h: 1.2s后也必须先检查 grace，冷启动阶段慢 CDN 首次握手失败也不应该救
-          var now2 = Date.now();
-          var inGrace = (__wdPlayStartAt > 0) && ((now2 - __wdPlayStartAt) < __WD_STARTUP_STALL_GRACE_MS);
-          if (inGrace) {
-            console.warn('[WebEngine] onerror code=2 timeout handler: grace active → SKIP reload (slow-CDN first-attempt failure, not a real outage)');
-            return;
-          }
-          __wdReloadSourceIfNeeded('onerror-code-' + audio.error.code);
-        }, 1200);
-      } else {
-        console.log('[WebEngine] error code=' + errCode + ' (DECODE/NOTSUPPORTED) → full reinit queued in 1.5s');
-        setTimeout(function(){
-          var now2 = Date.now();
-          var inGrace = (__wdPlayStartAt > 0) && ((now2 - __wdPlayStartAt) < __WD_STARTUP_STALL_GRACE_MS);
-          if (inGrace) {
-            console.warn('[WebEngine] onerror code=' + errCode + ' timeout handler: grace active → SKIP full-reinit.');
-            return;
-          }
-          __wdFullReinitIfNeeded('onerror-code-' + errCode);
-        }, 1500);
-      }
-    } catch (ign) {}
   };
   audio.onplaying = () => {
     if (state.currentChannel && state.currentChannel.id !== chIdAtStart) return;
     state.isPlaying = true;
     console.log('[WebEngine] onplaying: ' + ch.name);
     if (els.fpStatus) els.fpStatus.textContent = '正在直播';
-    __playbackWatchdogMarkAlive('onplaying');
-    __ensureWatchdogRunning();   // V86: 启动全局 watchdog
     updatePlayerUI();
     reportNativeState();
   };
   audio.oncanplay = () => {
     if (state.currentChannel && state.currentChannel.id !== chIdAtStart) return;
     if (els.fpStatus && !state.isPlaying) els.fpStatus.textContent = '加载完成';
-    __playbackWatchdogMarkAlive('oncanplay');
-  };
-  audio.oncanplaythrough = () => {
-    if (state.currentChannel && state.currentChannel.id !== chIdAtStart) return;
-    __playbackWatchdogMarkAlive('oncanplaythrough');
   };
   audio.onwaiting = () => {
     if (state.currentChannel && state.currentChannel.id !== chIdAtStart) return;
     if (els.fpStatus) els.fpStatus.textContent = '缓冲中...';
-    __playbackWatchdogMarkAlive('onwaiting');   // waiting 算 alive（在缓冲不是死了）
   };
   audio.onpause = () => {
     if (state.currentChannel && state.currentChannel.id !== chIdAtStart) return;
     state.isPlaying = false;
     updatePlayerUI();
     reportNativeState();
-  };
-  audio.ontimeupdate = () => {
-    // 最可靠的"确实在播"心跳：只要有音频数据送过来，timeupdate 每秒 4-60 次
-    __playbackWatchdogMarkAlive('timeupdate');
-  };
-  audio.onloadeddata = () => { __playbackWatchdogMarkAlive('loadeddata'); };
-  audio.onloadstart = () => { __playbackWatchdogMarkAlive('loadstart'); };
-  audio.onprogress = () => { __playbackWatchdogMarkAlive('progress'); };
-  audio.ondurationchange = () => { __playbackWatchdogMarkAlive('durationchange'); };
-  audio.onratechange = () => { __playbackWatchdogMarkAlive('ratechange'); };
-  audio.onvolumechange = () => { __playbackWatchdogMarkAlive('volumechange'); };
-  audio.onseeking = () => { __playbackWatchdogMarkAlive('seeking'); };
-  audio.onseeked = () => { __playbackWatchdogMarkAlive('seeked'); };
-  // 锁屏/DOZE/切网/信号不好时最常见的两种假死：suspend（浏览器主动释放媒体资源）+ stalled（读不到数据/缓冲空）
-  audio.onsuspend = () => {
-    if (state.currentChannel && state.currentChannel.id !== chIdAtStart) return;
-    // V87g: 冷启动宽限期 / 还没加载到数据 (readyState <= 1) 的 suspend = Chromium 媒体管道初始化的正常动作，不是故障。
-    //       直接 return，不计数 SoftFail，不 reload（reload 会把首包 cancel 掉 → 更慢 + 弹 toast）
-    if (audio && (audio.readyState === 0 || audio.readyState === 1)) {
-      console.warn('[WebEngine] onSuspend (init-phase, readyState=' + audio.readyState + ') → SKIP (loading-phase init not a failure)');
-      return;
-    }
-    var now = Date.now();
-    if (now < __wdSoftFailGraceUntil) {
-      console.warn('[WebEngine] onSuspend (softfail-grace active, ' + Math.round((__wdSoftFailGraceUntil - now)/1000) + 's remain) → SKIP (startup-phase, not a failure)');
-      return;
-    }
-    console.warn('[WebEngine] onSuspend (network suspended). isPlaying=' + state.isPlaying + ' audio.paused=' + audio.paused + ' readyState=' + (audio?audio.readyState:'?'));
-    __wdSoftFailCount = (__wdSoftFailCount || 0) + 1;
-    if (!audio.paused) {
-      // 还在播放的话：如果连续两次 suspend 给它一次轻救
-      if (__wdSoftFailCount >= 2) { __wdReloadSourceIfNeeded('suspend-count=' + __wdSoftFailCount); __wdSoftFailCount = 0; }
-    } else if (state.isPlaying) {
-      // UI显示在播但浏览器自己pause了 → 立即play()救，不行就reload()
-      try {
-        var p = audio.play();
-        if (p && p.catch) p.catch(function(e){ console.warn('[WebEngine] onSuspend play catch', e && e.message || e); __wdReloadSourceIfNeeded('onsuspend-play-reject'); });
-      } catch (e) { __wdReloadSourceIfNeeded('onsuspend-play-throw'); }
-    }
-  };
-  audio.onstalled = () => {
-    if (state.currentChannel && state.currentChannel.id !== chIdAtStart) return;
-    var now = Date.now();
-    // V87g: 冷启动宽限期内的 stalled = 首缓冲还没收到数据的正常等待，不是故障。不做任何事。
-    if (now < __wdSoftFailGraceUntil) {
-      console.warn('[WebEngine] onStalled (softfail-grace active, ' + Math.round((__wdSoftFailGraceUntil - now)/1000) + 's remain) → SKIP (startup-phase, buffering expected)');
-      __playbackWatchdogMarkAlive('stalled-startup-grace');   // 但仍标 alive, 防止宽限期后立刻 12s 超时
-      return;
-    }
-    console.warn('[WebEngine] onStalled (buffering stopped for >= 3s). isPlaying=' + state.isPlaying + ' audio.paused=' + audio.paused);
-    __playbackWatchdogMarkAlive('stalled');   // 它还活跃，只是卡住了，别 watchdog 误判
-    // stalled 超过 1.5s 还没其他事件 → 主动 reload()
-    setTimeout(function(){
-      if (!state || !state.currentChannel || state.currentChannel.id !== chIdAtStart) return;
-      // V87h: stall timeout 触发时再次检查 stall grace（stall 发生在 grace 末尾时，1.6s 后 grace 可能还没到期或刚到）
-      var now2 = Date.now();
-      var inStallGrace = (__wdPlayStartAt > 0) && ((now2 - __wdPlayStartAt) < __WD_STARTUP_STALL_GRACE_MS);
-      if (inStallGrace) {
-        console.warn('[WebEngine] onStalled-after-1.5s handler: stall-grace still active → SKIP reload (startup phase)');
-        return;
-      }
-      if (Date.now() - __wdLastAliveAt >= 1500 || (state.isPlaying && audio.paused)) {
-        __wdReloadSourceIfNeeded('stalled-after-1.5s');
-      }
-    }, 1600);
-  };
-  audio.onemptied = () => {
-    if (state.currentChannel && state.currentChannel.id !== chIdAtStart) return;
-    console.warn('[WebEngine] onEmptied (media source emptied). isPlaying=' + state.isPlaying);
-    // emptied = src 被清空或丢失，绝大多数需要 load 重新建立连接
-    setTimeout(function(){
-      if (!state || !state.currentChannel || state.currentChannel.id !== chIdAtStart) return;
-      // V87h: grace 检查：冷启动阶段 emptied 通常 = hls.destroy() fallback 或 src 切换正常流程
-      var now2 = Date.now();
-      var inGrace = (__wdPlayStartAt > 0) && ((now2 - __wdPlayStartAt) < __WD_STARTUP_STALL_GRACE_MS);
-      if (inGrace) {
-        console.warn('[WebEngine] onEmptied timeout handler: grace active → SKIP reload (startup-phase, not a real failure)');
-        return;
-      }
-      if (state.isPlaying) __wdReloadSourceIfNeeded('emptied');
-    }, 800);
-  };
-  audio.onabort = () => {
-    if (state.currentChannel && state.currentChannel.id !== chIdAtStart) return;
-    // V87h: onabort 和 onerror(code=1) 是兄弟事件 = 用户切台 / hls.destroy 正常流程
-    // 之前打印 log 容易让用户怀疑是 bug，改 debug level，不加任何 recovery。
-    console.warn('[WebEngine] onAbort. isPlaying=' + state.isPlaying + ' → SKIP ALL RECOVERY (expected: user switch / engine fallback)');
   };
 
   console.log('[WebEngine] load' + (isHls ? ' HLS' : '') + ': ' + ch.url);
@@ -2396,25 +3117,24 @@ function playChannelWithWebEngine(ch) {
       // and also passes URLs straight into Hls.loadSource() with no wrapping).
       state.hls.loadSource(playbackUrl);
       state.hls.attachMedia(audio);
-      state.hls.on(Hls.Events.MANIFEST_PARSED, function onManifestParsed(){
-        console.log('[WebEngine] HLS(hls.js) manifest OK -> call audio.play()');
-        const p = audio.play();
-        if (p && typeof p.catch === 'function') {
-          p.then(function(){ console.log('[WebEngine] HLS(hls.js) play() resolved: ' + ch.name); })
-           .catch(function(e){
-              const msg = e && e.message ? e.message : '';
-              console.warn('[WebEngine] HLS(hls.js) play() rejected:', msg || e);
-              if (/interrupted|pause|domexception/i.test(msg)) {
-                retryPlayOnce('hlsjs-interrupted-domexception', e);
-              } else if (!hlsDeadlineFired) {
-                // Something else went wrong starting play -> fallback to native
-                console.warn('[WebEngine] HLS(hls.js) play() hard reject -> fallback');
-                clearHlsDeadline();
-                try { playDirectNative('hlsjs-play-reject'); } catch(_){}
-              }
-            });
-        }
-      });
+      // V82: 原始0秒立即播放！attachMedia之后立即play()，不等任何事件！
+      console.log('[WebEngine-V82] HLS(hls.js) load+attach done → 立即audio.play() (0秒无延迟)');
+      const p = audio.play();
+      if (p && typeof p.catch === 'function') {
+        p.then(function(){ console.log('[WebEngine] HLS(hls.js) play() resolved: ' + ch.name); })
+         .catch(function(e){
+            const msg = e && e.message ? e.message : '';
+            console.warn('[WebEngine] HLS(hls.js) play() rejected:', msg || e);
+            if (/interrupted|pause|domexception/i.test(msg)) {
+              retryPlayOnce('hlsjs-interrupted-domexception', e);
+            } else if (!hlsDeadlineFired) {
+              // Something else went wrong starting play -> fallback to native
+              console.warn('[WebEngine] HLS(hls.js) play() hard reject -> fallback');
+              clearHlsDeadline();
+              try { playDirectNative('hlsjs-play-reject'); } catch(_){}
+            }
+          });
+      }
     } catch (hlsInitErr) {
       // Hls constructor / on / loadSource threw synchronously. Fallback immediately.
       console.error('[WebEngine] HLS(hls.js) init exception -> fallback:', hlsInitErr && hlsInitErr.message || hlsInitErr);
@@ -2426,7 +3146,7 @@ function playChannelWithWebEngine(ch) {
   }
   // STATELESS LAUNCH: intentionally NO state.isPlaying=true here.
   // Chromium audio.onplaying is the sole source of truth (matches Electron/browser).
-  if (!ch.logo && hasBackendBridge()) fetchAndUpdateLogo(ch);
+  if (!isNativeApp && !ch.logo) fetchAndUpdateLogo(ch);
 }
 
 function setupAudio() {
@@ -2447,10 +3167,80 @@ function togglePlay() {
     if (chs.length) playChannel(chs[0]);
     return;
   }
+  // V138: 先判断"播放引擎是否真的加载了currentChannel"
+  //   - 启动刚恢复 lastPlay 时，state.playbackEngine 默认是'web'，但 native audio 有更高优先级
+  //   - 如果 hasnativeAudio()，优先调 native 的 status.hasSource 看是否有加载
+  //   - 如果没加载（不管当前 engine 是 web 还是 native），直接 playChannel(currentChannel) 重新加载 URL
+  //   - 这样 playChannel 自己会选择正确引擎（native>web），避免"按播放按钮没声音"
+  var chForReload = state.currentChannel;
+  var needFreshPlay = false;
+  var nativeStatusResp = null;
+  if (hasNativeAudio()) {
+    try {
+      nativeStatusResp = nativeAudioRpc('status');
+      if (!nativeStatusResp || !nativeStatusResp.hasSource) { needFreshPlay = true; }
+      console.log('[togglePlay-V138] native status check: ' + JSON.stringify(nativeStatusResp||{}) + ' needFreshPlay=' + needFreshPlay);
+    } catch (eStatus) {
+      console.log('[togglePlay-V138] native status ex → assume needFreshPlay: ' + (eStatus && eStatus.message));
+      needFreshPlay = true;
+    }
+  } else {
+    // Web 引擎：检查 audioElement.src 是否等于 currentChannel.url
+    var webHasSrc = state.audioElement && state.audioElement.src &&
+                    state.audioElement.src === chForReload.url;
+    if (!webHasSrc) needFreshPlay = true;
+    console.log('[togglePlay-V138] web audio check: src=' + (state.audioElement ? state.audioElement.src : 'null') + ' needFreshPlay=' + needFreshPlay);
+  }
+  if (needFreshPlay) {
+    playChannel(chForReload);
+    return;
+  }
+
+  // 走到这里：引擎已经有播放源，只要暂停/恢复即可
+  console.log('[togglePlay] state.isPlaying=' + state.isPlaying + ' engine=' + state.playbackEngine + ' hasNativeAudio=' + hasNativeAudio());
+  var wasPlaying = state.isPlaying;
+  if (state.playbackEngine === 'native' && hasNativeAudio()) {
+    try {
+      var resp;
+      if (state.isPlaying) {
+        resp = nativeAudioRpc('pause');
+        state.isPlaying = false;
+        window._setUserPaused && window._setUserPaused(true);  // V159: 标记用户主动暂停
+        setLastPlayPlaying(false);  // V183: 用户手动暂停 → 不自动续播
+        console.log('[togglePlay-V123] pause RPC done -> isPlaying=false');
+      } else {
+        resp = nativeAudioRpc('resume');
+        state.isPlaying = true;
+        window._setUserPaused && window._setUserPaused(false);  // V159: 清除暂停标志
+        window._setBtAudioDisconnected && window._setBtAudioDisconnected(false);  // V171: 用户主动恢复，清除蓝牙断开标志
+        setLastPlayPlaying(true);  // V183: 用户手动恢复播放
+        console.log('[togglePlay-V123] resume RPC done -> isPlaying=true (resp=' + JSON.stringify(resp) + ')');
+      }
+      if (els.fpStatus) {
+        if (state.isPlaying) els.fpStatus.textContent = '正在直播';
+        else els.fpStatus.textContent = '已暂停';
+      }
+      updatePlayerUI();
+      reportNativeState();
+      return;
+    } catch (e) {
+      console.warn('[NativeEngine] togglePlay via RPC failed, fallback:', e && e.message || e);
+      state.isPlaying = !wasPlaying;
+      if (els.fpStatus) {
+        if (state.isPlaying) els.fpStatus.textContent = '正在直播';
+        else els.fpStatus.textContent = '已暂停';
+      }
+      updatePlayerUI();
+    }
+  }
   if (state.playbackEngine === 'native' && hasNative() && typeof window.NativeRadio.togglePlayNative === 'function') {
     try {
       window.NativeRadio.togglePlayNative();
       state.isPlaying = !state.isPlaying;
+      if (els.fpStatus) {
+        if (state.isPlaying) els.fpStatus.textContent = '正在直播';
+        else els.fpStatus.textContent = '已暂停';
+      }
       updatePlayerUI();
       reportNativeState();
       return;
@@ -2462,6 +3252,10 @@ function togglePlay() {
   } else {
     if (state.audioElement) state.audioElement.play().catch(()=>{});
     state.isPlaying = true;
+  }
+  if (els.fpStatus) {
+    if (state.isPlaying) els.fpStatus.textContent = '正在直播';
+    else els.fpStatus.textContent = '已暂停';
   }
   updatePlayerUI();
   reportNativeState();
@@ -2489,6 +3283,8 @@ function formatTimeHMSS(d) {
 let miniProgressStartSec = 0;
 function startMiniProgressTicker() {
   const tick = () => {
+    // V159 POWER: 非播放 且 无定时关闭 → 不用重绘mini进度条（省DOM写入+计算）
+    if (!state.isPlaying && !state.timerEnd) return;
     const now = new Date();
     const nowSec = now.getHours()*3600 + now.getMinutes()*60 + now.getSeconds();
     if (els.miniTimeStart) els.miniTimeStart.textContent = formatTimeHMSS(now);
@@ -2515,7 +3311,17 @@ function startMiniProgressTicker() {
     }
   };
   tick();
-  setInterval(tick, 1000);
+  // V164 POWER: 锁屏/后台时停掉每秒进度条定时器（纯视觉元素，后台刷新无人看见且白耗电）。
+  //   回前台时立即tick()校准（基于当前时间计算，无漂移）并重启。
+  let _miniTimer = setInterval(tick, 1000);
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) {
+      if (_miniTimer) { clearInterval(_miniTimer); _miniTimer = null; }
+    } else {
+      if (!_miniTimer) _miniTimer = setInterval(tick, 1000);
+      tick();
+    }
+  });
 }
 
 function updatePlayerUI() {
@@ -2534,10 +3340,9 @@ function updatePlayerUI() {
     els.fpName.textContent = ch.name || '未选择';
     els.fpSub.textContent = (ch.frequency ? ch.frequency + '  ·  ' : '') + (ch.description || '');
     els.fpLogoInner.innerHTML = ch.logo
-      ? `<img src="${logoUrl(ch.logo)}" alt=""
-           onerror="(function(el){try{if(!el||!el.parentNode)return;el.onerror=null;el.removeAttribute('onerror');var p=el.parentNode;var s=document.createElement('span');s.style.fontSize='80px';s.textContent='📻';p.replaceChild(s,el);}catch(_){}})(this)"/>`
+      ? `<img src="${ch.logo}" alt="" onerror="this.onerror=null;this.outerHTML='<span style=&quot;font-size:80px&quot;>📻</span>'"/>`
       : `<span style="font-size:80px">📻</span>`;
-    els.fpBg.style.backgroundImage = ch.logo ? `url("${logoUrl(ch.logo)}")` : `linear-gradient(135deg, ${ch.color||'#e63946'}, #111)`;
+    els.fpBg.style.backgroundImage = ch.logo ? `url("${ch.logo}")` : `linear-gradient(135deg, ${ch.color||'#e63946'}, #111)`;
     const isFav = state.favorites.includes(ch.id);
     els.fpFav.classList.toggle('active', isFav);
     if (els.miniFav) els.miniFav.classList.toggle('active', isFav);
@@ -2564,6 +3369,8 @@ function updatePlayerUI() {
   els.fpPlay.classList.toggle('playing', state.isPlaying);
   els.fpPlay.classList.toggle('paused',  !state.isPlaying);
   els.fullPlayer.classList.toggle('playing', state.isPlaying);
+  // V159 POWER: 播放/暂停切换 → 立刻同步CSS动画状态（暂停时关闭脉冲/封面旋转省电）
+  try { window._applyAnimationsState && window._applyAnimationsState(); } catch(e) {}
 }
 
 /* ============ EVENTS ============ */
@@ -2583,6 +3390,13 @@ function setupEventListeners() {
     els.searchClear.style.display = state.searchQuery ? 'flex' : 'none';
     doSearch();
   });
+  // V150: 搜索历史清空按钮
+  if (els.searchHistoryClear) {
+    els.searchHistoryClear.addEventListener('click', () => {
+      clearSearchHistory();
+      renderSearchHistory();
+    });
+  }
 
   // Mini player
   els.miniLeft.addEventListener('click', openFullPlayer);
@@ -2601,7 +3415,11 @@ function setupEventListeners() {
         const name = tab.dataset.tab;
         els.bottomTabs.forEach(t => t.classList.toggle('active', t === tab));
         if (name === 'home') {
-          // nothing
+          state.currentFilter = '全部';
+          state.searchQuery = '';
+          renderCategories();
+          renderChannels();
+          updateTopRegion();
         } else if (name === 'search') {
           openSearch();
         } else if (name === 'mine') {
@@ -2633,13 +3451,53 @@ function setupEventListeners() {
   // Manage
   els.addChannelBtn.addEventListener('click', openAddChannel);
   els.exportBtn.addEventListener('click', exportChannels);
-  els.importBtn.addEventListener('click', () => els.importFile.click());
+  // V156: 导入/恢复 改用 SAF → 点击按钮后调 fetch RPC 启动 Android 原生 ACTION_OPEN_DOCUMENT
+  //       彻底解决 ColorOS WebView 上 <input type=file> / label覆盖 点击无反应问题
+  els.importBtn.addEventListener('click', safImportChannels);
   els.resetBtn.addEventListener('click', resetChannels);
-  els.importFile.addEventListener('change', importChannels);
+  // V143: 用户数据备份/恢复
+  if (els.backupBtn) els.backupBtn.onclick = backupUserData;
+  if (els.restoreBtn) els.restoreBtn.onclick = safRestoreUserData;
+  // 事件委托：在 document 上捕获 click，确保即使 onclick 失效也能触发
+  document.addEventListener('click', function(e) {
+    var btn = e.target.closest ? e.target.closest('#backupBtn') : (e.target.id === 'backupBtn' ? e.target : null);
+    if (btn) {
+      if (typeof btn.onclick !== 'function') {
+        e.preventDefault();
+        e.stopPropagation();
+        backupUserData();
+      }
+    }
+    var btnR = e.target.closest ? e.target.closest('#restoreBtn') : (e.target.id === 'restoreBtn' ? e.target : null);
+    if (btnR) {
+      if (typeof btnR.onclick !== 'function') {
+        e.preventDefault();
+        e.stopPropagation();
+        safRestoreUserData();
+      }
+    }
+  }, true); // 捕获阶段
   els.fetchLogoBtn && els.fetchLogoBtn.addEventListener('click', startBatchFetch);
   els.editForm.addEventListener('submit', submitEditForm);
-  // V85: Native 局域网服务器地址配置区 UI 初始化
-  initServerUrlConfigUI();
+
+  // Personal (V126)
+  if (els.personalSheetClose) els.personalSheetClose.addEventListener('click', () => els.personalSheet.classList.remove('show'));
+  if (els.personalCancel) els.personalCancel.addEventListener('click', () => els.personalSheet.classList.remove('show'));
+  if (els.personalForm) els.personalForm.addEventListener('submit', submitPersonalForm);
+  if (els.personalBatchFile) els.personalBatchFile.addEventListener('change', handlePersonalBatchFile);
+
+  // Batch import sheet (V129)
+  if (els.batchSheetClose) els.batchSheetClose.addEventListener('click', closeBatchSheet);
+  if (els.batchCancel) els.batchCancel.addEventListener('click', closeBatchSheet);
+  if (els.batchCopyTemplate) els.batchCopyTemplate.addEventListener('click', copyTemplateToClipboard);
+  if (els.batchClear) els.batchClear.addEventListener('click', () => { if (els.batchTextarea) els.batchTextarea.value = ''; });
+  if (els.batchImport) els.batchImport.addEventListener('click', () => {
+    if (els.batchTextarea) parseAndImportText(els.batchTextarea.value);
+  });
+  // Close sheet on overlay click
+  els.batchSheet && els.batchSheet.addEventListener('click', e => {
+    if (e.target === els.batchSheet) closeBatchSheet();
+  });
 
   // Timer chips
   document.querySelectorAll('.timer-chip').forEach(btn => {
@@ -2861,8 +3719,9 @@ function xhrGet(url, timeoutMs) {
   });
 }
 
-// 逆地理：三道兜底（高德 → OSM Nominatim → IP 定位），任何一道拿到省就算成功
-// 失败时返回的对象里加 _debug 字段，上层会把它显示到提示里帮助诊断
+// 逆地理：四道兜底（高德 → OSM → ip-api.com → ipwho.is），任何一道拿到省就算成功
+//   V137: 放弃需要 key 的 QQIP，改用 ip-api.com（国内免费稳定、无需key、对深圳/广州等
+//         运营商IP归属地判断比 ipwho.is 准确得多）作为 IP 第1优先；ipwho.is 最后兜底
 async function reverseGeocode(lat, lng) {
   var prov = '';
   var city = '';
@@ -2915,24 +3774,63 @@ async function reverseGeocode(lat, lng) {
     if (ok2) return { province: prov, city: city, district: district, _debug: 'via OSM' };
   } catch (e) { diags.push('OSM ex: ' + (e && e.message ? e.message : '?')); }
 
-  // --- 第 3 道：IP 定位（精度到省，不需要权限，兜底）
+  // --- 第 3 道：ip-api.com（免费无key，国内比 ipwho.is 更准，区分深圳/广州）
+  //       HTTPS 版本：https://ipapi.co/json/ 或 http://ip-api.com/json/?lang=zh-CN
+  //       ip-api.com 的 HTTPS 端点 https://ipapi.co/json/ 可以直接用
+  try {
+    var ipapiUrl = 'https://ipapi.co/json/';
+    var r3 = await xhrGet(ipapiUrl, 5000);
+    var ok3 = false;
+    if (r3.ok && r3.text) {
+      try {
+        var rj = JSON.parse(r3.text);
+        if (rj && !rj.error) {
+          prov = String(rj.region || rj.province || rj.state || '').trim();
+          city = String(rj.city || '').trim();
+          if (prov) ok3 = true;
+        } else {
+          diags.push('IPAPI flag=' + (rj && rj.error ? 'T' : 'F') + ' reason=' + (rj && rj.reason ? String(rj.reason).slice(0, 80) : ''));
+        }
+      } catch (e) { diags.push('IPAPI parse: ' + (e && e.message ? e.message : 'parse err')); }
+    }
+    if (!ok3) {
+      diags.push('IPAPI st=' + r3.status + ' ' + (r3.statusText || '') + (r3.preview ? ' [' + r3.preview + ']' : ''));
+      // 尝试备用 ip-api.com（HTTP，Mixed Content 若被拦就会失败）
+      try {
+        var r3b = await xhrGet('http://ip-api.com/json/?lang=zh-CN&fields=status,message,country,regionName,city,query', 4000);
+        if (r3b.ok && r3b.text) {
+          try {
+            var rj2 = JSON.parse(r3b.text);
+            if (rj2 && rj2.status === 'success') {
+              prov = String(rj2.regionName || '').trim();
+              city = String(rj2.city || '').trim();
+              if (prov) { return { province: prov, city: city, district: '', _debug: 'via IP-API-COM' }; }
+            }
+          } catch (e) { diags.push('IP-API-COM parse: ' + (e && e.message ? e.message : 'parse err')); }
+        }
+      } catch (e) { diags.push('IP-API-COM ex: ' + (e && e.message ? e.message : '?')); }
+    }
+    if (ok3) return { province: prov, city: city, district: district, _debug: 'via IPAPI' };
+  } catch (e) { diags.push('IPAPI ex: ' + (e && e.message ? e.message : '?')); }
+
+  // --- 第 4 道：IP 定位（ipwho.is，兜底）—— V136 前是唯一 IP 源，现在放最后兜底
   try {
     var ip = await xhrGet('https://ipwho.is/?lang=zh-CN', 5000);
-    var ok3 = false;
+    var ok4 = false;
     if (ip.ok && ip.text) {
       try {
         var ij = JSON.parse(ip.text);
         if (ij && ij.success !== false) {
           prov = String(ij.region || ij.province || ij.state || '').trim();
           city = String(ij.city || '').trim();
-          if (prov) ok3 = true;
+          if (prov) ok4 = true;
         } else {
           diags.push('IPWHOIS flag=' + (ij && ij.success ? 'T' : 'F') + ' msg=' + (ij && ij.message ? String(ij.message).slice(0, 80) : ''));
         }
       } catch (e) { diags.push('IPWHOIS parse: ' + (e && e.message ? e.message : 'parse err')); }
     }
-    if (!ok3) diags.push('IPWHOIS st=' + ip.status + ' ' + (ip.statusText || '') + (ip.preview ? ' [' + ip.preview + ']' : ''));
-    if (ok3) return { province: prov, city: city, district: district, _debug: 'via IP' };
+    if (!ok4) diags.push('IPWHOIS st=' + ip.status + ' ' + (ip.statusText || '') + (ip.preview ? ' [' + ip.preview + ']' : ''));
+    if (ok4) return { province: prov, city: city, district: district, _debug: 'via IPWHOIS' };
   } catch (e) { diags.push('IPWHOIS ex: ' + (e && e.message ? e.message : '?')); }
 
   return { province: '', city: '', district: '', _debug: 'ALL_FAIL. ' + diags.join(' | ') };
@@ -2970,25 +3868,28 @@ function setupLocateBtn() {
   });
 }
 
-// 启动自动定位：先读缓存秒切 pinnedProvince，再优先走 GPS（如已授权）+ 逆地理四道兜底，否则回退 IP（无权限、不打扰 UI）
+// 启动自动定位：先读缓存秒切 pinnedProvince（只置顶，不切到该省），再优先走 GPS（如已授权）+ 逆地理四道兜底，否则回退 IP
+// 注意：启动时不切换当前 currentFilter 到定位省份，保持 lastPlay 里的 filter 或默认全部；pinnedProvince 只是影响左侧排序
 async function autoDetectProvinceOnLaunch() {
-  // 第一步：从 localStorage 读上次位置 → 秒切 pinnedProvince，不用等网络
+  console.log('[autoDetect] start, LOCATION_KEY=' + LOCATION_KEY);
+  // 第一步：从 localStorage 读上次位置 → 只设置 pinnedProvince（用于左侧置顶排序），不切到该省
   let cachedProvince = '';
   let cachedKey = '';
   try {
     const saved = localStorage.getItem(LOCATION_KEY);
+    console.log('[autoDetect] cached location saved=' + (saved ? saved.slice(0,120) : 'null'));
     if (saved) {
       const j = JSON.parse(saved);
       if (j && j.province) {
         cachedProvince = j.province;
         cachedKey = normalizeProvinceKey(j.province);
         state.pinnedProvince = cachedKey;
-        applyLocatedProvince(j.province);
+        // V138: 启动静默，只更新 pinnedProvince 用于左侧排序，不再弹绿色提示
         renderCategories();
-        updateLocateHint('已按上次位置自动选择：' + (j.city || j.province), 'ok');
+        console.log('[autoDetect] step1: restored cached province=' + cachedProvince + ' key=' + cachedKey);
       }
     }
-  } catch (e) {}
+  } catch (e) { console.log('[autoDetect] step1 ex: ' + (e&&e.message)); }
 
   // 第二步：检测 GPS 是否已授权 → 已授权则静默走 GPS + 四道逆地理（更准），未授权才回退 IP
   let grantOk = false;
@@ -3020,12 +3921,16 @@ async function autoDetectProvinceOnLaunch() {
   }
 
   // GPS 没拿到（或无权限）→ 回退 IP 定位兜底
+  console.log('[autoDetect] step2: grantOk=' + grantOk + ' fresh.province=' + (fresh.province||'') + ' fresh._debug=' + (fresh._debug||''));
   if (!fresh.province) {
+    console.log('[autoDetect] step3: falling back to IP geolocation (ipwho.is)');
     try {
       const ip = await xhrGet('https://ipwho.is/?lang=zh-CN', 5000);
+      console.log('[autoDetect] IP response: ok=' + ip.ok + ' status=' + ip.status + ' preview=' + (ip.preview||'').slice(0,200));
       if (ip.ok && ip.text) {
         try {
           const ij = JSON.parse(ip.text);
+          console.log('[autoDetect] IP parsed: success=' + ij.success + ' region=' + ij.region + ' province=' + ij.province + ' city=' + ij.city);
           if (ij && ij.success !== false) {
             fresh.province = String(ij.region || ij.province || ij.state || '').trim();
             fresh.city = String(ij.city || '').trim();
@@ -3037,28 +3942,26 @@ async function autoDetectProvinceOnLaunch() {
       } else {
         fresh._debug = (grantOk ? (fresh._debug ? fresh._debug + ' → ' : '') : '') + 'IP st=' + ip.status + ' ' + (ip.statusText || '') + (ip.preview ? ' [' + ip.preview + ']' : '');
       }
-    } catch (e) { fresh._debug = (grantOk ? (fresh._debug ? fresh._debug + ' → ' : '') : '') + 'IP ex: ' + (e && e.message ? e.message : '?'); }
+    } catch (e) { fresh._debug = (grantOk ? (fresh._debug ? fresh._debug + ' → ' : '') : '') + 'IP ex: ' + (e && e.message ? e.message : '?'); console.log('[autoDetect] IP ex: ' + (e&&e.message)); }
   }
 
+  console.log('[autoDetect] final: fresh.province=' + (fresh.province||'') + ' freshKey will be=' + normalizeProvinceKey(fresh.province||''));
   if (fresh.province) {
     const freshKey = normalizeProvinceKey(fresh.province);
     const changed = (freshKey !== cachedKey);
     state.pinnedProvince = freshKey;
+    console.log('[autoDetect] setting pinnedProvince=' + freshKey + ' changed=' + changed);
     try {
       localStorage.setItem(LOCATION_KEY, JSON.stringify({
         province: fresh.province, _key: freshKey, city: fresh.city, district: fresh.district || '', ts: Date.now()
       }));
     } catch (e) {}
-    const applied = applyLocatedProvince(fresh.province);
-    if (changed) renderCategories();
-    // 如果是从缓存已经成功的，刷新后结果相同就不再改提示，保持静默；不同才更新提示
-    if (changed || !cachedKey) {
-      const label = fresh.city && fresh.city !== fresh.province ? (fresh.province + ' · ' + fresh.city) : fresh.province;
-      const hint = (applied ? '已定位到：' + label + '，已自动切到该省电台（启动自动定位）'
-                            : '已定位到：' + label + '（启动自动定位）')
-                 + '\n[debug] ' + (fresh._debug || 'via IP');
-      updateLocateHint(hint, applied ? 'ok' : 'info');
+    // V138: pinnedProvince 只用于左侧分类排序；启动定位不再提示、不切 currentFilter、不调 applyLocatedProvince
+    if (changed) {
+      renderCategories();
+      console.log('[autoDetect] renderCategories() called after IP locate');
     }
+    // 不再显示绿色"已定位到..."提示（用户需求：只置顶，不切省也不提示）
   }
 }
 
@@ -3107,7 +4010,7 @@ function runLocateFlow(fromUserTap) {
         const codeMap = { 1:'用户拒绝了定位权限', 2:'位置信息不可用', 3:'定位超时' };
         const msg = codeMap[err && err.code] || ('定位失败 ' + (err && err.message ? err.message : ''));
         if (fromUserTap) {
-          updateLocateHint(msg + '。可在「系统设置→应用→复古收音机→位置权限」开启后重试。', 'err');
+          updateLocateHint(msg + '。可在「系统设置→应用→海燕收音机→位置权限」开启后重试。', 'err');
         } else {
           updateLocateHint(msg + '（未启用自动定位，功能不受影响）', 'err');
         }
@@ -3122,6 +4025,53 @@ function runLocateFlow(fromUserTap) {
 }
 
 /* ============ SEARCH ============ */
+var SEARCH_HISTORY_KEY = 'radio_search_history';
+function getSearchHistory() {
+  try {
+    var s = localStorage.getItem(SEARCH_HISTORY_KEY);
+    if (!s) return [];
+    var arr = JSON.parse(s);
+    return Array.isArray(arr) ? arr : [];
+  } catch(e) { return []; }
+}
+function addSearchHistory(q) {
+  q = (q || '').trim();
+  if (!q) return;
+  var list = getSearchHistory();
+  // 移除重复（不区分大小写）
+  var ql = q.toLowerCase();
+  list = list.filter(function(item) { return item.toLowerCase() !== ql; });
+  // 添加到最前
+  list.unshift(q);
+  // V150: 最多10条
+  if (list.length > 10) list = list.slice(0, 10);
+  try { localStorage.setItem(SEARCH_HISTORY_KEY, JSON.stringify(list)); } catch(e) {}
+}
+function clearSearchHistory() {
+  try { localStorage.removeItem(SEARCH_HISTORY_KEY); } catch(e) {}
+}
+function renderSearchHistory() {
+  if (!els.searchHistory || !els.searchHistoryTags) return;
+  var list = getSearchHistory();
+  if (list.length === 0) {
+    els.searchHistory.style.display = 'none';
+    return;
+  }
+  els.searchHistory.style.display = '';
+  els.searchHistoryTags.innerHTML = '';
+  list.forEach(function(q) {
+    var tag = document.createElement('button');
+    tag.className = 'search-history-tag';
+    tag.textContent = q;
+    tag.addEventListener('click', function() {
+      els.searchInput.value = q;
+      state.searchQuery = q;
+      els.searchClear.style.display = 'flex';
+      doSearch();
+    });
+    els.searchHistoryTags.appendChild(tag);
+  });
+}
 function openSearch() {
   state.searchQuery = '';
   els.searchInput.value = '';
@@ -3133,6 +4083,7 @@ function openSearch() {
 function closeSearch() {
   els.searchSheet.classList.remove('show');
   state.searchQuery = '';
+  if (els.searchHistory) els.searchHistory.style.display = 'none';
   renderChannels();
 }
 function doSearch() {
@@ -3141,9 +4092,14 @@ function doSearch() {
   if (q) all = all.filter(ch => (ch.name||'').toLowerCase().includes(q) || (ch.frequency||'').toLowerCase().includes(q) || (ch.description||'').toLowerCase().includes(q));
   els.searchResults.innerHTML = '';
   if (!q) {
-    els.searchResults.innerHTML = '<div style="text-align:center;color:#6e6e7a;padding:40px 0;font-size:14px">输入关键词搜索电台</div>';
+    // V150: 搜索框为空时，显示搜索历史，隐藏搜索结果
+    els.searchResults.style.display = 'none';
+    renderSearchHistory();
     return;
   }
+  // V150: 有搜索词时，显示搜索结果，隐藏历史
+  els.searchResults.style.display = '';
+  els.searchHistory.style.display = 'none';
   if (!all.length) {
     els.searchResults.innerHTML = '<div style="text-align:center;color:#6e6e7a;padding:40px 0;font-size:14px">没有找到相关电台</div>';
     return;
@@ -3157,7 +4113,12 @@ function doSearch() {
         <div class="search-item-name">${escapeHtml(ch.name)}</div>
         <div class="search-item-sub">${escapeHtml(ch.frequency||'')} · ${escapeHtml(ch.description||'')}</div>
       </div>`;
-    el.addEventListener('click', () => { playChannel(ch); closeSearch(); });
+    el.addEventListener('click', () => {
+      // V150: 点击搜索结果时，把当前搜索词添加到历史
+      addSearchHistory(state.searchQuery);
+      playChannel(ch);
+      closeSearch();
+    });
     els.searchResults.appendChild(el);
   });
   setupLogoFallbacks();
@@ -3176,9 +4137,9 @@ function fillAboutBox() {
     const d = document.getElementById('aboutDataVer');
     if (b) {
       const m = String(DATA_VERSION||'').match(/V(\d+)/);
-      b.textContent = 'V' + (m ? m[1] : '82');
+      b.textContent = VERSION_DISPLAY || ('V' + (m ? m[1] : '82'));
     }
-    if (n) n.textContent = '复古网络收音机';
+    if (n) n.textContent = '海燕收音机';
     if (v) v.textContent = APP_VERSION || '';
     if (d) d.textContent = 'Data version: ' + (DATA_VERSION || '');
     if (hasNative() && window.NativeRadio && typeof window.NativeRadio.getAppInfo === 'function') {
@@ -3201,131 +4162,243 @@ function fillAboutBox() {
 }
 function openManage() {
   closeFullPlayer();
-  state.manageRegionFilter = '全部';   // 打开管理页默认显示全部
-  renderManageRegionTabs();            // V84: 渲染39省市分类tab栏
+  state.manageFilter = '全部'; // V125: 每次打开管理页默认回到"全部"视图（必须放在renderManageList之前！）
   renderManageList();
   fetchLogoProgress();
   fillAboutBox();
-  __updateOnDemandStatusUI();          // V84: 立刻显示有无正在获取的台标
   els.modalSheet.classList.add('show');
 }
+function renderManageList() {
+  const allChannels = [...state.channels.radio||[], ...state.channels.tv||[]];
 
-// V84: 管理页 39 省市分类 Tabs（顺序=播放页左侧栏目一致，且也会应用 pinnedProvince 置顶）
-function renderManageRegionTabs() {
-  if (!els.manageRegionTabs) return;
-  // 用播放页同一套分类（getCategoryList 带 pinnedProvince 置顶、带 39 省顺序）
-  var cats = getCategoryList();
-  // 管理页不需要"收藏/历史/自定义"这些功能分类，只保留省市类型分类 + 全部
-  var FILTER = ['收藏','历史','自定义'];
-  var regions = cats.filter(function(c){ return FILTER.indexOf(c) < 0; });
-  var shortenRegion = function(r) {
-    var labelMap = {
-      '全部':'全部','全国':'全国','中央':'中央','电视伴音':'伴音','国际':'国际',
-      '北京':'北京','上海':'上海','天津':'天津','重庆':'重庆',
-      '香港':'香港','澳门':'澳门','台湾':'台湾',
-      '河北':'河北','山西':'山西','辽宁':'辽宁','吉林':'吉林','黑龙江':'龙江',
-      '江苏':'江苏','浙江':'浙江','安徽':'安徽','福建':'福建','江西':'江西','山东':'山东',
-      '河南':'河南','湖北':'湖北','湖南':'湖南','广东':'广东','广西':'广西','海南':'海南',
-      '四川':'四川','贵州':'贵州','云南':'云南','西藏':'西藏',
-      '陕西':'陕西','甘肃':'甘肃','青海':'青海','宁夏':'宁夏','新疆':'新疆',
-      '内蒙古':'内蒙','海外':'海外','其它':'其它','自定义':'自定义'
-    };
+  // === [1] 统计每个地区的电台数（按 description 字段分组）===
+  const regionCount = {};
+  allChannels.forEach(ch => {
+    const r = ch.description || '其它';
+    regionCount[r] = (regionCount[r] || 0) + 1;
+  });
+
+  // === [2] 分类列表：严格按 ELECTRON_PROVINCE_ORDER 顺序，"全部"置顶 ===
+  const regionTabs = ['全部', ...ELECTRON_PROVINCE_ORDER];
+  // 在"个人"后面插入"收藏"管理入口
+  const _personalIdx = regionTabs.indexOf('个人');
+  if (_personalIdx >= 0) regionTabs.splice(_personalIdx + 1, 0, '收藏');
+  const uniqTabs = [];
+  regionTabs.forEach(r => { if (!uniqTabs.includes(r)) uniqTabs.push(r); });
+
+  // 2字简称映射（复用 renderCategories 的 shortenRegion 逻辑）
+  const labelMap = {
+    '全部':'全部','全国':'全国','中央':'中央','电视伴音':'伴音','国际':'国际',
+    '北京':'北京','上海':'上海','天津':'天津','重庆':'重庆',
+    '香港':'香港','澳门':'澳门','台湾':'台湾',
+    '河北':'河北','山西':'山西','辽宁':'辽宁','吉林':'吉林','黑龙江':'龙江',
+    '江苏':'江苏','浙江':'浙江','安徽':'安徽','福建':'福建','江西':'江西','山东':'山东',
+    '河南':'河南','湖北':'湖北','湖南':'湖南','广东':'广东','广西':'广西','海南':'海南',
+    '四川':'四川','贵州':'贵州','云南':'云南','西藏':'西藏',
+    '陕西':'陕西','甘肃':'甘肃','青海':'青海','宁夏':'宁夏','新疆':'新疆',
+    '内蒙古':'内蒙','海外':'海外','个人':'个人','收藏':'收藏','其它':'其它','自定义':'自定义'
+  };
+  const shortenRegion = (r) => {
+    if (!r) return r;
     if (labelMap[r]) return labelMap[r];
-    var s = String(r).replace(/自治区$/g,'').replace(/省$/g,'').replace(/市$/g,'')
+    let s = String(r)
+      .replace(/自治区$/g,'').replace(/省$/g,'').replace(/市$/g,'')
       .replace(/维吾尔$/g,'').replace(/壮族$/g,'').replace(/回族$/g,'');
-    if (s.length > 2) s = s.slice(0, 2);
+    if (s.length > 2) s = s.slice(0,2);
     return s || r;
   };
-  var allChannels = (state.channels.radio || []).concat(state.channels.tv || []);
-  var regionCount = {};
-  for (var i = 0; i < allChannels.length; i++) {
-    var d = allChannels[i].description || '其它';
-    regionCount[d] = (regionCount[d] || 0) + 1;
-  }
-  var cur = state.manageRegionFilter || '全部';
-  els.manageRegionTabs.innerHTML = regions.map(function(r) {
-    var active = (cur === r) ? 'background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700;' : 'background:var(--surface-1);color:var(--text-1);border-color:var(--divider);';
-    var cnt = r === '全部' ? allChannels.length : (regionCount[r] || 0);
-    return `<button class="manage-region-tab" data-region="${escapeHtml(r)}" style="padding:5px 9px;border-radius:999px;border:1px solid;${active}font-size:11.5px;line-height:1.25;white-space:nowrap;transition:all .2s;cursor:pointer;">
-      <span>${escapeHtml(shortenRegion(r))}</span>
-      <span style="margin-left:4px;opacity:.7;font-size:10.5px;">${cnt}</span>
-    </button>`;
-  }).join('');
-  // 绑定点击事件
-  els.manageRegionTabs.querySelectorAll('.manage-region-tab').forEach(function(tab) {
-    tab.addEventListener('click', function() {
-      var r = tab.getAttribute('data-region') || '全部';
-      state.manageRegionFilter = r;
-      renderManageRegionTabs();
-      renderManageList();
+
+  // === [3] 渲染 39 分类按钮到 manageRegionTabs ===
+  if (els.manageRegionTabs) {
+    const NORMAL_STYLE = 'padding:5px 10px;border-radius:999px;border:1px solid var(--divider);background:var(--surface-2);color:var(--text-2);font-size:11.5px;font-weight:500;cursor:pointer;transition:all .15s;white-space:nowrap;';
+    const ACTIVE_STYLE = 'padding:5px 10px;border-radius:999px;border:1px solid #d7263d;background:#d7263d;color:#fff;font-size:11.5px;font-weight:600;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.15);white-space:nowrap;';
+    els.manageRegionTabs.innerHTML = uniqTabs.map(r => {
+      const label = shortenRegion(r);
+      const active = state.manageFilter === r;
+      const style = active ? ACTIVE_STYLE : NORMAL_STYLE;
+      return `<button class="manage-cat-btn" style="${style}" data-manage-filter="${escapeHtml(r)}">${escapeHtml(label)}</button>`;
+    }).join('');
+    els.manageRegionTabs.querySelectorAll('.manage-cat-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        state.manageFilter = btn.dataset.manageFilter;
+        renderManageList(); // 重新渲染 = 按钮高亮 + 列表过滤
+      });
     });
-  });
-  // 底部统计
-  var total = allChannels.length;
+  }
+
+  // === [4] 更新 Summary / Current 文字 ===
   if (els.manageRegionSummary) {
-    els.manageRegionSummary.textContent = '共 ' + regions.length + ' 分类 / ' + total + ' 电台';
+    const catCount = Object.keys(regionCount).length;
+    els.manageRegionSummary.textContent = `共 ${catCount} 分类 / ${allChannels.length} 电台`;
   }
   if (els.manageRegionCurrent) {
-    var show = cur === '全部' ? total : (regionCount[cur] || 0);
-    els.manageRegionCurrent.textContent = '当前：' + cur + '（' + show + ' 个）';
+    els.manageRegionCurrent.textContent = `当前：${state.manageFilter || '全部'}`;
   }
-}
 
-function renderManageList() {
-  var all = (state.channels.radio || []).concat(state.channels.tv || []);
-  // V84: 按当前分类筛选（和播放页筛选完全一致）
-  var filter = state.manageRegionFilter || '全部';
-  if (filter !== '全部') {
-    all = all.filter(function(c){ return (c.description || '') === filter; });
-    // 分类内部再按 Electron 标准排序（和播放页看到的顺序一致）
-    all = electronStationSort(filter, all);
+  // === [5] 按 state.manageFilter 筛选电台（按 description 匹配）===
+  let filteredList;
+  const isPersonalFilter = state.manageFilter === '个人';
+  const isFavoritesFilter = state.manageFilter === '收藏';
+  if (isPersonalFilter) {
+    // "个人"：显示用户自建电台
+    filteredList = state.userStations.map(s => ({
+      id: s.id, name: s.name, url: s.url,
+      frequency: s.frequency || '', description: s.description || '个人',
+      category: s.category || '综合', color: s.color || '#d7263d',
+      isUserStation: true
+    }));
+  } else if (isFavoritesFilter) {
+    // "收藏"：显示已收藏的电台（普通+个人），按省份分组排序，有地区的个人电台参与省份排序
+    const favNormal = allChannels.filter(ch => state.favorites.includes(ch.id));
+    const favUser = state.userStations
+      .filter(s => state.favorites.includes(s.id))
+      .map(s => ({
+        id: s.id, name: s.name, url: s.url,
+        frequency: s.frequency || '', description: s.description || '',
+        category: s.category || '综合', color: s.color || '#d7263d',
+        isUserStation: true
+      }));
+    const regionGroups = {};
+    favNormal.forEach(ch => {
+      const r = ch.description || '其它';
+      if (!regionGroups[r]) regionGroups[r] = [];
+      regionGroups[r].push(ch);
+    });
+    const favUserNoRegion = [];
+    favUser.forEach(ch => {
+      const r = ch.description;
+      if (r) {
+        if (!regionGroups[r]) regionGroups[r] = [];
+        regionGroups[r].push(ch);
+      } else {
+        favUserNoRegion.push(ch);
+      }
+    });
+    Object.keys(regionGroups).forEach(rName => {
+      regionGroups[rName] = electronStationSort(rName, regionGroups[rName]);
+    });
+    const sortedRegions = Object.keys(regionGroups).sort((a,b) => {
+      const ia = ELECTRON_PROVINCE_ORDER.indexOf(a);
+      const ib = ELECTRON_PROVINCE_ORDER.indexOf(b);
+      if (ia !== ib) return ia - ib;
+      return a.localeCompare(b, 'zh-CN');
+    });
+    filteredList = [];
+    sortedRegions.forEach(r => { filteredList.push(...regionGroups[r]); });
+    filteredList.push(...favUserNoRegion);
+  } else if (state.manageFilter === '全部') {
+    // "全部"：先按 ELECTRON_PROVINCE_ORDER 顺序排 region，再展平（和主界面逻辑一致）
+    const regionGroups = {};
+    allChannels.forEach(ch => {
+      const r = ch.description || '其它';
+      if (!regionGroups[r]) regionGroups[r] = [];
+      regionGroups[r].push(ch);
+    });
+    Object.keys(regionGroups).forEach(rName => {
+      regionGroups[rName] = electronStationSort(rName, regionGroups[rName]);
+    });
+    const sortedRegions = Object.keys(regionGroups).sort((a,b) => {
+      const ia = ELECTRON_PROVINCE_ORDER.indexOf(a);
+      const ib = ELECTRON_PROVINCE_ORDER.indexOf(b);
+      if (ia !== ib) return ia - ib;
+      return a.localeCompare(b, 'zh-CN');
+    });
+    filteredList = [];
+    sortedRegions.forEach(r => { filteredList.push(...regionGroups[r]); });
   } else {
-    // 全部：按 provinceOrder 排 region 顺序 + 每个 region 内部 electronStationSort 排序
-    var groups = {};
-    all.forEach(function(ch) {
-      var r = ch.description || '其它';
-      if (!groups[r]) groups[r] = [];
-      groups[r].push(ch);
-    });
-    Object.keys(groups).forEach(function(rn){ groups[rn] = electronStationSort(rn, groups[rn]); });
-    var rnOrder = Object.keys(groups);
-    rnOrder.sort(function(a,b){
-      var ia = ELECTRON_PROVINCE_ORDER.indexOf(a);
-      var ib = ELECTRON_PROVINCE_ORDER.indexOf(b);
-      return (ia !== ib) ? (ia - ib) : a.localeCompare(b, 'zh-CN');
-    });
-    var flat = [];
-    for (var i = 0; i < rnOrder.length; i++) flat.push.apply(flat, groups[rnOrder[i]]);
-    all = flat;
+    filteredList = allChannels.filter(ch => (ch.description || '其它') === state.manageFilter);
+    // 单个 region 内按 cityOrder + zh-CN 排序（复用 electronStationSort）
+    filteredList = electronStationSort(state.manageFilter, filteredList);
   }
+
+  // === [6] 渲染：按筛选类型渲染列表 ===
   els.channelManageList.innerHTML = '';
-  if (all.length === 0) {
-    els.channelManageList.innerHTML = '<div style="padding:30px 20px;text-align:center;color:var(--text-muted);font-size:13px;">该分类暂无电台</div>';
-    return;
+
+  // ---- 标题行：显示当前筛选 + 数量 + 添加按钮 ----
+  const headerRow = document.createElement('div');
+  headerRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;padding:0 4px;';
+  const headerTitle = document.createElement('div');
+  headerTitle.style.cssText = 'font-size:14px;font-weight:700;color:var(--text-primary);';
+  headerTitle.textContent = isPersonalFilter ? `📻 个人电台 (${filteredList.length})` : isFavoritesFilter ? `❤️ 收藏电台 (${filteredList.length})` : `📚 预置电台「${state.manageFilter||'全部'}」(${filteredList.length})`;
+  headerRow.appendChild(headerTitle);
+  if (isPersonalFilter) {
+    const addBtn = document.createElement('button');
+    addBtn.className = 'personal-add-btn';
+    addBtn.style.cssText = 'padding:5px 12px;font-size:12px;color:var(--text-primary)!important;background:var(--surface-hover);border:1px solid var(--border);white-space:nowrap;';
+    addBtn.textContent = '+ 添加';
+    addBtn.addEventListener('click', openPersonalAdd);
+    headerRow.appendChild(addBtn);
   }
-  // 渲染全部（不再限制120条，让管理页能管理到所有）
-  for (var j = 0; j < all.length; j++) {
-    var ch = all[j];
-    var el = document.createElement('div');
-    el.className = 'manage-item';
-    el.innerHTML = `
-      <div class="manage-idx">${j+1}</div>
-      <div class="manage-info">
-        <div class="manage-name">${escapeHtml(ch.name)}</div>
-        <div class="manage-sub">${escapeHtml(ch.frequency||'')} · ${escapeHtml(ch.description||'')}</div>
-      </div>
-      <div class="manage-actions">
-        <button class="manage-btn" data-edit="${ch.id}" title="编辑">✎</button>
-        <button class="manage-btn danger" data-del="${ch.id}" title="删除">🗑</button>
-      </div>`;
-    els.channelManageList.appendChild(el);
+  els.channelManageList.appendChild(headerRow);
+
+  // ---- 列表渲染 ----
+  if (filteredList.length === 0) {
+    const empty = document.createElement('div');
+    empty.style.cssText = 'padding:40px 20px;text-align:center;color:var(--text-3);font-size:13px;';
+    empty.textContent = isPersonalFilter ? '暂无个人电台，点击右上角「+ 添加」创建' : isFavoritesFilter ? '还没有收藏任何电台' : `「${escapeHtml(state.manageFilter)}」分类下暂无电台`;
+    els.channelManageList.appendChild(empty);
+  } else {
+    const displayList = filteredList.slice(0, 500);
+    displayList.forEach((ch, i) => {
+      const el = document.createElement('div');
+      el.className = 'manage-item';
+      if (isFavoritesFilter) {
+        const editAttr = ch.isUserStation ? `data-self-edit="${ch.id}"` : `data-edit="${ch.id}"`;
+        el.innerHTML = `
+          <div class="manage-idx">${i+1}</div>
+          <div class="manage-info">
+            <div class="manage-name">${escapeHtml(ch.name)}</div>
+            <div class="manage-sub">${escapeHtml(ch.frequency||'')} · ${escapeHtml(ch.description||'')}</div>
+          </div>
+          <div class="manage-actions">
+            <button class="manage-btn" ${editAttr} title="编辑">✎</button>
+            <button class="manage-btn" data-unfav="${ch.id}" title="取消收藏">❤️</button>
+          </div>`;
+      } else if (isPersonalFilter || ch.isUserStation) {
+        el.innerHTML = `
+          <div class="manage-idx">${i+1}</div>
+          <div class="manage-info">
+            <div class="manage-name">${escapeHtml(ch.name)}</div>
+            <div class="manage-sub">${escapeHtml(ch.category||'')} · ${escapeHtml(ch.url||'').substring(0,36)}${ch.url&&ch.url.length>36?'...':''}</div>
+          </div>
+          <div class="manage-actions">
+            <button class="manage-btn" data-self-edit="${ch.id}" title="编辑">✎</button>
+            <button class="manage-btn danger" data-self-del="${ch.id}" title="删除">🗑</button>
+          </div>`;
+      } else {
+        el.innerHTML = `
+          <div class="manage-idx">${i+1}</div>
+          <div class="manage-info">
+            <div class="manage-name">${escapeHtml(ch.name)}</div>
+            <div class="manage-sub">${escapeHtml(ch.frequency||'')} · ${escapeHtml(ch.description||'')}</div>
+          </div>
+          <div class="manage-actions">
+            <button class="manage-btn" data-edit="${ch.id}" title="编辑">✎</button>
+            <button class="manage-btn danger" data-del="${ch.id}" title="删除">🗑</button>
+          </div>`;
+      }
+      els.channelManageList.appendChild(el);
+    });
+    // 绑定事件
+    els.channelManageList.querySelectorAll('[data-unfav]').forEach(b => {
+      b.addEventListener('click', () => {
+        toggleFavorite(b.dataset.unfav);
+        renderManageList();
+      });
+    });
+    els.channelManageList.querySelectorAll('[data-self-edit]').forEach(b => {
+      b.addEventListener('click', () => openPersonalEdit(b.dataset.selfEdit));
+    });
+    els.channelManageList.querySelectorAll('[data-self-del]').forEach(b => {
+      b.addEventListener('click', () => deleteUserStation(b.dataset.selfDel));
+    });
+    els.channelManageList.querySelectorAll('[data-edit]').forEach(b => {
+      b.addEventListener('click', () => openEditChannel(b.dataset.edit));
+    });
+    els.channelManageList.querySelectorAll('[data-del]').forEach(b => {
+      b.addEventListener('click', () => deleteChannel(b.dataset.del));
+    });
   }
-  els.channelManageList.querySelectorAll('[data-edit]').forEach(function(b){
-    b.addEventListener('click', function(){ openEditChannel(b.dataset.edit); });
-  });
-  els.channelManageList.querySelectorAll('[data-del]').forEach(function(b){
-    b.addEventListener('click', function(){ deleteChannel(b.dataset.del); });
-  });
 }
 function openAddChannel() { editingId=null; els.editSheetTitle.textContent='添加电台'; resetForm(); els.editSheet.classList.add('show'); }
 function openEditChannel(id) {
@@ -3367,28 +4440,210 @@ function submitEditForm(e) {
   saveChannels();
   renderCategories();
   renderChannels();
-  renderManageRegionTabs();
   renderManageList();
   els.editSheet.classList.remove('show');
 }
-function deleteChannel(id) {
-  if (!confirm('确定删除该电台?')) return;
+// ════════════════════════════════════════════════════════════════════════
+// V169: 删除电台的公共清理(所有删除路径通用，不只个人分类)：
+//   若删除的是正在播放的电台 → 停播 + 清currentChannel + 清重连/lastPlay记录
+//   防止孤儿流继续出声、防止NET-RECONNECT/崩溃恢复复活已删除电台(V166同款逻辑)
+// ════════════════════════════════════════════════════════════════════════
+function cleanupDeletedCurrentChannel(id) {
+  if (state.currentChannel && state.currentChannel.id === id) {
+    stopPlaying();
+    state.currentChannel = null;
+    if (window.__lastPlayChannel && window.__lastPlayChannel.id === id) window.__lastPlayChannel = null;
+    try { if (state.lastPlay && state.lastPlay.id === id) { localStorage.removeItem('radio_last_play'); state.lastPlay = null; } } catch(ign){}
+    updatePlayerUI();
+    return true;
+  }
+  return false;
+}
+
+async function deleteChannel(id) {
+  if (!(await showConfirmDialog('确定删除该电台?', '删除确认'))) return;
   state.channels.radio = (state.channels.radio||[]).filter(c=>c.id!==id);
   saveChannels();
+  cleanupDeletedCurrentChannel(id);  // V169: 所有分类的删除都有停播保护
   renderCategories();
   renderChannels();
-  renderManageRegionTabs();
   renderManageList();
   showToast('已删除');
 }
+/* ============ V156: SAF (Storage Access Framework) 辅助 ============ */
+// 轮询 localStorage 的 resultKey，直到拿到结果或超时（秒）
+function safPollResult(resultKey, timeoutSec, callback) {
+  var start = Date.now();
+  var maxMs = timeoutSec * 1000;
+  function tick() {
+    try {
+      var raw = localStorage.getItem(resultKey);
+      if (raw && raw !== 'undefined' && raw !== 'null') {
+        localStorage.removeItem(resultKey);
+        try { callback(JSON.parse(raw)); }
+        catch(e) { callback({ok:false,err:'结果解析失败'}); }
+        return;
+      }
+    } catch(e) {}
+    if (Date.now() - start > maxMs) {
+      callback({ok:false,err:'等待用户选择超时'});
+      return;
+    }
+    setTimeout(tick, 300);
+  }
+  tick();
+}
+// V156: 导入电台列表 → SAF OpenDocument 原生弹系统文件选择器（100% 用户手势，Android 不会拦截）
+function safImportChannels() {
+  showToast('请选择【.channels.json】电台列表文件…');
+  try { localStorage.removeItem('__saf_result_import__'); } catch(e) {}
+  fetch('/__nativebackup__/safImport', {cache:'no-store'})
+    .then(function(r) { return r.text(); })
+    .then(function(txt) {
+      try {
+        var resp = JSON.parse(txt);
+        if (!resp.ok || !resp.launched) { showToast('无法启动文件选择器'); return; }
+        safPollResult('__saf_result_import__', 60, function(resp2) {
+          if (!resp2.ok) {
+            if (resp2.err && resp2.err !== '用户取消') showToast('导入失败：' + resp2.err);
+            return;
+          }
+          try {
+            var d = JSON.parse(resp2.content || '{}');
+            // V158: 严格校验文件类型，避免把备份文件当电台导入
+            var ftype = d && d.__file_type;
+            var filename = (resp2.filename || '').toLowerCase();
+            // 明确声明是备份 → 直接拒绝，给清晰提示
+            if (ftype === 'user_backup') {
+              showToast('❌ 文件类型不匹配\n\n这是【备份数据文件】(.backup.json)\n请使用下方「📂 恢复数据」按钮恢复', 3500);
+              return;
+            }
+            // V158 导出格式: 必须有 __file_type === 'channels_export'
+            if (ftype === 'channels_export') {
+              // 合法格式
+            } else if (d.radio && Array.isArray(d.radio)) {
+              // V158 之前导出的老格式（没有__file_type但含radio数组），兼容允许
+              console.log('[Import] 兼容V157及以前的老格式电台文件（无__file_type）');
+            } else {
+              showToast('❌ 不是电台列表文件\n\n请选择 .channels.json 格式的电台导出文件', 3500);
+              return;
+            }
+            if (!Array.isArray(d.radio) || d.radio.length === 0) { showToast('文件格式错误：电台列表为空'); return; }
+            showConfirmDialog('确定导入电台列表？\n当前电台列表将被覆盖', '导入确认').then(function(ok) {
+              if (!ok) return;
+              state.channels = { radio: d.radio, tv: Array.isArray(d.tv) ? d.tv : [] };
+              sanitizeChannelDescriptions();
+              saveChannels();
+              renderCategories();
+              renderChannels();
+              renderManageList();
+              showToast('电台导入成功，共 ' + d.radio.length + ' 台');
+            });
+          } catch(err) { showToast('导入失败：JSON解析错误'); }
+        });
+      } catch(e2) { showToast('导入失败'); }
+    })
+    .catch(function(err) { showToast('导入失败：' + err); });
+}
+// V156: 恢复用户数据 → SAF OpenDocument
+function safRestoreUserData() {
+  showToast('请选择【.backup.json】备份文件…');
+  try { localStorage.removeItem('__saf_result_restore__'); } catch(e) {}
+  fetch('/__nativebackup__/safRestore', {cache:'no-store'})
+    .then(function(r) { return r.text(); })
+    .then(function(txt) {
+      try {
+        var resp = JSON.parse(txt);
+        if (!resp.ok || !resp.launched) { showToast('无法启动文件选择器'); return; }
+        safPollResult('__saf_result_restore__', 60, function(resp2) {
+          if (!resp2.ok) {
+            if (resp2.err && resp2.err !== '用户取消') showToast('恢复失败：' + resp2.err);
+            return;
+          }
+          try {
+            var content = resp2.content || '{}';
+            var d = JSON.parse(content);
+            if (!d || typeof d !== 'object') { showToast('文件格式错误'); return; }
+
+            // V158: 严格校验类型
+            var ftype = d.__file_type;
+            // 明确声明是电台导出文件 → 拒绝，给提示引导
+            if (ftype === 'channels_export') {
+              showToast('❌ 文件类型不匹配\n\n这是【电台列表文件】(.channels.json)\n请使用上方「📥 导入」按钮导入', 3500);
+              return;
+            }
+
+            // 检测是否为用户数据备份（有__file_type='user_backup' 或含 BACKUP_KEYS 中任一有效键）
+            var isBackup = !!(ftype === 'user_backup');
+            if (!isBackup) {
+              for (var i = 0; i < BACKUP_KEYS.length; i++) {
+                if (d[BACKUP_KEYS[i]] !== undefined && d[BACKUP_KEYS[i]] !== null) { isBackup = true; break; }
+              }
+            }
+            if (isBackup) {
+              showConfirmDialog('确定恢复备份数据？\n\n将覆盖收藏、历史、个人电台、频道编辑等数据', '恢复确认').then(function(ok) {
+                if (!ok) return;
+                var count = 0;
+                BACKUP_KEYS.forEach(function(key) {
+                  if (d[key] !== undefined && d[key] !== null) {
+                    localStorage.setItem(key, d[key]);
+                    count++;
+                  }
+                });
+                showToast('已恢复 ' + count + ' 项数据，正在刷新…');
+                setTimeout(function() { try { if (hasNative()) { nativeAudioRpc('stop'); } } catch(ign){} location.reload(); }, 800);
+              });
+            } else {
+              // 既不是channels_export也不是backup → 不认得
+              showToast('❌ 不是备份文件\n\n请选择 .backup.json 格式的备份文件', 3500);
+            }
+          } catch(err) { showToast('恢复失败：' + (err.message || err)); }
+        });
+      } catch(e2) { showToast('恢复失败'); }
+    })
+    .catch(function(err) { showToast('恢复失败：' + err); });
+}
+
 function exportChannels() {
-  const data = JSON.stringify(state.channels, null, 2);
-  const blob = new Blob([data], {type:'application/json'});
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'radio_channels_'+Date.now()+'.json';
-  a.click();
-  showToast('已导出');
+  // V158: 与备份文件做三方面区分，避免用户混淆：
+  //   1) 文件名:  海燕收音机_电台列表_时间戳.channels.json  (双后缀.channels.json肉眼一眼识别)
+  //   2) JSON内容: 顶层加 __file_type = 'channels_export' + __export_time
+  //   3) 导入时校验: 点「导入」只接受 channels_export 类型或含 radio 数组的旧格式；拿到 backup 文件直接给明确提示
+  showToast('请选择保存位置…');
+  try {
+    var payload = JSON.parse(JSON.stringify(state.channels));
+    // 写入类型标识（注：用户编辑的频道保存到localStorage时也会带这个key，但不影响逻辑）
+    payload.__file_type = 'channels_export';
+    payload.__export_time = new Date().toISOString();
+    payload.__app_version = APP_VERSION || '';
+    var data = JSON.stringify(payload, null, 2);
+    localStorage.setItem('__pending_export_channels__', data);
+    localStorage.removeItem('__saf_result_export__');
+  } catch(e) {
+    showToast('导出失败：' + (e.message || e));
+    return;
+  }
+  var d = new Date();
+  var pad = function(n) { return n < 10 ? '0'+n : ''+n; };
+  var ts = d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+  // V158: 明确前缀 + 双后缀，文件管理器里一眼分清楚
+  var filename = '海燕收音机_电台列表_' + ts + '.channels.json';
+  fetch('/__nativebackup__/safExport?filename=' + encodeURIComponent(filename), {cache:'no-store'})
+    .then(function(r) { return r.text(); })
+    .then(function(txt) {
+      try {
+        var resp = JSON.parse(txt);
+        if (!resp.ok || !resp.launched) { showToast('导出失败：无法启动文件选择器'); return; }
+        safPollResult('__saf_result_export__', 60, function(resp2) {
+          if (resp2.ok) {
+            showToast('已导出电台列表\n共 ' + (state.channels && state.channels.radio ? state.channels.radio.length : 0) + ' 台');
+          } else if (resp2.err && resp2.err !== '用户取消') {
+            showToast('导出失败：' + resp2.err);
+          }
+        });
+      } catch(e2) { showToast('导出失败'); }
+    })
+    .catch(function(err) { showToast('导出失败：' + err); });
 }
 function importChannels(e) {
   const f = e.target.files[0]; if (!f) return;
@@ -3396,23 +4651,519 @@ function importChannels(e) {
   r.onload = () => {
     try {
       const d = JSON.parse(r.result);
-      if (d.radio) { state.channels = d; saveChannels(); renderCategories(); renderChannels(); renderManageRegionTabs(); renderManageList(); showToast('导入成功'); }
+      if (d.radio) { state.channels = d; saveChannels(); renderCategories(); renderChannels(); renderManageList(); showToast('导入成功'); }
       else showToast('文件格式错误');
     } catch(err) { showToast('导入失败'); }
   };
   r.readAsText(f);
   e.target.value = '';
 }
-function resetChannels() {
-  if (!confirm('确定恢复默认电台列表？自定义电台将丢失')) return;
+async function resetChannels() {
+  if (!(await showConfirmDialog('确定恢复默认电台列表？自定义电台将丢失', '恢复默认'))) return;
   localStorage.removeItem('radio_channels');
   if (typeof CHANNEL_DATA !== 'undefined') state.channels = JSON.parse(JSON.stringify(CHANNEL_DATA));
   saveChannels();
   renderCategories();
   renderChannels();
-  renderManageRegionTabs();
   renderManageList();
   showToast('已恢复默认');
+}
+
+/* ============ V143: 用户数据备份/恢复 ============ */
+var BACKUP_KEYS = [
+  'radio_favorites',
+  'radio_history',
+  'radio_user_stations',
+  'radio_custom_channels',
+  'radio_last_play',
+  'radio_last_location',
+  'radio_theme_pref',
+  'radio_font_pref',
+  'radio_channels',
+  'radio_search_history'
+];
+function backupUserData() {
+  try {
+    console.log('[BACKUP-DIAG] backupUserData called, APP_VERSION=' + (typeof APP_VERSION !== 'undefined' ? APP_VERSION : 'undef'));
+  } catch(e) {}
+
+  var data = {};
+  var count = 0;
+  BACKUP_KEYS.forEach(function(key) {
+    var val = localStorage.getItem(key);
+    if (val !== null) { data[key] = val; count++; }
+  });
+  // V158: 与电台导出文件做区分：写 __file_type='user_backup'
+  data.__file_type = 'user_backup';
+  data.__backup_time = new Date().toISOString();
+  data.__app_version = APP_VERSION || '';
+  data.__backup_item_count = count;
+  var json = JSON.stringify(data, null, 2);
+  var d = new Date();
+  var pad = function(n) { return n < 10 ? '0'+n : ''+n; };
+  var ts = d.getFullYear() + pad(d.getMonth()+1) + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+  // V158: 中文前缀+双后缀 .backup.json 与 .channels.json 彻底区分
+  var filename = '海燕收音机_备份_' + ts + '.backup.json';
+  console.log('[BACKUP-DIAG] count=' + count + ' jsonLen=' + json.length + ' filename=' + filename);
+
+  // V156: 改用 SAF ACTION_CREATE_DOCUMENT → 用户选择保存路径
+  try {
+    localStorage.setItem('__pending_backup__', json);
+    localStorage.removeItem('__saf_result_backup__');
+  } catch(e) {
+    showToast('备份失败：localStorage 存储异常\n' + e);
+    return;
+  }
+  showToast('请选择备份保存位置…');
+  var rpcUrl = '/__nativebackup__/safBackup?filename=' + encodeURIComponent(filename);
+  console.log('[BACKUP-DIAG] SAF RPC: ' + rpcUrl);
+  fetch(rpcUrl, {cache:'no-store'})
+    .then(function(r) { return r.text(); })
+    .then(function(txt) {
+      console.log('[BACKUP-DIAG] SAF launch resp=' + txt);
+      try {
+        var resp = JSON.parse(txt);
+        if (!resp.ok || !resp.launched) { showToast('备份失败：无法启动文件选择器'); return; }
+        var pad2 = function(n) { return n < 10 ? '0'+n : ''+n; };
+        safPollResult('__saf_result_backup__', 60, function(resp2) {
+          if (resp2.ok) {
+            var timeStr = pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+            showToast('备份完成 ' + count + ' 项数据\n' + timeStr);
+          } else if (resp2.err && resp2.err !== '用户取消') {
+            showToast('备份失败：' + resp2.err);
+          }
+        });
+      } catch(e) {
+        showToast('备份失败：解析响应错误\n' + e);
+      }
+    })
+    .catch(function(err) {
+      console.log('[BACKUP-DIAG] SAF RPC error: ' + err);
+      showToast('备份失败：' + err);
+    });
+}
+function restoreUserData() {
+  // V146: 用 fetch RPC 列出备份文件
+  showToast('正在查找备份文件...');
+  fetch('/__nativebackup__/list', {cache:'no-store'})
+    .then(function(r) {
+      console.log('[RESTORE-DIAG] list response status=' + r.status);
+      return r.text();
+    })
+    .then(function(txt) {
+      console.log('[RESTORE-DIAG] list response body=' + txt);
+      var files = [];
+      try { files = JSON.parse(txt || '[]'); } catch(e) {}
+      if (files.length === 0) {
+        showToast('没有找到备份文件，请先备份');
+        return;
+      }
+      showBackupFilePicker(files);
+    })
+    .catch(function(err) {
+      console.log('[RESTORE-DIAG] list error: ' + err);
+      safRestoreUserData(); // V156: 兜底直接走 SAF OpenDocument
+    });
+}
+function showBackupFilePicker(files) {
+  var box = document.getElementById('backupFileList');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'backupFileList';
+    box.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--surface-1,#fff);border-radius:14px;padding:16px;max-width:90vw;max-height:60vh;overflow-y:auto;z-index:9999;box-shadow:0 8px 32px rgba(0,0,0,.25);';
+    var overlay = document.createElement('div');
+    overlay.id = 'backupFileOverlay';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9998;';
+    overlay.addEventListener('click', function() { overlay.remove(); box.remove(); });
+    document.body.appendChild(overlay);
+    document.body.appendChild(box);
+  }
+  box.innerHTML = '<div style="font-size:14px;font-weight:600;margin-bottom:10px;">选择要恢复的备份</div>';
+  files.forEach(function(f) {
+    var btn = document.createElement('button');
+    btn.className = 'sheet-btn';
+    btn.style.cssText = 'width:100%;margin-bottom:6px;text-align:left;font-size:12.5px;';
+    // V149: 格式化文件名为可读时间
+    var raw = f.replace('retroradio_backup_', '').replace('.json', '');
+    var label = raw;
+    // 新格式：20260825_000644 → 2026-08-25 00:06:44
+    var m1 = raw.match(/^(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})$/);
+    if (m1) {
+      label = m1[1] + '-' + m1[2] + '-' + m1[3] + ' ' + m1[4] + ':' + m1[5] + ':' + m1[6];
+    } else {
+      // 旧格式：2026-08-24T16-05-58 → 2026-08-24 16:05:58
+      var m2 = raw.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2})-(\d{2})-(\d{2})$/);
+      if (m2) {
+        label = m2[1] + '-' + m2[2] + '-' + m2[3] + ' ' + m2[4] + ':' + m2[5] + ':' + m2[6];
+      }
+    }
+    btn.textContent = label;
+    btn.addEventListener('click', function() {
+      document.getElementById('backupFileOverlay').remove();
+      box.remove();
+      restoreFromFile(f);
+    });
+    box.appendChild(btn);
+  });
+  var cancelBtn = document.createElement('button');
+  cancelBtn.className = 'sheet-btn';
+  cancelBtn.style.cssText = 'width:100%;margin-top:8px;font-size:12.5px;';
+  cancelBtn.textContent = '取消';
+  cancelBtn.addEventListener('click', function() {
+    document.getElementById('backupFileOverlay').remove();
+    box.remove();
+  });
+  box.appendChild(cancelBtn);
+}
+function restoreFromFile(filename) {
+  showToast('正在读取备份文件...');
+  var rpcUrl = '/__nativebackup__/read?filename=' + encodeURIComponent(filename);
+  console.log('[RESTORE-DIAG] read RPC: ' + rpcUrl);
+  fetch(rpcUrl, {cache:'no-store'})
+    .then(function(r) {
+      console.log('[RESTORE-DIAG] read response status=' + r.status);
+      return r.text();
+    })
+    .then(function(txt) {
+      console.log('[RESTORE-DIAG] read response bodyLen=' + txt.length);
+      try {
+        var resp = JSON.parse(txt);
+        if (!resp.ok || !resp.content) {
+          showToast('读取备份文件失败：' + (resp.err || '未知错误'));
+          return;
+        }
+        var content = resp.content;
+        var d = JSON.parse(content);
+        if (!d || typeof d !== 'object') { showToast('文件格式错误'); return; }
+        showConfirmDialog('确定恢复备份？当前收藏、历史、个人电台等数据将被覆盖', '恢复确认').then(function(ok) {
+          if (!ok) return;
+          var count = 0;
+          BACKUP_KEYS.forEach(function(key) {
+            if (d[key] !== undefined && d[key] !== null) {
+              localStorage.setItem(key, d[key]);
+              count++;
+            }
+          });
+          showToast('已恢复 ' + count + ' 项数据，正在刷新…');
+          setTimeout(function() { try { if (hasNative()) { nativeAudioRpc('stop'); } } catch(ign){} location.reload(); }, 800);
+        });
+      } catch(err) {
+        showToast('恢复失败：' + (err.message || err));
+      }
+    })
+    .catch(function(err) {
+      console.log('[RESTORE-DIAG] read error: ' + err);
+      showToast('恢复失败：' + err);
+    });
+}
+// V155: 用户从系统文件选择器直接选备份文件（importFile/restoreFile change事件）恢复
+function restoreFromUserFile(e) {
+  var f = e.target.files && e.target.files[0];
+  if (!f) return;
+  showToast('正在读取备份：' + f.name);
+  var fr = new FileReader();
+  fr.onload = function() {
+    try {
+      var content = fr.result;
+      var d = JSON.parse(content);
+      if (!d || typeof d !== 'object') { showToast('文件格式错误'); return; }
+      // 判断是备份数据（有 BACKUP_KEYS 中的字段）还是电台列表导入数据（有 radio 数组）
+      var isBackup = false;
+      for (var i = 0; i < BACKUP_KEYS.length; i++) {
+        if (d[BACKUP_KEYS[i]] !== undefined && d[BACKUP_KEYS[i]] !== null) { isBackup = true; break; }
+      }
+      if (isBackup) {
+        showConfirmDialog('确定恢复备份？当前收藏、历史、个人电台等数据将被覆盖', '恢复确认').then(function(ok) {
+          if (!ok) return;
+          var count = 0;
+          BACKUP_KEYS.forEach(function(key) {
+            if (d[key] !== undefined && d[key] !== null) {
+              localStorage.setItem(key, d[key]);
+              count++;
+            }
+          });
+          showToast('已恢复 ' + count + ' 项数据，正在刷新…');
+          setTimeout(function() { try { if (hasNative()) { nativeAudioRpc('stop'); } } catch(ign){} location.reload(); }, 800);
+        });
+      } else if (d.radio) {
+        // 电台列表文件（和 importChannels 一致）
+        showConfirmDialog('确定导入电台？当前电台列表将被覆盖', '导入确认').then(function(ok) {
+          if (!ok) return;
+          state.channels = d;
+          saveChannels();
+          renderCategories();
+          renderChannels();
+          renderManageList();
+          showToast('导入成功');
+        });
+      } else {
+        showToast('文件格式错误');
+      }
+    } catch(err) {
+      showToast('恢复失败：' + (err.message || err));
+    } finally {
+      // 重置，下次能选同一文件
+      try { e.target.value = ''; } catch(ign){}
+    }
+  };
+  fr.onerror = function() {
+    showToast('读取文件失败');
+    try { e.target.value = ''; } catch(ign){}
+  };
+  fr.readAsText(f);
+}
+
+/* ============ PERSONAL TAB - 用户自建电台 (V126) ============ */
+let editingPersonalId = null;
+function openPersonalAdd() {
+  editingPersonalId = null;
+  els.personalSheetTitle.textContent = '添加个人电台';
+  const f = els.personalForm;
+  f.reset();
+  f.color.value = '#d7263d';
+  els.personalSheet.classList.add('show');
+}
+function openPersonalEdit(id) {
+  const s = state.userStations.find(x => x.id === id);
+  if (!s) return;
+  editingPersonalId = id;
+  els.personalSheetTitle.textContent = '编辑个人电台';
+  const f = els.personalForm;
+  f.name.value = s.name || '';
+  f.frequency.value = s.frequency || '';
+  f.description.value = s.description || '';
+  f.url.value = s.url || '';
+  f.category.value = s.category || '综合';
+  f.color.value = s.color || '#d7263d';
+  els.personalSheet.classList.add('show');
+}
+function submitPersonalForm(e) {
+  e.preventDefault();
+  const fd = new FormData(els.personalForm);
+  const data = {
+    name: (fd.get('name') || '').toString().trim(),
+    frequency: (fd.get('frequency') || '').toString().trim(),
+    description: (fd.get('description') || '').toString().trim(),
+    url: (fd.get('url') || '').toString().trim(),
+    category: (fd.get('category') || '综合').toString().trim(),
+    color: (fd.get('color') || '#d7263d').toString()
+  };
+  if (!data.name) { showToast('请填写电台名称'); return; }
+  if (!data.url) { showToast('请填写播放地址'); return; }
+  if (!/^https?:\/\//i.test(data.url)) { showToast('地址需以 http:// 或 https:// 开头'); return; }
+
+  if (editingPersonalId) {
+    const i = state.userStations.findIndex(x => x.id === editingPersonalId);
+    if (i > -1) {
+      state.userStations[i] = Object.assign({}, state.userStations[i], {
+        name: data.name, frequency: data.frequency, description: data.description, url: data.url, category: data.category, color: data.color
+      });
+      showToast('已更新电台');
+      if (state.currentChannel && state.currentChannel.id === editingPersonalId) {
+        state.currentChannel = Object.assign({}, state.currentChannel, data);
+      }
+    }
+  } else {
+    const nid = 'user_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6);
+    state.userStations.push({
+      id: nid, name: data.name, frequency: data.frequency, description: data.description, url: data.url,
+      category: data.category, color: data.color, createdAt: Date.now()
+    });
+    showToast('已添加电台');
+  }
+  saveUserStations();
+  renderChannels();
+  renderManageList();
+  updatePlayerUI();
+  els.personalSheet.classList.remove('show');
+}
+async function deleteUserStation(id) {
+  const s = state.userStations.find(x => x.id === id);
+  if (!s) return;
+  if (!(await showConfirmDialog(`确定删除"${s.name}"吗？`, '删除确认'))) return;
+  state.userStations = state.userStations.filter(x => x.id !== id);
+  saveUserStations();
+  cleanupDeletedCurrentChannel(id);  // V169: 改用公共清理(逻辑与V166一致)
+  renderChannels();
+  renderManageList();
+  showToast('已删除');
+}
+function openPersonalBatch() {
+  if (els.batchTextarea) els.batchTextarea.value = '';
+  if (els.batchInfo) els.batchInfo.textContent = '';
+  els.batchSheet.classList.add('show');
+}
+
+function closeBatchSheet() {
+  els.batchSheet.classList.remove('show');
+}
+
+function getCsvTemplateText() {
+  return '名称,URL,分类,主题色\n' +
+    '# 后两列为空时使用默认值：分类=综合，主题色=#d7263d\n' +
+    '# 删除此行后填写实际电台\n' +
+    'BBC World Service,http://stream.live.vc.bbcmedia.co.uk/bbc_world_service,新闻,#d7263d\n' +
+    'CNN News,https://hdls.cnn.com/hls/live/cnn/playlist.m3u8,新闻,\n' +
+    '我的电台,http://example.com/stream.m3u8,综合,';
+}
+
+function copyTemplateToClipboard() {
+  const text = getCsvTemplateText();
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('模板已复制到剪贴板');
+    }).catch(() => {
+      fallbackCopy(text);
+    });
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  try {
+    document.execCommand('copy');
+    showToast('模板已复制到剪贴板');
+  } catch(e) {
+    showToast('复制失败，请手动复制');
+  }
+  document.body.removeChild(ta);
+}
+
+function parseAndImportText(text) {
+  if (!text || !text.trim()) {
+    showToast('请先粘贴电台列表');
+    return;
+  }
+  // 解析文本（复用 handlePersonalBatchFile 的核心逻辑）
+  const lines = text.split(/\r?\n/);
+  // 自动检测分隔符
+  let delim = ',';
+  const sampleLine = lines.find(l => l.trim() && !l.trim().startsWith('#')) || '';
+  let comma = 0, semicolon = 0, inQ = false;
+  for (let i = 0; i < sampleLine.length; i++) {
+    const c = sampleLine[i];
+    if (c === '"') inQ = !inQ;
+    else if (!inQ && c === ',') comma++;
+    else if (!inQ && c === ';') semicolon++;
+  }
+  if (semicolon > comma) delim = ';';
+  const dataLines = lines.map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+  if (!dataLines.length) { showToast('没有有效数据'); return; }
+  // 跳过表头
+  let startIdx = 0;
+  const firstFields = parseCsvLine(dataLines[0], delim);
+  const joined = firstFields.join(',').toLowerCase();
+  if (joined.includes('名称') || joined.includes('name') || (joined.includes('url') && !joined.includes('http'))) {
+    startIdx = 1;
+  }
+  let added = 0, failed = 0;
+  for (let i = startIdx; i < dataLines.length; i++) {
+    const line = dataLines[i];
+    if (!line) { failed++; continue; }
+    const fields = parseCsvLine(line, delim);
+    if (fields.length < 2) { failed++; continue; }
+    const name = fields[0].trim();
+    const url = fields[1].trim();
+    const category = (fields[2] || '').trim() || '综合';
+    const color = (fields[3] || '').trim() || '#d7263d';
+    if (!name || !url) { failed++; continue; }
+    if (!/^https?:\/\//i.test(url)) { failed++; continue; }
+    const nid = 'user_' + Date.now() + '_' + Math.random().toString(36).slice(2, 6) + String(i);
+    state.userStations.push({
+      id: nid, name, url, category, color, createdAt: Date.now()
+    });
+    added++;
+  }
+  if (!added) {
+    showToast('导入失败，请检查格式');
+    return;
+  }
+  saveUserStations();
+  renderChannels();
+  closeBatchSheet();
+  showToast(`成功导入 ${added} 个电台${failed ? '，跳过 '+failed+' 个无效条目' : ''}`);
+}
+
+// RFC4180 兼容的 CSV 解析：支持双引号转义、CFLF、分隔符自动检测
+function parseCsvLine(line, delim) {
+  const result = [];
+  let cur = '', inQuote = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuote) {
+      if (c === '"') {
+        if (i + 1 < line.length && line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQuote = false;
+        }
+      } else {
+        cur += c;
+      }
+    } else {
+      if (c === '"') {
+        inQuote = true;
+      } else if (c === delim) {
+        result.push(cur);
+        cur = '';
+      } else {
+        cur += c;
+      }
+    }
+  }
+  result.push(cur);
+  return result.map(s => s.trim());
+}
+
+function handlePersonalBatchFile(e) {
+  const file = e.target.files && e.target.files[0];
+  if (!file) return;
+  // 兼容：MIME 可能是 text/csv / application/vnd.ms-excel / 空，按扩展名放行
+  if (!file.name.toLowerCase().endsWith('.csv')) {
+    showToast('请选择 .csv 格式的文件');
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      const buffer = ev.target.result;
+      const bytes = new Uint8Array(buffer);
+      let text;
+      if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+        text = new TextDecoder('utf-8').decode(buffer);
+      } else if (bytes.length >= 2 && bytes[0] === 0xFF && bytes[1] === 0xFE) {
+        text = new TextDecoder('utf-16le').decode(buffer);
+      } else {
+        try {
+          text = new TextDecoder('utf-8', { fatal: true }).decode(buffer);
+        } catch(_) {
+          try {
+            text = new TextDecoder('gbk').decode(buffer);
+          } catch(__) {
+            text = new TextDecoder('utf-8', { fatal: false }).decode(buffer);
+          }
+        }
+      }
+      text = text.replace(/^\uFEFF/, '');
+      parseAndImportText(text);
+    } catch(err) {
+      console.error('CSV parse error:', err);
+      showToast('CSV解析失败：' + (err.message || '未知错误'));
+    }
+  };
+  reader.onerror = function() {
+    showToast('读取文件失败');
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value = ''; // 允许重复选择同一文件
 }
 
 /* ============ TIMER ============ */
@@ -3448,334 +5199,75 @@ function updateTimerCountdown() {
 }
 
 /* ============ LOGO / PROGRESS ============ */
-var __logoPollTimer = null;
-var __logoPollInterval = 30000;     // 默认 idle 时 30 秒（省电）
-var __logoPollRunning = false;      // 记录是否已进入管理页 + Web 模式
-var __logoLastStatus = 'unknown';   // 上次 scheduler 状态，用于动态调间隔
-var __logoPollVisibilityHandler = null; // visibilitychange handler
-var __logoPollHashHandler = null;   // hashchange handler
-// ===== V84 台标按需获取：播放无台标电台时自动触发 =====
-var __logoOnDemandQueue = [];       // { name, url, ts } 当前等待/进行中的按需获取队列
-var __logoOnDemandBusy = false;     // 是否正在执行获取（串行执行，避免并发刷爆）
-var __logoOnDemandDone = {};        // name -> true 已尝试过的避免重复刷
-
-// 台标按需获取：播放无台标电台时，在后台静默触发（只要后端桥接可用就行：PC Web / 或 Native 配了局域网服务器地址）
-function maybeFetchLogoOnDemand(ch) {
-  if (!ch || !ch.name) return;
-  if (!hasBackendBridge()) return;           // V85: 无论PC还是手机，只要有服务器地址就能走
-  if (ch.logo) return;                       // 已有台标不处理
-  var nm = String(ch.name);
-  if (__logoOnDemandDone[nm]) return;        // 已尝试过的避免重复
-  // 加入队列
-  __logoOnDemandDone[nm] = true;
-  if (__logoOnDemandQueue.length >= 20) __logoOnDemandQueue.shift();
-  __logoOnDemandQueue.push({ name: nm, url: ch.url || '', ts: Date.now() });
-  // 触发串行 worker
-  __logoOnDemandWorker();
-}
-// 当前"正在获取/已排队"的台标数量（给UI显示：正在更新 N 个）
-function getOnDemandFetchCount() {
-  // busy + queue 长度
-  return (__logoOnDemandBusy ? 1 : 0) + Math.max(0, __logoOnDemandQueue.length);
-}
-// 串行执行器（避免同时发多个 /api/fetch-logo 请求）
-function __logoOnDemandWorker() {
-  if (__logoOnDemandBusy) return;
-  if (__logoOnDemandQueue.length === 0) return;
-  var task = __logoOnDemandQueue.shift();
-  __logoOnDemandBusy = true;
-  __updateOnDemandStatusUI();
-  fetch(apiUrl('/api/fetch-logo?name=' + encodeURIComponent(task.name) + '&url=' + encodeURIComponent(task.url || '')))
-    .then(function(r){ return r.json(); })
-    .then(function(j){
-      if (j && j.success) {
-        // 成功：更新 state 中对应台的 logo，不需要整包 reload
-        var found = false;
-        function applyLogo(arr){
-          for (var i = 0; arr && i < arr.length; i++) {
-            if (arr[i] && arr[i].name === task.name && !arr[i].logo) {
-              if (j.logo) { arr[i].logo = j.logo; found = true; }
-              else if (j.local_path) {
-                var file = j.local_path.replace(/\\/g,'/');
-                var k = file.indexOf('mobile/www/');
-                arr[i].logo = k >= 0 ? file.substring(k + 'mobile/www/'.length) : file;
-                found = true;
-              }
-            }
-          }
-        }
-        applyLogo(state.channels.radio);
-        applyLogo(state.channels.tv);
-        if (found) {
-          saveChannels();
-          setupLogoFallbacks();
-          renderChannels();
-          renderManageList();
-          updatePlayerUI();
-        }
-      }
-    }).catch(function(){})
-    .then(function(){
-      __logoOnDemandBusy = false;
-      __updateOnDemandStatusUI();
-      renderLocalLogoStats();
-      // 继续处理下一个
-      setTimeout(__logoOnDemandWorker, 800);
-    });
-}
-// 更新管理页和播放页的"正在更新N个台标"提示
-function __updateOnDemandStatusUI() {
-  var n = getOnDemandFetchCount();
-  // 管理页：如果打开了管理页，有个专门条显示"正在更新 N 个台标"
+async function fetchAndUpdateLogo(ch) {
+  if (isNativeApp) return;
   try {
-    var box = els.onDemandStatus;
-    if (!box) return;
-    if (n <= 0) { box.style.display = 'none'; return; }
-    var firstTask = __logoOnDemandBusy ? '（当前：' + (__logoOnDemandQueue[0] ? __logoOnDemandQueue[0].name : '队列中') + '…）' : '';
-    box.style.display = '';
-    box.innerHTML = '🎨 <b>' + n + '</b> 个台标正在后台更新 ' + firstTask + '（离开播放页也会继续）';
+    const r = await fetch(`/api/fetch-logo?name=${encodeURIComponent(ch.name)}&url=${encodeURIComponent(ch.url||'')}`);
+    const j = await r.json();
+    if (j && j.success) { await reloadChannelsFromServer(); showToast('台标已更新'); }
   } catch(e){}
 }
-
-function getLocalLogoStats() {
-  var radio = state.channels.radio || [];
-  var tv = state.channels.tv || [];
-  var all = radio.concat(tv);
-  var total = all.length;
-  var withLogo = 0;
-  for (var i = 0; i < all.length; i++) {
-    if (all[i] && all[i].logo) withLogo++;
-  }
-  return { total: total, withLogo: withLogo, noLogo: total - withLogo, coverage: total > 0 ? (withLogo / total * 100) : 0 };
-}
-
-function renderLocalLogoStats(extra) {
-  try {
-    var s = getLocalLogoStats();
-    var section = els.logoProgressSection;
-    if (!section) return;
-    var localInfo = section.querySelector('.logo-local-info');
-    if (localInfo) {
-      localInfo.innerHTML =
-        '<div style="font:var(--weight-medium) var(--text-body);margin-bottom:4px;">📦 内置台标统计</div>' +
-        '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:8px;">' +
-          '<div><div style="font-size:11px;color:var(--text-muted);">已有台标</div><div style="font:var(--weight-medium) var(--text-title);color:#10b981;">' + s.withLogo + '</div></div>' +
-          '<div><div style="font-size:11px;color:var(--text-muted);">暂无台标</div><div style="font:var(--weight-medium) var(--text-title);color:#ef4444;">' + s.noLogo + '</div></div>' +
-          '<div><div style="font-size:11px;color:var(--text-muted);">覆盖率</div><div style="font:var(--weight-medium) var(--text-title);color:#7c3aed;">' + s.coverage.toFixed(1) + '%</div></div>' +
-        '</div>' +
-        '<div style="height:6px;background:rgba(127,127,127,.15);border-radius:999px;overflow:hidden;margin-bottom:10px;">' +
-          '<div style="height:100%;width:' + s.coverage.toFixed(1) + '%;background:linear-gradient(90deg,#10b981,#7c3aed);transition:width .4s ease;"></div>' +
-        '</div>';
-    }
-  } catch (e) {}
-}
-
-async function fetchAndUpdateLogo(ch) {
-  if (!hasBackendBridge()) return; // V85: 只要配了服务器地址（PC/Native）都能走
-  try {
-    const r = await fetch(apiUrl('/api/fetch-logo?name=' + encodeURIComponent(ch.name) + '&url=' + encodeURIComponent(ch.url || '')));
-    const j = await r.json();
-    if (j && j.success) {
-      await reloadChannelsFromServer();
-      renderLocalLogoStats();
-      try { showToast('台标已更新'); } catch (ign) {}
-    }
-  } catch (e) {}
-}
-
 async function reloadChannelsFromServer() {
-  if (!hasBackendBridge()) return;   // V85: Native 配了服务器地址也能整包刷新 channels.js
+  if (isNativeApp) return;
   try {
-    const r = await fetch(apiUrl('/channels.js?v=' + Date.now()));
+    const r = await fetch('/channels.js?v='+Date.now());
     const t = await r.text();
     const m = t.match(/const CHANNEL_DATA = (\{[\s\S]*\});/);
-    if (m) {
-      state.channels = JSON.parse(m[1]);
-      saveChannels();
-      renderChannels();
-      renderCategories();
-      // V84: 如果管理页打开着，同步更新分类栏 + 列表
-      try { renderManageRegionTabs(); renderManageList(); } catch(ign){}
-      updatePlayerUI();
-      setupLogoFallbacks();
-    }
-  } catch (e) {}
+    if (m) { state.channels = JSON.parse(m[1]); saveChannels(); renderChannels(); updatePlayerUI(); renderCategories(); }
+  } catch(e){}
 }
-
 async function fetchLogoProgress() {
-  var section = els.logoProgressSection;
-  if (!section) return;
-  section.style.display = 'block';
-
-  // 先渲染本地统计（无论什么模式都有）
-  renderLocalLogoStats();
-
-  // ==== 服务器端状态区（只要有后端桥接：PC 自动；Native 配了地址就显示）====
-  var serverArea = section.querySelector('.logo-server-area');
-  var btn = els.fetchLogoBtn;
-  var hasBridge = hasBackendBridge();
-  if (!hasBridge) {
-    // Native 未配置服务器地址 / 或 file:// 模式下没有 host → 隐藏服务器区
-    if (serverArea) serverArea.style.display = 'none';
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = '📡 请先填上方电脑局域网地址';
-      btn.title = '在输入框填 http://你的电脑IP:8080 后保存即可连接';
-    }
-    stopLogoPoller();
-    return;
-  }
-
-  // 有桥接（PC Web 或 Native 配了地址）：显示服务器区 + 启动轮询 + 按钮启用
-  if (serverArea) serverArea.style.display = '';
-  if (btn) {
-    btn.disabled = false;
-    btn.textContent = isNativeApp ? '🚀 触发电脑端批量获取台标（局域网）' : '🚀 手动批量获取台标（本地浏览器）';
-    btn.title = '';
-  }
-  startLogoPoller();
-
+  if (isNativeApp) { els.logoProgressSection.style.display='none'; return; }
   try {
-    const r = await fetch(apiUrl('/api/logo-progress'));
+    const r = await fetch('/api/logo-progress');
     const j = await r.json();
-    applyServerProgress(j);
-  } catch (e) {
-    applyServerProgress({ _error: (e && e.message) || '连接服务器失败' });
-  }
+    if (j) {
+      els.logoProgressSection.style.display = 'block';
+      const f = j.total_fetched || (j.fetched||[]).length || 0;
+      const fa = j.total_failed || Object.keys(j.failed||{}).length || 0;
+      const t = state.channels.radio.length;
+      els.progressFetched.textContent = f; els.progressFailed.textContent = fa; els.progressTotal.textContent = t;
+      els.progressFill.style.width = t>0 ? (f/t*100)+'%' : '0%';
+    }
+  } catch(e){}
 }
-
-function applyServerProgress(j) {
-  var section = els.logoProgressSection;
-  if (!section) return;
-  var serverArea = section.querySelector('.logo-server-area');
-  if (!serverArea) return;
-  var statusLine = serverArea.querySelector('.logo-server-status');
-  var progF = section.querySelector('#progressFetched');
-  var progFa = section.querySelector('#progressFailed');
-  var progT = section.querySelector('#progressTotal');
-  var progFill = section.querySelector('#progressFill');
-  var btn = els.fetchLogoBtn;
-
-  var stats = getLocalLogoStats();
-  var base = getServerBase() || '';
-
-  if (j && j._error) {
-    if (statusLine) statusLine.innerHTML = '<span style="color:#ef4444;">⚠ 服务器未连接：' + escapeHtml(j._error) + '（请确保 PC 端已运行 node server.js，地址为 ' + escapeHtml(base || 'localhost:8080') + '）</span>';
-  } else if (j) {
-    var f = j.total_fetched || (j.fetched || []).length || 0;
-    var fa = j.total_failed || Object.keys(j.failed || {}).length || 0;
-    var t = stats.total; // 以实际频道总数为准，而非 progress 估计
-    if (progF) progF.textContent = f;
-    if (progFa) progFa.textContent = fa;
-    if (progT) progT.textContent = t;
-    if (progFill) progFill.style.width = (t > 0 ? (f / t * 100) : 0) + '%';
-    var lastTime = j.last_fetch_time ? '  最后运行：' + new Date(j.last_fetch_time).toLocaleString('zh-CN') : '';
-    if (statusLine) {
-      statusLine.innerHTML = '<span style="color:#10b981;">✅ 已连接 ' + escapeHtml(base || 'localhost:8080') + ' 服务器</span>' + lastTime;
-    }
-  }
-  // scheduler-status
-  fetch(apiUrl('/api/scheduler-status')).then(function(r){return r.json();}).then(function(sj){
-    if (!sj) return;
-    var running = !!(sj && sj.isRunning);
-    var status = section.querySelector('.logo-scheduler-status');
-    if (status) {
-      status.innerHTML = running
-        ? '<span style="color:#f59e0b;">⏳ 批量任务执行中…请勿重复点击</span>'
-        : '<span style="color:#6b7280;">⏸ 任务空闲（点击右侧按钮手动触发）</span>';
-    }
-    if (btn) {
-      btn.disabled = !!running;
-      btn.textContent = running
-        ? '⏳ 获取中，请稍候…'
-        : (isNativeApp ? '🚀 触发电脑端批量获取台标（局域网）' : '🚀 手动批量获取台标（本地浏览器）');
-    }
-  }).catch(function(){});
-}
-
-function startLogoPoller() {
-  stopLogoPoller();
-  __logoPollRunning = true;
-  // 按当前状态选择初始间隔：running=5秒, idle/unknown=30秒
-  var fast = (__logoLastStatus === 'running' || __logoLastStatus === 'queued');
-  __logoPollInterval = fast ? 5000 : 30000;
-
-  // 安装全局监听：页面切后台 / 切出管理页就停（省 CPU + 网络 + 耗电）
-  if (typeof document !== 'undefined') {
-    if (!__logoPollVisibilityHandler) {
-      __logoPollVisibilityHandler = function() {
-        if (!__logoPollRunning) return;
-        if (document.visibilityState === 'visible') {
-          if (location.hash === '#manage') startLogoPoller();  // 回来：重启（按最新间隔）
-        } else {
-          stopLogoPoller();  // 后台：立即停止
-        }
-      };
-      try { document.addEventListener('visibilitychange', __logoPollVisibilityHandler, false); } catch(e) {}
-    }
-    if (!__logoPollHashHandler) {
-      __logoPollHashHandler = function() {
-        if (location.hash !== '#manage') { stopLogoPoller(); __logoPollRunning = false; }
-      };
-      try { window.addEventListener('hashchange', __logoPollHashHandler, false); } catch(e) {}
-    }
-  }
-
-  function tick() {
-    if (!els.logoProgressSection || els.logoProgressSection.style.display === 'none') {
-      stopLogoPoller();
-      __logoPollRunning = false;
-      return;
-    }
-    fetch(apiUrl('/api/logo-progress')).then(function(r){return r.json();}).then(function(info){
-      applyServerProgress(info);
-      // 动态调间隔：running/queued → 5s；其它 → 30s
-      var s = (info && info.status) ? info.status : 'unknown';
-      __logoLastStatus = s;
-      var needFast = (s === 'running' || s === 'queued');
-      var newInterval = needFast ? 5000 : 30000;
-      if (newInterval !== __logoPollInterval && __logoPollTimer) {
-        // 重启定时器以应用新间隔
-        startLogoPoller();
-      }
-    }).catch(function(){});
-  }
-  __logoPollTimer = setInterval(tick, __logoPollInterval);
-  // 启动时立即跑一次（避免等最多 30s 才刷新）
-  try { tick(); } catch(e) {}
-}
-function stopLogoPoller() {
-  if (__logoPollTimer) { clearInterval(__logoPollTimer); __logoPollTimer = null; }
-}
-
 async function startBatchFetch() {
-  if (!hasBackendBridge()) {
-    try { showToast(isNativeApp ? '请先在上方填写电脑局域网地址并保存' : '请在本地浏览器（同目录 node server.js）打开页面'); } catch(ign){}
-    return;
-  }
+  if (isNativeApp) { showToast('原生App不支持'); return; }
   try {
-    if (els.fetchLogoBtn) { els.fetchLogoBtn.disabled = true; els.fetchLogoBtn.textContent = '⏳ 触发中…'; }
-    const r = await fetch(apiUrl('/api/start-fetch?size=50&delay=10'));
+    els.fetchLogoBtn.disabled = true; els.fetchLogoBtn.textContent = '获取中...';
+    const r = await fetch('/api/start-fetch?size=50&delay=10');
     const j = await r.json();
-    if (j && j.success) {
-      try { showToast('批量获取已开始，进度每5秒自动刷新'); } catch(ign){}
-      await reloadChannelsFromServer();
-      renderLocalLogoStats();
-      await fetchLogoProgress();
-    } else {
-      try { showToast((j && j.error) ? j.error : '获取失败'); } catch(ign){}
-    }
-  } catch (e) {
-    try { showToast('连接失败，请确认 PC 端已运行 node server.js，地址正确且手机和电脑在同一局域网'); } catch(ign){}
-  } finally {
-    applyServerProgress({}); // 刷新 scheduler status
-  }
+    if (j.success) { showToast('批量获取已开始'); await reloadChannelsFromServer(); await fetchLogoProgress(); }
+    else showToast('获取失败');
+  } catch(e) { showToast('获取失败'); }
+  finally { els.fetchLogoBtn.disabled = false; els.fetchLogoBtn.textContent = '🚀 手动获取台标'; }
 }
 
 /* ============ UTILS ============ */
 function escapeHtml(s) {
   return String(s==null?'':s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+function showConfirmDialog(msg, title) {
+  return new Promise(resolve => {
+    els.confirmTitle.textContent = title || '提示';
+    els.confirmMsg.textContent = msg;
+    els.confirmOverlay.classList.add('show');
+    const done = (v) => {
+      els.confirmOverlay.classList.remove('show');
+      els.confirmOk.removeEventListener('click', onOk);
+      els.confirmCancel.removeEventListener('click', onCancel);
+      els.confirmOverlay.removeEventListener('click', onOverlay);
+      resolve(v);
+    };
+    const onOk = () => done(true);
+    const onCancel = () => done(false);
+    const onOverlay = (e) => { if (e.target === els.confirmOverlay) done(false); };
+    els.confirmOk.addEventListener('click', onOk);
+    els.confirmCancel.addEventListener('click', onCancel);
+    els.confirmOverlay.addEventListener('click', onOverlay);
+  });
+}
+
 function showToast(msg) {
   try {
     if (!els || !els.toast || !els.toast.parentNode) {
@@ -3786,16 +5278,15 @@ function showToast(msg) {
         if (!b) return;
         t = document.createElement('div');
         t.id = 'toast';
-        t.style.cssText = 'position:fixed;left:50%;bottom:12vh;transform:translateX(-50%);max-width:92vw;padding:10px 14px;border-radius:10px;background:rgba(30,30,30,.92);color:#fff;font-size:13.5px;line-height:1.5;font-weight:600;z-index:999999;text-align:center;box-shadow:0 4px 16px rgba(0,0,0,.38);opacity:0;pointer-events:none;transition:opacity .2s;white-space:pre-wrap;';
+        t.className = 'toast';
         b.appendChild(t);
         els.toast = t;
       }
     }
     els.toast.textContent = msg;
     els.toast.classList.add('show');
-    if (!els.toast.classList.contains('show')) {
-      els.toast.style.setProperty('opacity', '1', 'important');
-    }
+    // V148 修复：每次都强制设置 opacity:1，避免 setTimeout 中的 opacity:0 !important 覆盖 CSS
+    els.toast.style.setProperty('opacity', '1', 'important');
     clearTimeout(showToast._t);
     showToast._t = setTimeout(()=>{
       try { els.toast.classList.remove('show'); } catch(ign){}

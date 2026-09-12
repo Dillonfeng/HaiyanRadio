@@ -17,6 +17,11 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.PARTIAL_WAKE_LOCK" tools:node="remove" xmlns:tools="http://schemas.android.com/tools" />
+    <!-- V102 ADD: 允许使用NETWORK_LOCKS_ALLOWLIST (部分ROM(如ColorOS/小米)需要此权限才能让WifiLock在电池优化下依然生效) -->
+    <uses-permission android:name="android.permission.NETWORK_LOCKS_ALLOWLIST" />
+    <!-- V102 ADD: 防止系统在省电模式下杀前台媒体服务 -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <uses-feature android:name="android.hardware.audio.output" />
     <uses-feature android:name="android.hardware.wifi" android:required="false" />
@@ -35,6 +40,7 @@
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode"
+            android:screenOrientation="user"
             android:name=".MainActivity"
             android:label="@string/title_activity_main"
             android:theme="@style/AppTheme.NoActionBarLaunch"
