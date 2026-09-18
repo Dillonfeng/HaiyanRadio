@@ -1,5 +1,6 @@
 package com.retro.radio;
 
+import android.app.AlarmManager; // V188-B: 等待期90秒精确闹钟兜底自检
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -105,6 +106,17 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
             try { if (wifiLockFull != null && wifiLockFull.isHeld()) { wifiLockFull.release(); Log.i(TAG, "V164-POWER: paused 2min, released FULL WifiLock"); } } catch (Throwable ignore) {}
         }
     };
+    // V185: 蓝牙断开暂停时立即释放全部播放锁。旧版等30s/2min Runnable释放，但断开后进程立刻
+    //   被HANS冻结、Handler积压：实测20:47断开→22:02解冻才release，PARTIAL_WAKE_LOCK+FULL
+    //   WifiLock名义持有75分钟 → 触发ColorOS"异常耗电"告警(22:10)。蓝牙断开期间无需保护任何
+    //   流(已暂停)，FGS身份保留即可(无锁无流量≈零耗电且防冻结)。
+    private void releaseAllLocksImmediatelyForBtPause() {
+        try { powerHandler.removeCallbacks(pauseDemoteHighPerf); powerHandler.removeCallbacks(pauseDemoteFgs); } catch (Throwable ignore) {}
+        try { if (wifiLock != null && wifiLock.isHeld()) { wifiLock.release(); Log.i(TAG, "V185-POWER: BT pause → immediate release HIGH_PERF WifiLock"); } } catch (Throwable ignore) {}
+        try { if (wakeLock != null && wakeLock.isHeld()) { wakeLock.release(); Log.i(TAG, "V185-POWER: BT pause → immediate release PARTIAL_WAKE_LOCK"); } } catch (Throwable ignore) {}
+        try { if (wifiLockFull != null && wifiLockFull.isHeld()) { wifiLockFull.release(); Log.i(TAG, "V185-POWER: BT pause → immediate release FULL WifiLock"); } } catch (Throwable ignore) {}
+    }
+
     private final android.os.Handler powerHandler = new android.os.Handler(android.os.Looper.getMainLooper());
     private boolean hasFocus = false;
     private boolean isPlaying = false;
@@ -151,11 +163,86 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
     private Thread btSilenceThread = null;
     private volatile boolean btSilenceRunning = false;
     private Runnable btSilenceStopCheck = null;
-    private static final long BT_SILENCE_MAX_MS = 15000L; // 真实流迟迟不起，15s兜底释放
+    // V186: 等待态静音轨模式。实测(20260913 08:12)：耳机关机整夜后再开机，audioserver 的设备
+    //   回调只给 binder 事务级微解冻(default_unfreezeForKernel)，post 给主线程的任务排队不跑，
+    //   广播也被 HANS 延迟到亮屏(LcdOn)才投递 → 不亮屏永不自动恢复。V182静音轨只在重连确认的
+    //   几十秒存在，等待的整夜没有任何 audio-active 身份 → 被冻。V186：蓝牙断开时(确有播放意愿)
+    //   即启动【无限等待静音轨】，不持 wakelock/wifilock、不走网络，仅一条 MIN_PRIORITY 线程写零，
+    //   AudioFlinger 据此判 uid 音频活跃 → HANS 整夜不冻 → 重连回调在主线程正常执行 → 自动出声。
+    private volatile boolean btWaitSilenceMode = false;
+    // V189: 屏幕状态接收器。等待轨只在【息屏+蓝牙断开】时运行；亮屏时系统不会冻进程/断网，
+    //   等待轨纯耗电(实测约0.61%/8h)。亮屏即停、息屏即启，白天蓝牙断开但亮屏时零额外耗电。
+    private BroadcastReceiver screenReceiver = null;
+    // V190: 息屏后延迟启动等待轨，双时段。
+    //   白天[08:00,21:00)：实测(20260918)息屏37/63分钟无等待轨，白名单单独即可让蓝牙回调直达，
+    //   故延迟45分钟——白天短息屏(看时间/回消息/短会)等待轨零运行零耗电；
+    //   夜间[21:00,08:00)：2分钟。系统约21:42起SENSING→约20分钟后进DEEP_SLEEP，
+    //   必须保证deepSleep静音判定那一刻±16LSB轨已在跑(mIsPlayMusic=true保网)。
+    //   边界：傍晚布防若45min会跨过21:00，则提前到"21:00+2min"启动，不赌跨窗。
+    private static final long BT_SILENCE_DELAY_DAY_MS = 45 * 60 * 1000L;
+    private static final long BT_SILENCE_DELAY_NIGHT_MS = 2 * 60 * 1000L;
+    private static final int DAY_START_HOUR = 8;
+    private static final int NIGHT_START_HOUR = 21;
+    private final android.os.Handler silenceStartHandler = new android.os.Handler(android.os.Looper.getMainLooper());
+    private final Runnable silenceStartRunnable = new Runnable() {
+        @Override public void run() { doStartBtSilenceKeepalive(); }
+    };
+    private static final String STABILITY_SP = "retro_stability";
+    private static final String KEY_BT_WAIT_INTENT = "bt_wait_intent_v186";
+    private static final long BT_SILENCE_MAX_MS = 45000L; // V184: 15s→45s（蜂窝网prepare慢；必须等到新流真实出声）
     private static final int BT_SILENCE_SAMPLE_RATE = 16000;
+    // V188-B: 等待期精确闹钟兜底。实测(20260915 06:20/06:44，Android 16 / V.276532a)：App后台长冻结
+    //   后开箱，NOISY广播被系统扣押不投递(DEFER_BY_OPLUS SUB_REASON: FROZEN)，audioserver设备回调
+    //   也不给解冻 —— V187"开箱回调里重建静音轨"的前提(回调能执行)在新系统上不成立，整夜哑掉。
+    //   对策：等待期间每90秒 setExactAndAllowWhileIdle 自唤醒一次(HANS日志证实alarm可解冻冻结应用：
+    //   freeze记账含 ua_alarm/up_BC，闹钟是OEM白名单能力)。醒来若音箱已连→立即恢复(最差分钟级出声，
+    //   绝不整夜哑)；未连→刷新近静音轨保住 audio-active 身份再睡。Doze深睡下 allow-while-idle 有
+    //   每App约9分钟节流，兜底周期退化为~9分钟，仍远好于整夜无声。
+    private static final long BT_WAIT_ALARM_INTERVAL_MS = 90000L;
+    private static final int BT_WAIT_ALARM_RC = 10086;
+    private static final String ACTION_BT_WAIT_ALARM = "com.retro.radio.BT_WAIT_ALARM";
+    public static final String ACTION_BT_WAIT_REARM = "com.retro.radio.BT_WAIT_REARM"; // V188-C: 开机自启恢复等待态
+    private PendingIntent btWaitAlarmPi = null;
+    private BroadcastReceiver btWaitAlarmReceiver = null;
 
     /** 供 Activity 回前台时查询蓝牙断开态，同步 JS 标志/UI（后台期间发生的断开）。 */
     public boolean isBtAudioDisconnected() { return btAudioDisconnected; }
+
+    // V186: 持久化"蓝牙等待播放意愿"（断连时在播 → 耳机回来要自动续）。进程若被系统杀死后
+    //   START_STICKY/媒体事件重启，onCreate 据此重新布防（无输出→等，有输出→直接恢复）。
+    public static void persistBtWaitIntent(Context ctx, boolean on) {
+        try {
+            ctx.getSharedPreferences(STABILITY_SP, MODE_PRIVATE)
+                    .edit().putBoolean(KEY_BT_WAIT_INTENT, on).apply();
+        } catch (Throwable ignore) {}
+    }
+    public static boolean peekBtWaitIntent(Context ctx) {
+        try {
+            return ctx.getSharedPreferences(STABILITY_SP, MODE_PRIVATE)
+                    .getBoolean(KEY_BT_WAIT_INTENT, false);
+        } catch (Throwable t) { return false; }
+    }
+    private void setBtWaitIntent(boolean on) {
+        persistBtWaitIntent(getApplicationContext(), on);
+        Log.i(TAG, "V186 wait-intent = " + on);
+    }
+
+    /** V186: 用户在 UI 上手动暂停 → 放弃整夜等待（耳机再连也不自动续）。供 RPC pause 调用。 */
+    public void userManualPauseClearsBtWait() {
+        // V186 双保险：noisy 断连后 5 秒内到达的 pause 一律视为断开流程的内部镜像
+        //   （JS handleBtAudioDisconnect 注入执行有时序延迟），绝不撤防；真实用户操作
+        //   不可能与断连事件在同一 5 秒窗口内精确重合。
+        if (lastBtNoisyElapsed > 0L
+                && SystemClock.elapsedRealtime() - lastBtNoisyElapsed < 5000L) {
+            Log.i(TAG, "V186: pause within 5s after noisy → treat as auto mirror, keep wait mode");
+            return;
+        }
+        if (btWaitSilenceMode || peekBtWaitIntent(getApplicationContext())) {
+            Log.i(TAG, "V186: user manual pause → disarm wait mode/intent");
+            setBtWaitIntent(false);
+            stopBtWaitSilence();
+        }
+    }
 
     private final IBinder binder = new LocalBinder();
     public static volatile RadioPlaybackService sLastInstance = null;
@@ -259,6 +346,35 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         } else {
             registerReceiver(uiReceiver, new IntentFilter(UI_ACTION_UPDATE));
         }
+        // V189: 屏幕状态监听——息屏才启动等待轨，亮屏即停，避免白天蓝牙断开时长时间空转耗电。
+        try {
+            screenReceiver = new BroadcastReceiver() {
+                @Override public void onReceive(Context context, Intent intent) {
+                    String a = intent == null ? null : intent.getAction();
+                    if (Intent.ACTION_SCREEN_OFF.equals(a)) {
+                        // 息屏：若处于等待态，调度等待轨(双时段延迟，跳过白天短息屏)
+                        if (btWaitSilenceMode && !btSilenceRunning) {
+                            startBtSilenceKeepalive();
+                            Log.i(TAG, "V190 screen-OFF: schedule keepalive (dual-phase delay, wait-mode)");
+                        }
+                    } else if (Intent.ACTION_SCREEN_ON.equals(a)) {
+                        // 亮屏：取消延迟+停止等待轨，亮屏不会冻进程
+                        if (btSilenceRunning) {
+                            stopBtSilenceKeepalive();
+                            Log.i(TAG, "V189 screen-ON: stop keepalive (screen interactive, no freeze risk)");
+                        }
+                    }
+                }
+            };
+            IntentFilter sf = new IntentFilter();
+            sf.addAction(Intent.ACTION_SCREEN_OFF);
+            sf.addAction(Intent.ACTION_SCREEN_ON);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(screenReceiver, sf, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(screenReceiver, sf);
+            }
+        } catch (Throwable t) { Log.w(TAG, "V189 register screenReceiver FAIL: " + t); }
         Log.d(TAG, "V102 TRIPLE-HAMMER onCreate: DONE - All 3 hammers deployed at Service creation");
         // V152 网络切换自动重连：Service 层注册网络监听（前台服务保护，不易被冻结）
         try { registerSvcNetworkReconnect(); } catch (Throwable t) { Log.w(TAG, "registerSvcNetworkReconnect FAIL: " + t); }
@@ -294,6 +410,12 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                 if (hasNet && !svcLastNetAvailable) {
                     Log.i(TAG, "[SVC-NET] onCapabilitiesChanged: validated internet restored");
                     svcLastNetAvailable = true;
+                    // V184: 不只通知JS（实测JS有15s throttle且"is playing/buffering"会skip，
+                    //   数据网onLost后TCP静默挂死时永远救不回来）→ Java层直接判定并重建卡住的播放
+                    try {
+                        NativeAudioPlayer p = NativeAudioPlayer.peekInstance();
+                        if (p != null) p.forceReLiveFromNetwork();
+                    } catch (Throwable ignore) {}
                     sendBroadcastToUI(ACTION_RECONNECT);
                 } else if (!hasNet) {
                     svcLastNetAvailable = false;
@@ -332,6 +454,12 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                     break;
                 case ACTION_STOP:
                     handleStop(true);
+                    break;
+                case ACTION_BT_WAIT_REARM:
+                    // V188-C: 开机自启。Service冷启动时 onCreate→registerBtAudioMonitor 已按
+                    //   持久化等待意图完成布防(无输出→等待静音+闹钟；有输出→3秒确认恢复)，
+                    //   这里只需记录，不做额外动作（绝不在开机时贸然 handlePlay）。
+                    Log.i(TAG, "V188: BOOT re-arm start received; wait-intent handled at create");
                     break;
                 case ACTION_NEXT:
                     sendBroadcastToUI(ACTION_NEXT);
@@ -567,10 +695,18 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                 coldStartPlayLastChannel();
                 return;
             }
-            // 有源(暂停/锁屏期间ExoPlayer保留media item) → 直接resume；无源 → 同样尝试最后电台URL直连
+            // V185: 防重复恢复。实测蓝牙耳机A2DP重连后会自动补发AVCRP PLAY键(约重连后20秒)，
+            //   与我们的蓝牙恢复形成双路径：第二次resumeLive会把刚恢复正常的流强行seekTo+prepare
+            //   重来一次 → 用户感知"卡顿一下/播着播着又缓冲"。已在播放/缓冲恢复中则直接忽略。
+            if (p.isPlayingN()) {
+                Log.i(TAG, "V185 directResume: player already playing/buffering (resumeLive done or AVCRP dup key) → skip");
+                return;
+            }
+            // 有源(暂停/锁屏期间ExoPlayer保留media item) → V184蓝牙恢复一律重建直播流(resumeLive)；
+            //   无源 → 同样尝试最后电台URL直连
             if (p.hasSourceSync()) {
-                Log.i(TAG, "V177 directResume: resuming ExoPlayer singleton (has source)");
-                p.resume();  // 内部走 ACTION_META/apiPlayFromBinder，不广播 → 无回环
+                Log.i(TAG, "V184 directResume: resumeLive (seekTo live edge+prepare, never resume stale conn)");
+                p.resumeLive();
             } else {
                 Log.d(TAG, "V177 directResume: no source, try V183 cold-start last channel");
                 coldStartPlayLastChannel();
@@ -638,6 +774,10 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         //   详见 handlePlay 注释）。屏幕播放栏走 RPC pause→_pauseMain→ACTION_META(false)，本就不该再 pause 一次。
         if (notifyUi) directPausePlayer();
         isPlaying = false;
+        if (notifyUi) {
+            // V186: 通知栏/媒体键/ACTION_PAUSE 属用户主动暂停 → 放弃蓝牙整夜等待
+            userManualPauseClearsBtWait();
+        }
         stateBuilder.setState(PlaybackStateCompat.STATE_PAUSED, 0, 1.0f);
         try { mediaSession.setPlaybackState(stateBuilder.build()); } catch (Throwable ignore) {}
         try { mediaSession.setActive(true); } catch (Throwable ignore) {}
@@ -682,7 +822,9 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
             }
         } else Log.d(TAG, "handleStop: internal state update only (skip broadcast to UI)");
         cancelSilenceAutoStop();
-        stopBtSilenceKeepalive();  // V182: 停止时兜底释放静音保活轨
+        stopBtWaitSilence();       // V186: 用户主动停止 → 撤整夜等待静音
+        setBtWaitIntent(false);    // V186: 清除等待意愿（耳机再连也不自动续）
+        btAudioDisconnected = false;
         stopSelf();
     }
 
@@ -818,6 +960,9 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                     try {
                         String act = intent.getAction();
                         if (AudioManager.ACTION_AUDIO_BECOMING_NOISY.equals(act)) {
+                            // V186: 断连瞬间先抓 Service 侧播放态（pauseForBt→handlePause 之后会变 false）。
+                            //   仅"断连时确实在播"才布整夜等待；用户本来就手动暂停着 → 不布防、不自动续。
+                            final boolean wasPlayingBeforeNoisy = isPlaying;
                             cancelScheduledBtRestore();
                             long nowElapsed = SystemClock.elapsedRealtime();
                             if (lastBtNoisyElapsed > 0) {
@@ -836,8 +981,16 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                             //   emit带bt标记，JS不清除wasPlaying播放意愿（重连/冷启动要据此自动恢复）
                             NativeAudioPlayer _bp = NativeAudioPlayer.peekInstance();
                             if (_bp != null) _bp.pauseForBt();  // 幂等（ExoPlayer可能已自动暂停）
+                            releaseAllLocksImmediatelyForBtPause();  // V185: 立即释放全部锁(防冻结积压名义长持触发耗电告警)
                             repromoteFgsForBtConfirm(); // V182: 若此前用户手动暂停已降级FGS，此刻补提（防等待期被冻）
                             sendBroadcastToUI(ACTION_BT_DISCONNECTED);
+                            // V186: 整夜等待静音轨 —— 耳机回来前进程必须保持 audio-active 不被HANS冻
+                            if (wasPlayingBeforeNoisy) {
+                                setBtWaitIntent(true);
+                                startBtWaitSilence();
+                            } else {
+                                Log.i(TAG, "V186: noisy while not playing -> do NOT arm wait-silence/intent");
+                            }
                         } else if (BluetoothDevice.ACTION_ACL_CONNECTED.equals(act)) {
                             Log.i(TAG, "[V180-BT] ACL_CONNECTED (fallback)");
                             scheduleBtRestore();
@@ -868,6 +1021,9 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                             if (hasExternalSink(removedDevices)) {
                                 Log.i(TAG, "[V180-BT] external output removed → 取消挂起恢复");
                                 cancelScheduledBtRestore();
+                                // V186: 确认窗口内设备又消失(弱信号抖动/二次关机)，若仍有等待意愿，
+                                //   回到整夜等待态(保持 audio-active 不被冻)
+                                if (peekBtWaitIntent(getApplicationContext())) startBtWaitSilence();
                             }
                         }
                     };
@@ -888,6 +1044,21 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                     }
                 }
             } catch (Throwable ignore) {}
+            // V186: 进程被杀后重启(START_STICKY等)，若断连等待意愿仍在：无输出→重新进入整夜等待静音；
+            //   已有输出(耳机在进程死亡期间已连回)→直接走3秒确认恢复。
+            try {
+                if (peekBtWaitIntent(getApplicationContext())) {
+                    if (hasExternalAudioOutput()) {
+                        btAudioDisconnected = true;
+                        Log.i(TAG, "V186: wait-intent found at create + external output present → restore directly");
+                        scheduleBtRestore();
+                    } else {
+                        btAudioDisconnected = true;
+                        Log.i(TAG, "V186: wait-intent found at create, no output → re-arm wait-silence");
+                        startBtWaitSilence();
+                    }
+                }
+            } catch (Throwable t) { Log.w(TAG, "V186 create re-arm FAIL: " + t); }
         } catch (Throwable t) { Log.w(TAG, "registerBtAudioMonitor FAIL: " + t); }
     }
 
@@ -921,7 +1092,40 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
     }
 
     // V182: 零音量静音轨保活（详见字段注释）。任何异常都不得影响蓝牙主流程。
+    // V189: 仅做调度——亮屏不启动、息屏延迟启动；实际AudioTrack创建在doStartBtSilenceKeepalive。
+    /** V190: 按当前时刻计算息屏延迟（白天45min/夜间2min/傍晚跨窗取短）。 */
+    private long currentBtSilenceDelayMs() {
+        java.util.Calendar c = java.util.Calendar.getInstance();
+        int h = c.get(java.util.Calendar.HOUR_OF_DAY);
+        if (h >= NIGHT_START_HOUR || h < DAY_START_HOUR) return BT_SILENCE_DELAY_NIGHT_MS;
+        java.util.Calendar nightStart = (java.util.Calendar) c.clone();
+        nightStart.set(java.util.Calendar.HOUR_OF_DAY, NIGHT_START_HOUR);
+        nightStart.set(java.util.Calendar.MINUTE, 0);
+        nightStart.set(java.util.Calendar.SECOND, 0);
+        nightStart.set(java.util.Calendar.MILLISECOND, 0);
+        long msToNight = nightStart.getTimeInMillis() - c.getTimeInMillis();
+        return Math.min(BT_SILENCE_DELAY_DAY_MS, msToNight + BT_SILENCE_DELAY_NIGHT_MS);
+    }
+
     private void startBtSilenceKeepalive() {
+        try {
+            if (btSilenceRunning) return;
+            silenceStartHandler.removeCallbacks(silenceStartRunnable);
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            if (pm != null && pm.isInteractive()) {
+                // 亮屏：不启动，等息屏后由screenReceiver重新调度
+                Log.i(TAG, "V190 keepalive: deferred (screen ON, will arm after SCREEN_OFF)");
+                return;
+            }
+            // 息屏：按双时段延迟启动，跳过白天短息屏空转；夜间2min保证deepSleep前在轨
+            long delay = currentBtSilenceDelayMs();
+            silenceStartHandler.postDelayed(silenceStartRunnable, delay);
+            Log.i(TAG, "V190 keepalive: scheduled start in " + (delay/1000) + "s (screen OFF, dual-phase)");
+        } catch (Throwable t) { Log.w(TAG, "V189 keepalive schedule FAIL: " + t); }
+    }
+
+    /** 真正创建并启动等待轨 AudioTrack（被延迟Runnable或重建路径调用）。 */
+    private void doStartBtSilenceKeepalive() {
         try {
             if (btSilenceRunning) return;
             final int minBuf = AudioTrack.getMinBufferSize(BT_SILENCE_SAMPLE_RATE,
@@ -949,28 +1153,43 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                 try { t.release(); } catch (Throwable ignore) {}
                 return;
             }
-            t.setVolume(0f);  // 双保险：PCM本身全零 + 轨道音量0，绝不出声
+            // V188-A: 不再 setVolume(0)。实测(20260915)：Android16 升级后"PCM全零+音量0"的纯静音轨
+            //   会被音频系统静音检测/Atlas判定为无声，audio-active 身份逐渐失效，长冻结后开箱不再解冻。
+            // V189(20260917)：±2LSB(-84dBFS)能过HANS冻结，却过不了ColorOS电池(deepSleep)独立静音检测
+            //   (日志 mIsSilenceAudioOut=true → 睡眠窗整机断网)。升级为随机弱噪声：
+            //   峰值-66dBFS(±16LSB)、RMS约-71dBFS，无固定音调(宽带随机)、统计零直流；
+            //   每轮写入重新生成，避免短周期重复。音量保持默认1.0。
+            //   (±32LSB/-60dBFS 在部分蓝牙音箱上可闻嘶嘶声，降为±16LSB)。
+            t.setVolume(1.0f);
             t.play();
             btSilenceTrack = t;
             btSilenceRunning = true;
-            final byte[] zeros = new byte[bufSize]; // new 数组默认全0 = 数字静音
+            final byte[] nearSilent = new byte[bufSize];
             btSilenceThread = new Thread(new Runnable() {
                 @Override public void run() {
                     AudioTrack tr = btSilenceTrack;
+                    java.util.Random rnd = new java.util.Random();
                     try {
                         while (btSilenceRunning && tr != null) {
-                            tr.write(zeros, 0, zeros.length); // 阻塞写，保持track活跃
+                            // ±16 LSB 对称均匀分布随机噪声：nextInt(33)-16 ∈ [-16,16]，little-endian 16bit
+                            for (int i = 0; i < nearSilent.length; i += 2) {
+                                int s = rnd.nextInt(33) - 16;
+                                nearSilent[i] = (byte) (s & 0xFF);
+                                nearSilent[i + 1] = (byte) ((s >> 8) & 0xFF);
+                            }
+                            tr.write(nearSilent, 0, nearSilent.length); // 阻塞写，保持track活跃(V189: ±16LSB随机弱噪声)
                         }
                     } catch (Throwable ignored) {}
                 }
             }, "BtSilenceKeepalive");
             btSilenceThread.setPriority(Thread.MIN_PRIORITY);
             btSilenceThread.start();
-            Log.i(TAG, "V182 keepalive: silence AudioTrack started (anti-HANS-freeze)");
+            Log.i(TAG, "V189 keepalive: NEAR-SILENT track started (±16LSB random noise, anti-freeze + anti-mute-detect)");
         } catch (Throwable t) { Log.w(TAG, "V182 keepalive start FAIL: " + t); stopBtSilenceKeepalive(); }
     }
 
     private void stopBtSilenceKeepalive() {
+        silenceStartHandler.removeCallbacks(silenceStartRunnable); // V189: 取消尚未触发的延迟启动
         btSilenceRunning = false;
         Thread th = btSilenceThread;
         if (th != null) { try { th.interrupt(); th.join(200); } catch (Throwable ignore) {} }
@@ -985,32 +1204,204 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         if (t != null) Log.i(TAG, "V182 keepalive: silence AudioTrack released");
     }
 
-    // ExoPlayer 真实流渲染后立即释放静音轨；15s 不起也兜底释放。
-    private void scheduleSilenceAutoStop() {
+    // V187: 强制重建静音轨。实测(20260913 12:04，冻结约1小时后开箱)：旧 AudioTrack 在
+    //   AudioFlinger 侧已被 OPPO Atlas 静音检测判定休眠（App 内对象仍在 PLAY），重连解冻窗口
+    //   仅约3秒，旧轨重路由不再产生 audio_track_create/noteAudio 事件 → 系统不授
+    //   STATUS_AUDIO_FOCUS 免冻身份 → 3秒后重新冻结，3秒确认任务被积压129秒才出声。
+    //   对策：设备添加回调里第一时间销毁旧轨并全新建一条 —— 新轨 createTrack+start 本身即触发
+    //   notifyAudioTrackCreate + noteAudio(start=true)（11:02/12:06 两次实证），配合整夜持有未放的
+    //   audioFocus，使 HANS 判定 importance=audioFocus 挡住再冻。内容仍全零、音量0，绝不出声。
+    private void restartBtSilenceTrackFresh() {
+        try {
+            boolean wasArmed = btSilenceRunning;
+            stopBtSilenceKeepalive();
+            // V189: 重建需立即生效(获取fresh audio focus)，不走2分钟延迟；亮屏则无需重建。
+            PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
+            if (pm != null && !pm.isInteractive()) {
+                doStartBtSilenceKeepalive();
+            }
+            Log.i(TAG, "V187 keepalive: silence track RECREATED fresh on restore trigger (wasArmed=" + wasArmed + ")");
+        } catch (Throwable t) { Log.w(TAG, "V187 fresh silence restart FAIL: " + t); }
+    }
+
+    // V186: 无限等待静音轨（耳机长时间关机期间）。与确认窗口共用同一条 AudioTrack（start 幂等），
+    //   区别只在于：不挂任何 45s 自动停止检查，直到重连后真实流出声(scheduleSilenceAutoStop)或
+    //   用户 stop/销毁才释放。零音量、零网络、零 wifilock/wakelock，开销仅 MIN_PRIORITY 写零线程。
+    //   V188: ①内容升级为近静音非零PCM(见startBtSilenceKeepalive注释)；②挂90秒精确闹钟兜底自检
+    //   (Android16长冻结后开箱事件不再投递，闹钟是唯一可靠的定时自醒通道，见字段注释)。
+    //   V189: 近静音内容再升级为±32LSB随机弱噪声，同时骗过ColorOS deepSleep静音检测避免睡眠窗断网。
+    private void startBtWaitSilence() {
+        try {
+            cancelSilenceAutoStop();  // 等待态不允许残留的限时检查提前撤防
+            startBtSilenceKeepalive();
+            btWaitSilenceMode = true;
+            startBtWaitAlarm();
+            Log.i(TAG, "V188 wait-silence: ARMED indefinitely until BT reconnect (near-silent + 90s alarm self-check)");
+        } catch (Throwable t) { Log.w(TAG, "V186 startBtWaitSilence FAIL: " + t); }
+    }
+
+    private void stopBtWaitSilence() {
+        btWaitSilenceMode = false;
+        stopBtSilenceKeepalive();
+        stopBtWaitAlarm();  // V188: 等待撤防→闹钟链一并停(handleStop/手动暂停/onDestroy/真实出声都走这里)
+    }
+
+    // ==================== V188-B: 等待期闹钟兜底自检 ====================
+    /** 布防闹钟自检链（幂等：receiver已在则只重排下一次）。 */
+    private void startBtWaitAlarm() {
+        try {
+            if (btWaitAlarmReceiver == null) {
+                btWaitAlarmReceiver = new BroadcastReceiver() {
+                    @Override public void onReceive(Context context, Intent intent) {
+                        handleBtWaitAlarmFire();
+                    }
+                };
+                IntentFilter f = new IntentFilter(ACTION_BT_WAIT_ALARM);
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    registerReceiver(btWaitAlarmReceiver, f, Context.RECEIVER_NOT_EXPORTED);
+                } else {
+                    registerReceiver(btWaitAlarmReceiver, f);
+                }
+            }
+            armNextBtWaitAlarm();
+            Log.i(TAG, "V188 wait-alarm: armed (interval=" + BT_WAIT_ALARM_INTERVAL_MS + "ms)");
+        } catch (Throwable t) { Log.w(TAG, "V188 wait-alarm arm FAIL: " + t); }
+    }
+
+    private void armNextBtWaitAlarm() {
+        try {
+            AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+            if (am == null) return;
+            if (btWaitAlarmPi == null) {
+                Intent it = new Intent(ACTION_BT_WAIT_ALARM).setPackage(getPackageName());
+                btWaitAlarmPi = PendingIntent.getBroadcast(this, BT_WAIT_ALARM_RC, it,
+                        PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            }
+            long trigger = SystemClock.elapsedRealtime() + BT_WAIT_ALARM_INTERVAL_MS;
+            boolean exact = true;
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try { exact = am.canScheduleExactAlarms(); } catch (Throwable ignore) {}
+            }
+            if (exact) {
+                am.setExactAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, trigger, btWaitAlarmPi);
+            } else {
+                // SCHEDULE_EXACT_ALARM 未授予(可引导用户在设置里开)：退化为非精确，Doze下有~9min节流
+                am.setAndAllowWhileIdle(AlarmManager.ELAPSED_REALTIME_WAKEUP, trigger, btWaitAlarmPi);
+            }
+            Log.i(TAG, "V188 wait-alarm: next fire in " + BT_WAIT_ALARM_INTERVAL_MS + "ms (exact=" + exact + ")");
+        } catch (Throwable t) { Log.w(TAG, "V188 wait-alarm schedule FAIL: " + t); }
+    }
+
+    private void handleBtWaitAlarmFire() {
+        try {
+            if (!btWaitSilenceMode && !peekBtWaitIntent(getApplicationContext())) {
+                Log.i(TAG, "V188 wait-alarm: wait intent gone → stop self-check chain");
+                stopBtWaitAlarm();
+                return;
+            }
+            boolean hasOut = hasExternalAudioOutput();
+            Log.i(TAG, "V188 wait-alarm: FIRED, externalOutput=" + hasOut + " (frozen-recovery self-check)");
+            if (hasOut) {
+                // 音箱已在进程睡眠期间连回：闹钟唤醒本身就是解冻窗口，立即走标准恢复
+                // (3秒确认锁+FGS + directResume；V190起恢复路径不再重建等待轨)
+                btAudioDisconnected = true;
+                btRestoreDelayMs = BT_RESTORE_BASE_MS;
+                scheduleBtRestore();
+                // scheduleBtRestore 成功路径由 scheduleSilenceAutoStop 撤防；若异常其 finally 也会
+                // startBtWaitSilence 重新挂闹钟，此处不再重复排程，避免双链
+            } else {
+                // 仍未连接：睡下一轮。V190：息屏宽限期内(延迟Runnable仍在队列)不重建等待轨，
+                //   纯靠白名单+闹钟测无轨基线；宽限期后才刷新近静音轨维持 audio-active 身份。
+                if (silenceStartHandler.hasCallbacks(silenceStartRunnable)) {
+                    Log.i(TAG, "V190 wait-alarm: FIRED in grace window (no track) -> skip rebuild, reschedule");
+                } else {
+                    restartBtSilenceTrackFresh();
+                }
+                armNextBtWaitAlarm();
+            }
+        } catch (Throwable t) {
+            Log.w(TAG, "V188 wait-alarm fire err: " + t);
+            try { armNextBtWaitAlarm(); } catch (Throwable ignore) {}
+        }
+    }
+
+    private void stopBtWaitAlarm() {
+        try {
+            if (btWaitAlarmPi != null) {
+                AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+                if (am != null) am.cancel(btWaitAlarmPi);
+            }
+        } catch (Throwable ignore) {}
+        try { if (btWaitAlarmReceiver != null) unregisterReceiver(btWaitAlarmReceiver); } catch (Throwable ignore) {}
+        btWaitAlarmReceiver = null;
+        Log.i(TAG, "V188 wait-alarm: disarmed");
+    }
+
+    // ExoPlayer 真实流渲染后立即释放静音轨；45s 不起也兜底释放。
+    //   requireBuffering=true(蓝牙resumeLive恢复)：必须先观察到BUFFERING再READY+position推进2秒
+    //   requireBuffering=false(watchdog/网络重建)：重建动作本身就是seekTo+prepare，不可能是旧死
+    //     连接，BUFFERING可能<800ms被采样错过(实测多保活40秒)，只看READY+position推进即可
+    private void scheduleSilenceAutoStop(final boolean requireBuffering) {
         try { if (btSilenceStopCheck != null) btHandler.removeCallbacks(btSilenceStopCheck); } catch (Throwable ignore) {}
         final long startElapsed = SystemClock.elapsedRealtime();
+        // V184: 释放条件收紧。旧版见STATE_READY就释放，但resume旧死连接时ExoPlayer一直READY、
+        //   吐的是几十秒本地旧缓冲，静音轨提前释放→HANS重新冻结→随后真卡死无人救。
+        //   新判定：随后进入 READY 且 position连续2秒(5次x400ms采样)真实增长，才认为新流真出声；
+        //   45秒兜底。
+        final boolean[] sawBuffering = {false};
+        final long[] advBasePos = {-1L};
+        final int[] advTicks = {0};
         btSilenceStopCheck = new Runnable() {
             @Override public void run() {
-                boolean rendering = false;
+                boolean reallyAudible = false;
+                int state = -99;
+                long pos = -1L;
                 try {
                     NativeAudioPlayer p = NativeAudioPlayer.peekInstance();
-                    rendering = p != null && p.isRendering();
+                    if (p != null) {
+                        state = p.getPlaybackStateInt();
+                        pos = p.getCurrentPositionMs();
+                        if (state == 2 /*STATE_BUFFERING*/) sawBuffering[0] = true;  // Player.STATE_BUFFERING=2
+                        boolean bufferingGatePassed = !requireBuffering || sawBuffering[0];
+                        if (state == 3 /*STATE_READY*/ && bufferingGatePassed) {
+                            if (advBasePos[0] < 0L) {
+                                advBasePos[0] = pos; advTicks[0] = 0;
+                            } else if (pos > advBasePos[0]) {
+                                advTicks[0]++;
+                                if (advTicks[0] >= 5) reallyAudible = true;  // 连续2秒position增长
+                            }
+                        }
+                    }
                 } catch (Throwable ignore) {}
                 long waited = SystemClock.elapsedRealtime() - startElapsed;
-                if (rendering) {
-                    Log.i(TAG, "V182 keepalive: real stream STATE_READY -> release silence");
+                if (reallyAudible) {
+                    Log.i(TAG, "V185 keepalive: READY and position advancing 2s (reqBuf=" + requireBuffering + ") -> release silence");
                     btSilenceStopCheck = null;
-                    stopBtSilenceKeepalive();
+                    if (btWaitSilenceMode || peekBtWaitIntent(getApplicationContext())) {
+                        // V186: 等待态下终于真实出声 → 撤整夜布防
+                        Log.i(TAG, "V186: stream really audible after BT wait -> disarm wait mode");
+                        setBtWaitIntent(false);
+                        stopBtWaitSilence();
+                    } else {
+                        stopBtSilenceKeepalive();
+                    }
                 } else if (waited >= BT_SILENCE_MAX_MS) {
-                    Log.w(TAG, "V182 keepalive: real stream not ready in " + BT_SILENCE_MAX_MS + "ms -> release silence anyway");
+                    Log.w(TAG, "V185 keepalive: new stream not really audible in " + BT_SILENCE_MAX_MS
+                            + "ms (state=" + state + " pos=" + pos + " sawBuf=" + sawBuffering[0] + ") -> release anyway (watchdog still guards)");
                     btSilenceStopCheck = null;
-                    stopBtSilenceKeepalive();
+                    if (btWaitSilenceMode) {
+                        // V186: 等待态45s没出声，不撤防也不重置检查(检查器已结束)，保持整夜静音防冻结，
+                        //   后续设备/网络/watchdog事件会再触发恢复；仅记录
+                        Log.w(TAG, "V186: wait mode silence retained after 45s inaudible (still anti-HANS armed)");
+                    } else {
+                        stopBtSilenceKeepalive();
+                    }
                 } else {
                     btHandler.postDelayed(this, 400L);
                 }
             }
         };
-        btHandler.postDelayed(btSilenceStopCheck, 800L); // resume后先给建连留800ms
+        btHandler.postDelayed(btSilenceStopCheck, requireBuffering ? 800L : 400L);
     }
 
     private void cancelSilenceAutoStop() {
@@ -1029,9 +1420,12 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         try {
             if (!btAudioDisconnected) return;
             cancelScheduledBtRestore();  // 清掉旧任务并释放旧锁
+            // V190: 不再在此重建等待轨。V187 零音量时代需要 fresh noteAudio 抢解冻窗口身份；
+            //   V189 起 ±16LSB 轨在轨即被系统认作音乐(mIsPlayMusic=true)，重建纯属多余且产生开箱
+            //   前2-3秒嘶嘶声。现状：夜间轨在跑→保留到READY后释放；白天宽限期没跑→靠下面的
+            //   确认锁(btRestoreWakeLock)+FGS提升完成3秒确认，回调能直达本身说明进程未被深冻。
             final long delay = btRestoreDelayMs;
             acquireBtConfirmLock(delay); // V180: 保住确认窗口的CPU，保证息屏/Doze下Runnable准时执行
-            startBtSilenceKeepalive();   // V182: 防HANS在3秒解冻窗口后重新冻结（关键）
             repromoteFgsForBtConfirm();  // V182: FGS身份兜底
             btRestoreRunnable = new Runnable() {
                 @Override public void run() {
@@ -1042,7 +1436,9 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                         if (!hasExternalAudioOutput()) {
                             Log.i(TAG, "[V180-BT] 延迟" + delay + "ms后外部输出已不在（抖动），放弃恢复");
                             cancelSilenceAutoStop();
-                            stopBtSilenceKeepalive();  // 设备又没了，无需继续保活
+                            // V186: 等待态下设备确认时又消失 → 回整夜等待，不撤静音防冻结
+                            if (peekBtWaitIntent(getApplicationContext())) startBtWaitSilence();
+                            else stopBtSilenceKeepalive();
                             return;
                         }
                         Log.i(TAG, "[V180-BT] 设备稳定在线 " + delay + "ms → FGS直连恢复播放");
@@ -1051,11 +1447,21 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                         sendBroadcastToUI(ACTION_BT_RECONNECTED);
                         restored = true;
                         // 静音轨继续保留直到 ExoPlayer 真实流 STATE_READY（prepare 建连期间仍可能被HANS判定不可感知）
-                        scheduleSilenceAutoStop();
+                        // V186: 等待态(整夜)恢复走的是全量 setMediaItem 重建，物理上不可能接旧死连接，
+                        //   其 BUFFERING 实测仅 338ms，800ms 后首采样必然错过 → 旧严格门控导致静音轨
+                        //   45秒撤不掉、与真实流双轨并跑浪费电。等待态只要求 READY+position 连续推进；
+                        //   普通确认窗口(seekTo+prepare)保持"先见BUFFERING"严格门控防死连接假READY。
+                        boolean waitMode = btWaitSilenceMode || peekBtWaitIntent(getApplicationContext());
+                        scheduleSilenceAutoStop(!waitMode);
                     } catch (Throwable t) { Log.w(TAG, "[V180-BT] restore runnable err: " + t); }
                     finally {
                         releaseBtConfirmLock();
-                        if (!restored) { cancelSilenceAutoStop(); stopBtSilenceKeepalive(); }
+                        if (!restored) {
+                            cancelSilenceAutoStop();
+                            // V186: 恢复异常时等待态继续整夜布防，非等待态才释放静音轨
+                            if (peekBtWaitIntent(getApplicationContext())) startBtWaitSilence();
+                            else stopBtSilenceKeepalive();
+                        }
                     }
                 }
             };
@@ -1065,7 +1471,9 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
             Log.w(TAG, "[V180-BT] schedule err: " + t);
             releaseBtConfirmLock();
             cancelSilenceAutoStop();
-            stopBtSilenceKeepalive();
+            // V186: 排程异常时，等待态继续保留静音轨(整夜布防不能因一次异常撤防)；非等待态才释放
+            if (peekBtWaitIntent(getApplicationContext())) startBtWaitSilence();
+            else stopBtSilenceKeepalive();
         }
     }
 
@@ -1078,7 +1486,8 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         } catch (Throwable ignore) {}
         releaseBtConfirmLock();  // 断开/设备消失/注销 → 立即释放确认锁
         cancelSilenceAutoStop();
-        stopBtSilenceKeepalive();  // V182: 同步撤掉静音保活轨
+        // V186: 不再在这里无条件停静音轨 —— 整夜等待态要跨"取消挂起恢复"存活（noisy/设备二次消失）。
+        //   显式撤防只在 handleStop / onDestroy(unregisterBtAudioMonitor) / 真实流出声(auto-stop)。
     }
 
     private boolean hasExternalAudioOutput() {
@@ -1118,8 +1527,24 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         } catch (Throwable t) { Log.w(TAG, "V183 armPendingBtRestore FAIL: " + t); }
     }
 
+    // V184: Native层watchdog/网络恢复触发播放重建时调用。重建prepare期间（蜂窝网可能十几秒）
+    //   进程无声 → HANS可能重新冻结 → 重建必然失败。若当前有外部音频输出，启动静音轨保活直到
+    //   新流真实出声（position推进）；扬声器场景(前台在听)不需要。
+    public void notifyRebuildKeepalive() {
+        try {
+            if (!hasExternalAudioOutput()) {
+                Log.i(TAG, "V184 rebuild keepalive: no external output (speaker/foreground), skip");
+                return;
+            }
+            startBtSilenceKeepalive();
+            scheduleSilenceAutoStop(false);  // V185: watchdog重建本身=新prepare,不强制等BUFFERING(避免多保活40秒)
+            Log.i(TAG, "V184 rebuild keepalive: silence track armed until new stream really renders");
+        } catch (Throwable t) { Log.w(TAG, "V184 notifyRebuildKeepalive FAIL: " + t); }
+    }
+
     private void unregisterBtAudioMonitor() {
         cancelScheduledBtRestore();
+        stopBtWaitSilence();  // V186: 注销/销毁显式撤静音轨（等待意图保留，进程重启可再布防）
         try { if (btAudioReceiver != null) unregisterReceiver(btAudioReceiver); } catch (Throwable t) { Log.d(TAG, "unreg btReceiver: " + t); }
         btAudioReceiver = null;
         try {
@@ -1182,6 +1607,7 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         Log.d(TAG, "onDestroy");
         if (sLastInstance == this) sLastInstance = null;
         try { unregisterReceiver(uiReceiver); } catch (Throwable ignore) {}
+        try { if (screenReceiver != null) unregisterReceiver(screenReceiver); } catch (Throwable ignore) {}
         unregisterSvcNetworkReconnect();
         unregisterBtAudioMonitor();
         try { if (mediaSession != null) { mediaSession.setActive(false); mediaSession.release(); } } catch (Throwable ignore) {}

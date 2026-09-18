@@ -22,8 +22,8 @@ const state = {
 };
 
 const DATA_VERSION = '20260902-V157-USER-EDIT-MERGE-SAFE';  // V158 未涉及频道数据结构，DATA_VERSION 保持 V157 以避免触发 forceReset
-const APP_VERSION = 'v1.3.183 (V183b 冷启动续播门控改走RPC通道,修复ColorOS桥接失效误判无耳机)';
-const VERSION_DISPLAY = 'V183';
+const APP_VERSION = 'v1.3.190 (V190 等待轨双时段延迟:白天息屏45分钟内零运行[实测63分钟无轨回调直达]夜间2分钟保证deepSleep前在轨,傍晚跨窗自动取短;恢复播放不再重建等待轨消除开箱嘶嘶声;V189:±16LSB随机弱噪声骗过静音检测夜间不断网;90秒闹钟兜底)';
+const VERSION_DISPLAY = 'V190';
 
 
 const DATA_VERSION_KEY = 'radio_data_version';
@@ -2504,10 +2504,13 @@ window.handleBtAudioDisconnect = function() {
     // V173: 只 pause 不 stop！蓝牙断开是临时事件，保留播放源(MediaSource)，
     //   重连时 resume 秒级恢复；若 stopPlaying 会 clearMediaItems 清空源 + 释放FGS/锁，
     //   重连只能全量 playChannel 重载（慢、重新缓冲）。
-    // Java端已 nativeAudioPlayer.pause()（wantPlaying=false，退避不重试），这里JS同步状态。
+    // V186: native 引擎不再发 pause RPC —— Java  noisy 接收器已执行 pauseForBt()
+    //   （setPlayWhenReady(false)+wantPlaying=false+记录暂停时刻+emit pause bt:true，
+    //   与普通 pause 语义完全等价）。再发一次普通 pause RPC 会被 Java 当成"用户手动暂停"
+    //   而错误撤防 V186 整夜等待（实测断开0.8s后 wait-intent 被清、静音轨被释放）。
     try {
       if (state.playbackEngine === 'native' && hasNativeAudio()) {
-        nativeAudioRpc('pause');
+        // no-op: Java pauseForBt 已暂停，仅同步 JS 状态（上方已置位）
       } else if (state.audioElement) {
         state.audioElement.pause();
       }
@@ -2802,11 +2805,23 @@ function initNativeAudioListener_once() {
         break;
       case 'error':
         console.error('[NativeEngine] ERROR '+d.code+' '+d.name+': '+d.msg);
+        // V184 关键修复: ExoPlayer IO类错误(1000~1099: 连接超时/网络断开/HTTP错误等,实测数据网
+        //   蓝牙恢复后首包超时=1002)时, native V164已在Java层调度指数退避重试(8次)+V184 watchdog
+        //   会兜底重建。旧代码无脑stop native并降级web引擎: stop把wantPlaying=false直接杀掉重试
+        //   →永久无声(等用户拉前台); 且后台冻结时HTMLAudioElement根本不工作。网络错误只提示状态。
+        var isIoErr = typeof d.code === 'number' && d.code >= 1000 && d.code < 1100;
+        if (isIoErr) {
+          if (els.fpStatus) els.fpStatus.textContent = '信号重连中…';
+          state.isPlaying = true;  // 意愿仍在播放，等native自愈；UI播放态保持
+          try { updatePlayerUI(); } catch(ign2){}
+          console.warn('[NativeEngine-V184] IO error → native V164/watchdog handles retry, no stop, no web fallback');
+          break;
+        }
         if (els.fpStatus) els.fpStatus.textContent = '播放失败 (原生 '+d.name+')';
         const ch = state.currentChannel;
         if (ch && !onNativeAudio._fb) {
           onNativeAudio._fb = true;
-          console.warn('[NativeEngine] native engine errored — one-time soft fallback to Web engine');
+          console.warn('[NativeEngine] native engine non-IO fatal — one-time soft fallback to Web engine');
           state.playbackEngine = 'web';
           try { nativeAudioRpc('stop'); } catch(ign){}
           playChannelWithWebEngine(ch);

@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import androidx.annotation.OptIn;
 import androidx.media3.common.AudioAttributes;
+import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
@@ -124,8 +125,38 @@ public class NativeAudioPlayer {
     // V179: 暂停时刻(elapsedRealtime)。直播流(HTTP/HLS)暂停超过 STALE_RESUME_MS 后，
     //   底层TCP连接早已被服务端/NAT回收、本地缓冲失效，此时若直接 setPlayWhenReady(true)
     //   续接死连接 → 长时间缓冲卡顿(实测蓝牙断开6小时后重连卡顿)。resume时改走重新prepare。
-    private static final long STALE_RESUME_MS = 5 * 60 * 1000L;  // 5分钟
+    private static final long STALE_RESUME_MS = 90 * 1000L;  // V184: 5分钟→90秒(直播流长暂停一律重建,仅秒级短暂停走原路径)
+    // V186: 蓝牙断开超过此时长，resumeLive 直接全量 setMediaItem 重建（而非seekTo+prepare），
+    //   彻底丢弃 ExoPlayer 内存中的旧 HLS 分片，消灭"先播昨晚旧声几秒才切实时"的现象。
+    private static final long BT_FRESH_RELOAD_MS = 180 * 1000L;
     private long pausedAtElapsedMs = 0L;
+
+    // V184: 播放卡死看门狗。实测数据网 onLost 后旧TCP连接静默挂死：ExoPlayer 状态长期
+    //   STATE_READY/playWhenReady=true 但 positionMs 冻结数分钟、不抛 onPlayerError，
+    //   V164错误重试完全不触发，JS网络恢复通知又因"is playing"被skip → 无声到用户拉前台。
+    //   播放中每5秒采样position，连续20秒不增长(READY/BUFFERING)或IDLE卡30秒 → 强制重建。
+    // V186: 修复低延迟短窗口HLS(CNR 3分片×10s)的误判 —— 实测息屏正常播放时精确每30秒触发：
+    //   播放头在直播窗口末端(29.6~29.8s/dur=30s)滑移，伴随 AudioTrack "retrograde timestamp
+    //   time corrected"，position 反复被时间戳修正拉回、20秒凑不够+200ms → 被误判卡死重建，
+    //   造成周期性短卡顿。READY态改采多信号判据：前进/回退(retrograde)/窗口时长变化/缓冲位置
+    //   变化任一即健康；真TCP挂死(onLost)时四信号全冻结仍被20秒判据捕获。BUFFERING保持严格。
+    private static final long WATCHDOG_TICK_MS = 5000L;
+    private static final long WATCHDOG_STALL_MS = 20000L;
+    private static final long WATCHDOG_IDLE_MS = 30000L;
+    private static final int  WATCHDOG_MAX_REBUILDS = 3;
+    private long wdLastPosMs = -1L;
+    private long wdLastDurMs = Long.MIN_VALUE;   // V186: 上次采样窗口时长
+    private long wdLastBufMs = Long.MIN_VALUE;   // V186: 上次采样缓冲位置
+    private long wdLastProgressElapsed = 0L;
+    private long wdIdleSinceElapsed = 0L;
+    private int  wdRebuilds = 0;
+    private boolean wdStarted = false;
+    private final Runnable watchdogTick = new Runnable() {
+        @Override public void run() {
+            try { watchdogCheck(); } catch (Throwable t) { Log.w(TAG, "V184 watchdog tick FAIL: " + t); }
+            MAIN.postDelayed(this, WATCHDOG_TICK_MS);
+        }
+    };
     // V101 FIX: ServiceConnection for RadioPlaybackService (so we can GUARANTEE Service.onCreate→sLastInstance is set before any ExoPlayer events fire).
     //   Earlier V100 code read RadioPlaybackService.sLastInstance synchronously inside playUrl — which was RACE because sLastInstance was NULL until
     //   a future startService() or bindService() call made the Service instance. This caused startForeground() NEVER TO RUN, proven by dumpsys
@@ -349,6 +380,12 @@ public class NativeAudioPlayer {
                 }
             });
             Log.e(TAG, "lazyInit: ExoPlayer OK. setWakeMode=WAKE_MODE_NETWORK (PARTIAL_WAKE_LOCK + HIGH_PERF WifiLock via AudioSystem; immune to ActivityRecord freezer)");
+            // V184: 启动播放卡死看门狗（进程生命周期内常驻，tick内部按wantPlaying门控，开销仅5秒读一次position）
+            if (!wdStarted) {
+                wdStarted = true;
+                MAIN.postDelayed(watchdogTick, WATCHDOG_TICK_MS);
+                Log.i(TAG, "V184 watchdog started (stall=" + WATCHDOG_STALL_MS + "ms, tick=" + WATCHDOG_TICK_MS + "ms)");
+            }
         } catch (Throwable topT) {
             Log.wtf(TAG, "lazyInit TOP FAIL: " + topT, topT);
             _emit("fatal", "{\"msg\":"+_jsonStr(topT.toString())+"}");
@@ -407,6 +444,48 @@ public class NativeAudioPlayer {
     @JavascriptInterface
     public void resume() { MAIN.post(() -> _resumeMain()); }
 
+    // V184: 蓝牙断开重连恢复专用入口。直播流(HTTP MP3/HLS)任何时长的断开后，旧TCP/NAT映射
+    //   都可能已失效：旧实现暂停<5分钟时直接resume，实测数据网断开5~6分钟重连后先吐几十秒
+    //   本地旧缓冲(positionMs沿旧值增长)，然后静默挂死不报错。现在一律 seekTo live edge+prepare
+    //   全新建连，代价仅是重连一次的起播延迟，换来绝不接死连接。
+    public void resumeLive() { MAIN.post(this::_resumeLiveMain); }
+
+    private synchronized void _resumeLiveMain() {
+        if (Thread.currentThread() != Looper.getMainLooper().getThread()) { MAIN.post(this::_resumeLiveMain); return; }
+        try {
+            if (exo != null) {
+                long pausedFor = pausedAtElapsedMs > 0L ? SystemClock.elapsedRealtime() - pausedAtElapsedMs : 0L;
+                boolean freshReload = pausedFor > BT_FRESH_RELOAD_MS
+                        && curUrl != null && !curUrl.isEmpty()
+                        && exo.getMediaItemCount() > 0;
+                if (freshReload) {
+                    // V186: 整夜/超长断开后，seekToDefaultPosition+prepare 仍可能先吐内存里昨晚的旧分片
+                    //   （实测08:14: 亮屏后先播昨晚旧声几秒才切实时直播）。改为完全重置媒体项：
+                    //   stop + setMediaItem(resetPosition) + prepare，内存缓冲/旧playlist窗口全部丢弃。
+                    try { exo.stop(); } catch (Throwable ignore) {}
+                    MediaItem mi = new MediaItem.Builder().setUri(Uri.parse(curUrl)).build();
+                    exo.setMediaItem(mi, true);
+                    exo.prepare();
+                    exo.setPlayWhenReady(true);
+                    Log.i(TAG, "V186 resumeLive: pausedFor=" + pausedFor + "ms > " + BT_FRESH_RELOAD_MS
+                            + "ms → FULL reload (drop stale overnight buffer)");
+                } else {
+                    if (exo.getMediaItemCount() > 0) { try { exo.seekToDefaultPosition(); } catch (Throwable ignore) {} }
+                    exo.prepare();
+                    exo.setPlayWhenReady(true);
+                    Log.i(TAG, "V184 resumeLive: seekToDefaultPosition+prepare (pausedFor=" + pausedFor + "ms, BT restore)");
+                }
+                pausedAtElapsedMs = 0L;
+                wdLastPosMs = -1L; wdLastDurMs = Long.MIN_VALUE; wdLastBufMs = Long.MIN_VALUE;
+                wdLastProgressElapsed = SystemClock.elapsedRealtime(); wdIdleSinceElapsed = 0L;
+            }
+            wantPlaying = true; errRetryCount = 0;
+            RadioPlaybackService s = acquireServiceForPlaying(curName, curSub, true);
+            if (s != null) s.apiPlayFromBinder(curName, curSub, true);
+            _emit("resume", "{\"isPlaying\":true,\"live\":true}");
+        } catch (Throwable topT) { Log.e(TAG, "_resumeLiveMain FAIL: " + topT); }
+    }
+
     // ==================================================================
     //  MAIN thread implementations
     // ==================================================================
@@ -420,6 +499,8 @@ public class NativeAudioPlayer {
             curUrl = url; curName = name == null ? "" : name; curSub = sub == null ? "" : sub;
             wantPlaying = true; errRetryCount = 0;  // V164: 用户意图=播放，重置退避计数
             pausedAtElapsedMs = 0L;  // V179: 全新播放源，清除长暂停标记
+            wdLastPosMs = -1L; wdLastDurMs = Long.MIN_VALUE; wdLastBufMs = Long.MIN_VALUE;
+            wdRebuilds = 0; wdIdleSinceElapsed = 0L;  // V184: 新流重置看门狗基线
             persistLastChannel();  // V183: 供进程被杀后媒体键冷启动直连播放
             _emit("play", String.format("{\"name\":%s,\"sub\":%s,\"url\":%s}",
                     _jsonStr(curName), _jsonStr(curSub), _jsonStr(curUrl)));
@@ -623,6 +704,159 @@ public class NativeAudioPlayer {
         try {
             return exo != null && exo.getPlayWhenReady() && exo.getPlaybackState() == Player.STATE_READY;
         } catch (Throwable t) { return false; }
+    }
+
+    // V184: 供Service静音轨轮询查询实时状态（-1=无player）
+    public int getPlaybackStateInt() {
+        try { return exo == null ? -1 : exo.getPlaybackState(); } catch (Throwable t) { return -1; }
+    }
+
+    // V185: 网络是否真正可用(VALIDATED)。数据网onLost期间盲目prepare必然秒失败→watchdog每20秒
+    //   重建一次+静音轨循环，纯耗电。无网络时挂起，等Service网络恢复事件forceReLiveFromNetwork触发。
+    private boolean isNetworkValidated() {
+        try {
+            android.net.ConnectivityManager cm = (android.net.ConnectivityManager)
+                    appCtx.getSystemService(android.content.Context.CONNECTIVITY_SERVICE);
+            if (cm == null) return true;  // 拿不到就不拦，保守放行
+            android.net.NetworkCapabilities caps = cm.getNetworkCapabilities(cm.getActiveNetwork());
+            return caps != null
+                    && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                    && caps.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_VALIDATED);
+        } catch (Throwable t) { return true; }
+    }
+
+    // ---------------- V184 watchdog ----------------
+    private void watchdogCheck() {
+        if (exo == null) return;
+        try {
+            if (!wantPlaying || !exo.getPlayWhenReady()) {
+                wdLastPosMs = -1L; wdLastDurMs = Long.MIN_VALUE; wdLastBufMs = Long.MIN_VALUE;
+                wdRebuilds = 0; wdIdleSinceElapsed = 0L;
+                return;
+            }
+            int st = exo.getPlaybackState();
+            long now = SystemClock.elapsedRealtime();
+            if (st == Player.STATE_BUFFERING) {
+                // V186: BUFFERING 保持严格判据（只认 position 真实推进）。
+                // 半挂场景(playlist能刷新但分片下载死)ExoPlayer会进BUFFERING，20秒不推进照样重建。
+                wdIdleSinceElapsed = 0L;
+                long pos = exo.getCurrentPosition();
+                if (wdLastPosMs < 0L) {
+                    wdLastPosMs = pos; wdLastProgressElapsed = now;  // 首次采样
+                } else if (pos >= wdLastPosMs + 200L) {
+                    if (wdRebuilds > 0) Log.i(TAG, "V184 watchdog: position advancing again after rebuild, reset");
+                    wdLastPosMs = pos; wdLastProgressElapsed = now; wdRebuilds = 0;  // 真实推进
+                } else if (now - wdLastProgressElapsed >= WATCHDOG_STALL_MS) {
+                    handleWatchdogStall(now, "state=BUFFERING pos=" + pos);
+                }
+            } else if (st == Player.STATE_READY) {
+                // V186: READY 多信号健康判据（修短窗口直播HLS滑移误判）
+                wdIdleSinceElapsed = 0L;
+                long pos = exo.getCurrentPosition();
+                long dur = exo.getDuration();
+                long buf = exo.getBufferedPosition();
+                if (wdLastPosMs < 0L) {
+                    wdLastPosMs = pos; wdLastDurMs = dur; wdLastBufMs = buf; wdLastProgressElapsed = now;
+                } else {
+                    boolean fwd = pos >= wdLastPosMs + 200L;                 // 正常前进
+                    boolean retro = pos <= wdLastPosMs - 50L;                // 播放头被时间戳修正拉回(滑移)
+                    boolean durMoved = dur != C.TIME_UNSET && dur != wdLastDurMs;  // 直播窗口刷新
+                    boolean bufMoved = buf != C.TIME_UNSET && Math.abs(buf - wdLastBufMs) >= 200L;  // 缓冲位置变化
+                    boolean alive = fwd || retro || durMoved || bufMoved;
+                    if (alive) {
+                        // 非常规前进信号在"临近stall"时救回 → 打一条诊断(证明误判场景被正确识别)
+                        if (!fwd && now - wdLastProgressElapsed >= 10000L) {
+                            Log.i(TAG, "V186 watchdog: live-window activity, playback healthy (retro="
+                                    + retro + " durMoved=" + durMoved + " bufMoved=" + bufMoved + ") pos "
+                                    + wdLastPosMs + "->" + pos + " dur=" + dur + " buf=" + buf
+                                    + " isPlaying=" + exo.isPlaying() + " live=" + exo.isCurrentMediaItemLive()
+                                    + " liveOffset=" + exo.getCurrentLiveOffset());
+                        } else if (fwd && wdRebuilds > 0) {
+                            Log.i(TAG, "V184 watchdog: position advancing again after rebuild, reset");
+                        }
+                        wdLastPosMs = pos; wdLastDurMs = dur; wdLastBufMs = buf;
+                        wdLastProgressElapsed = now; wdRebuilds = 0;
+                    } else if (now - wdLastProgressElapsed >= WATCHDOG_STALL_MS) {
+                        handleWatchdogStall(now, "state=READY FULL-FROZEN pos=" + pos + " dur=" + dur
+                                + " buf=" + buf + " isPlaying=" + exo.isPlaying()
+                                + " live=" + exo.isCurrentMediaItemLive()
+                                + " liveOffset=" + exo.getCurrentLiveOffset());
+                    }
+                }
+            } else if (st == Player.STATE_IDLE) {
+                // V164预算耗尽后可能长期IDLE(isPlaying=false无声)，watchdog兜底每30秒重建一次
+                if (wdIdleSinceElapsed == 0L) wdIdleSinceElapsed = now;
+                else if (now - wdIdleSinceElapsed >= WATCHDOG_IDLE_MS) {
+                    wdIdleSinceElapsed = now;
+                    if (!isNetworkValidated()) {
+                        Log.i(TAG, "V185 watchdog: IDLE but no validated network → defer, await network restore");
+                    } else {
+                        Log.w(TAG, "V184 watchdog: IDLE " + WATCHDOG_IDLE_MS + "ms but wantPlaying → force prepare");
+                        _forceReLive("watchdog-idle");
+                    }
+                }
+            } else {
+                wdIdleSinceElapsed = 0L;
+            }
+        } catch (Throwable t) { Log.w(TAG, "V184 watchdogCheck FAIL: " + t); }
+    }
+
+    // V186: stall 判定后的统一动作（预算门控 + 无网挂起 + 全字段诊断）。调用方在 MAIN。
+    private void handleWatchdogStall(long now, String diag) {
+        if (wdRebuilds >= WATCHDOG_MAX_REBUILDS) {
+            // 连续3次重建仍无声：等待系统网络恢复事件(forceReLiveFromNetwork)重置预算
+            wdLastProgressElapsed = now;
+            Log.w(TAG, "V184 watchdog: rebuild budget exhausted, awaiting network-restored event | " + diag);
+        } else if (!isNetworkValidated()) {
+            // V185: 无网(如数据网onLost)重建必失败且费电：挂起计时基线等网络恢复事件
+            wdLastProgressElapsed = now;
+            Log.i(TAG, "V185 watchdog: stalled but no validated network → defer rebuild | " + diag);
+        } else {
+            wdRebuilds++;
+            Log.w(TAG, "V184 watchdog: stalled " + (now - wdLastProgressElapsed)
+                    + "ms " + diag + " → force re-live #" + wdRebuilds);
+            _forceReLive("watchdog-stall");
+        }
+    }
+
+    // V184: 强制回到live edge并重新prepare建连（watchdog/网络恢复共用）。调用方须在MAIN。
+    private void _forceReLive(String reason) {
+        if (exo == null) return;
+        try {
+            if (exo.getMediaItemCount() > 0) { try { exo.seekToDefaultPosition(); } catch (Throwable ignore) {} }
+            exo.prepare();
+            exo.setPlayWhenReady(true);
+            wantPlaying = true; errRetryCount = 0;
+            pausedAtElapsedMs = 0L;
+            wdLastPosMs = -1L; wdLastDurMs = Long.MIN_VALUE; wdLastBufMs = Long.MIN_VALUE;
+            wdLastProgressElapsed = SystemClock.elapsedRealtime();
+            RadioPlaybackService s = acquireServiceForPlaying(curName, curSub, true);
+            if (s != null) {
+                s.apiPlayFromBinder(curName, curSub, true);
+                s.notifyRebuildKeepalive();  // 重建期间(蜂窝网慢)用静音轨保活防HANS冻结
+            }
+            Log.w(TAG, "V184 forceReLive(" + reason + "): seekToDefaultPosition+prepare name=[" + curName + "]");
+        } catch (Throwable t) { Log.w(TAG, "V184 _forceReLive(" + reason + ") FAIL: " + t); }
+    }
+
+    // V184: Service网络validated恢复回调入口 —— 仅当播放确实卡住才重建，正常推进中不动。
+    public void forceReLiveFromNetwork() {
+        MAIN.post(() -> {
+            try {
+                if (exo == null || !wantPlaying) { Log.i(TAG, "V184 net-restore: not playing, skip"); return; }
+                int st = exo.getPlaybackState();
+                long sinceProg = wdLastProgressElapsed > 0 ? SystemClock.elapsedRealtime() - wdLastProgressElapsed : 999999L;
+                boolean stalled = st == Player.STATE_BUFFERING || st == Player.STATE_IDLE
+                        || (st == Player.STATE_READY && sinceProg > 6000L);
+                if (!stalled) {
+                    Log.i(TAG, "V184 net-restore: healthy state=" + st + " progress=" + sinceProg + "ms ago, skip rebuild");
+                    return;
+                }
+                wdRebuilds = 0;  // 新网络=新预算
+                Log.i(TAG, "V184 net-restore: stalled state=" + st + " progress=" + sinceProg + "ms ago → rebuild");
+                _forceReLive("network-restored");
+            } catch (Throwable t) { Log.w(TAG, "V184 forceReLiveFromNetwork FAIL: " + t); }
+        });
     }
 
     // V183: 最后播放电台持久化 —— 进程被系统回收/重启后，媒体键冷启动 Service 可据此直连播放，

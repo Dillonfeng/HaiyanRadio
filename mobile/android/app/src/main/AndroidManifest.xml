@@ -15,6 +15,10 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- V188-B: 等待期90秒闹钟兜底自检需要精确闹钟（SCHEDULE_EXACT_ALARM 需用户在设置授权，
+         USE_EXACT_ALARM 为平台自动授予的兜底声明；两者都声明，运行时 canScheduleExactAlarms 判定） -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.PARTIAL_WAKE_LOCK" tools:node="remove" xmlns:tools="http://schemas.android.com/tools" />
     <!-- V102 ADD: 允许使用NETWORK_LOCKS_ALLOWLIST (部分ROM(如ColorOS/小米)需要此权限才能让WifiLock在电池优化下依然生效) -->
@@ -79,6 +83,18 @@
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MEDIA_BUTTON" />
+            </intent-filter>
+        </receiver>
+
+        <!-- V188-C: 开机自启。仅在"蓝牙等待播放意愿"持久化为true时拉起Service恢复等待布防
+             (OTA/意外重启后整夜等待不丢)。ColorOS 还需用户在系统设置授予"自启动"权限才投递此广播。 -->
+        <receiver
+            android:name=".BootReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
             </intent-filter>
         </receiver>
 

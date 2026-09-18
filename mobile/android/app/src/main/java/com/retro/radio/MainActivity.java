@@ -136,7 +136,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.i(TAG, "onCreate BEGIN app=v1.3.183 / buildV183 / androidScheme=http / badge=about / no-play-toast");
+        Log.i(TAG, "onCreate BEGIN app=v1.3.190 / buildV190 / dual-phase silence delay / no rebuild on restore / androidScheme=http / badge=about / no-play-toast");
 
         // V156: SAF - 注册 ActivityResultLauncher（必须在 onCreate 完成 STARTED 前注册）
         //   1) CreateDocument: 导出 / 备份 → 让用户选保存路径+文件名
@@ -833,6 +833,11 @@ public class MainActivity extends BridgeActivity {
             } else if ("pause".equals(action)) {
                 isPlaying = nativeAudioPlayer.pauseSync();
                 Log.i(TAG, "V121-RPC pause -> isPlaying=" + isPlaying);
+                // V186: 用户UI手动暂停 → 放弃蓝牙整夜等待（仅非BT场景JS才会发此RPC，见app.js case pause门控）
+                try {
+                    RadioPlaybackService svc = RadioPlaybackService.sLastInstance;
+                    if (svc != null) svc.userManualPauseClearsBtWait();
+                } catch (Throwable t) { Log.w(TAG, "V186 pause clear-wait err: " + t); }
             } else if ("resume".equals(action)) {
                 isPlaying = nativeAudioPlayer.resumeSync();
                 Log.i(TAG, "V121-RPC resume -> isPlaying=" + isPlaying);
