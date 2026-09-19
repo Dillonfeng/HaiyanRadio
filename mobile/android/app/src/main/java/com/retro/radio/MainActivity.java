@@ -876,12 +876,21 @@ public class MainActivity extends BridgeActivity {
             } else if ("vulevels".equals(action)) {
                 // V191: 横屏双声道机械 VU 表电平轮询（30Hz，本地拦截，<1ms）
                 // V200: 追加块内峰值 pl/pr —— 起音不被 46ms 块平均稀释，表头"跟手"
+                // V220: 追加系统媒体音量 vol(0..1) —— 处理器电平取自音量控制【之前】的信号，
+                //   不加耦合则调音量时光柱/表针纹丝不动（PC 版 volFactor 等价物）
                 float[] vu = new float[]{0f, 0f, 0f, 0f};
                 if (nativeAudioPlayer != null) {
                     try { vu = nativeAudioPlayer.getVuLevelsSync(); } catch (Throwable t) { Log.w(TAG, "V191 vulevels err: " + t); }
                 }
+                float volF = 1f;
+                try {
+                    android.media.AudioManager am = (android.media.AudioManager) getApplicationContext().getSystemService(Context.AUDIO_SERVICE);
+                    int sv = am.getStreamVolume(android.media.AudioManager.STREAM_MUSIC);
+                    int sm = am.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC);
+                    if (sm > 0) volF = (float) sv / (float) sm;
+                } catch (Throwable t) { Log.w(TAG, "V220 vulevels vol err: " + t); }
                 String respVu = "{\"ok\":true,\"l\":" + vu[0] + ",\"r\":" + vu[1]
-                        + ",\"pl\":" + vu[2] + ",\"pr\":" + vu[3] + "}";
+                        + ",\"pl\":" + vu[2] + ",\"pr\":" + vu[3] + ",\"vol\":" + volF + "}";
                 java.io.InputStream inVu = new java.io.ByteArrayInputStream(respVu.getBytes());
                 java.util.Map<String, String> hVu = new java.util.HashMap<>();
                 hVu.put("Access-Control-Allow-Origin", "*");
@@ -902,6 +911,26 @@ public class MainActivity extends BridgeActivity {
                 h3.put("Cache-Control", "no-store");
                 h3.put("Content-Type", "application/json;charset=utf-8");
                 return new WebResourceResponse("application/json", "utf-8", 200, "OK", h3, in3);
+            } else if ("keepscreenon".equals(action)) {
+                // V219: 横屏特效页（VU表/彩色光柱）播放期间保持屏幕常亮。
+                //   FLAG_KEEP_SCREEN_ON 只阻止"超时自动息屏"，用户按电源键仍可立即熄屏；
+                //   暂停/收起表盘/回竖屏时 JS 会发 on=0 释放，不影响夜间蓝牙等待的功耗纪律。
+                String onStr = uri.getQueryParameter("on");
+                final boolean keepOn = "1".equals(onStr) || "true".equals(onStr);
+                runOnUiThread(() -> {
+                    try {
+                        if (keepOn) getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                        else getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                    } catch (Throwable t) { Log.w(TAG, "V219 keepscreenon err: " + t); }
+                });
+                Log.i(TAG, "V219-RPC keepscreenon -> " + keepOn);
+                String respK = "{\"ok\":true}";
+                java.io.InputStream inK = new java.io.ByteArrayInputStream(respK.getBytes());
+                java.util.Map<String, String> hK = new java.util.HashMap<>();
+                hK.put("Access-Control-Allow-Origin", "*");
+                hK.put("Cache-Control", "no-store");
+                hK.put("Content-Type", "application/json;charset=utf-8");
+                return new WebResourceResponse("application/json", "utf-8", 200, "OK", hK, inK);
             } else if ("armbtrestore".equals(action)) {
                 // V183: 冷启动"想播放但无外部输出" → 布防，耳机后续连上即自动恢复
                 try {
@@ -1529,7 +1558,16 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onConfigurationChanged(Configuration newConfig) {
         super.onConfigurationChanged(newConfig);
-        applyOrientationBars(newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE);
+        final boolean land = newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE;
+        // V221: 竖屏一律清 FLAG_KEEP_SCREEN_ON —— "退出横屏=回到系统自动锁屏"由 Java 兜底，
+        //   不依赖 JS matchMedia 回调时机（横屏期间的加/清仍由 JS keepscreenon RPC 管理）
+        if (!land) {
+            try {
+                getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                Log.i(TAG, "V222 keepscreenon cleared on portrait rotation");
+            } catch (Throwable t) { Log.w(TAG, "V222 clear keepscreenon err: " + t); }
+        }
+        applyOrientationBars(land);
     }
 
     private void applyOrientationBars(boolean landscape) {

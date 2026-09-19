@@ -201,6 +201,9 @@
         <button class="lv-icon-btn" id="lvTimerTop" aria-label="定时关闭">
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
         </button>
+        <button class="lv-icon-btn" id="lvMode" aria-label="切换显示模式（VU表/彩色光柱）">
+          <svg id="lvModeIcon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 20v-8M10 20V6M15 20v-5M20 20V9"/></svg>
+        </button>
       </div>
 
       <!-- 双表盘 -->
@@ -322,6 +325,24 @@
           </div>
         </div>
 
+      </div>
+
+      <!-- V218 彩色光柱模式：两侧 HSL 彩虹 LED 光柱 + 中间双喇叭动态效果（参考 PC 版扬声器光柱） -->
+      <div class="lv-spectrum" id="lvSpectrum">
+        <div class="lv-spec-bar" id="lvBarLeft"></div>
+        <div class="lv-speakers">
+          <div class="lv-spk" id="lvSpkL">
+            <div class="lv-glow" id="lvGlowL"></div>
+            <div class="lv-spk-cone"></div>
+            <span class="lv-spk-tag">L</span>
+          </div>
+          <div class="lv-spk" id="lvSpkR">
+            <div class="lv-glow" id="lvGlowR"></div>
+            <div class="lv-spk-cone"></div>
+            <span class="lv-spk-tag">R</span>
+          </div>
+        </div>
+        <div class="lv-spec-bar" id="lvBarRight"></div>
       </div>
 
       <!-- 底部悬浮控制条 -->

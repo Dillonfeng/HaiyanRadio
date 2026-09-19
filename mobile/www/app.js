@@ -22,8 +22,8 @@ const state = {
 };
 
 const DATA_VERSION = '20260902-V157-USER-EDIT-MERGE-SAFE';  // V158 未涉及频道数据结构，DATA_VERSION 保持 V157 以避免触发 forceReset
-const APP_VERSION = 'v1.3.217 (V217 横屏VU:扬声器补偿320→400ms(320仍超前;日志实证route=spk延迟线生效,ColorOS深缓冲400ms级);若400仍超前则转入回落速度假设(慢回落尾音残留被读作超前);弹道α0.8/fn5.0/ζ0.9;V210真相=处理器在AudioTrack深缓冲前需延迟线;V207分段刷新512帧+rAF;Java峰值供能+非对称包络+动圈表头仿真;V193浅色主题;V191原生RMS)';
-const VERSION_DISPLAY = 'V217';
+const APP_VERSION = 'v1.3.227 (V227 发热二次修复: ①音箱辉光不再JS直写boxShadow(240×290px大元素+大模糊→GPU线程54.5%+RenderThread24%+帧均值25ms,top实测),改径向渐变辉光层只驱动opacity/transform合成器直通零重光栅化 ②锥盆去掉boxShadow只留transform ③LED段will-change精简 ④V226=LED逐段状态缓存+扬声器600ms; V225蓝牙800ms已验收)';
+const VERSION_DISPLAY = 'V227';
 
 
 const DATA_VERSION_KEY = 'radio_data_version';
@@ -5326,12 +5326,18 @@ const landVu = {
   active: false,       // 表盘当前是否显示
   dismissed: false,    // 本次横屏被手动收起
   timer: 0,
-  smL: 0, smR: 0,      // 目标能量 0..1（块 RMS×增益，mono 镜像后）
-  thetaL: -78, thetaR: -78,  // V197 表头物理仿真：当前角度
-  omegaL: 0, omegaR: 0,      // 角速度
+  mode: 'spectrum',    // V218 显示模式 'vu' | 'spectrum'（默认光柱，localStorage 记忆）
+  segsL: [], segsR: [],        // V218 光柱 LED 段引用
+  lastXL: -1, lastXR: -1,      // V218 上一帧点亮数（1/8 段精度去重，静默零开销）
+  // V221: 弹簧仿真字段（smL/smR/thetaL/thetaR/omegaL/omegaR）已随直驱方案移除
   envL: 0, envR: 0,          // V201 目标包络：起音瞬时/回落 τ250ms，针只摆语句上沿
   route: '', routeChk: 0,    // V208 音频路由：'bt'蓝牙 / 'spk'扬声器（2s 查一次）
   dq: [],                    // V208 电平延迟线（蓝牙补偿：元素 {t,l,r}）
+  ksOn: false,               // V219 屏幕常亮当前状态（横屏特效页播放期间）
+  lastFetch: 0,              // V225 采样时间门（40ms<音频块46ms，峰值零丢失的25Hz降热；V223帧门fN已废）
+  cL: 0, cR: 0, cPL: 0, cPR: 0, cV: 1,  // V223 电平缓存（奇数帧复用，隔 16ms 无感）
+  kSpkL: -1, kSpkR: -1,      // V223 音箱辉光去重键（env×64 量化）
+  lastAL: -999, lastAR: -999, // V223 表针角度去重（<0.1° 不写 DOM）
   lastT: 0,
   lastInfo: 0
 };
@@ -5362,20 +5368,73 @@ function initLandscapeVU() {
   $('lvTimerTop').addEventListener('click', openTimer);
   $('lvList').addEventListener('click', openManage);
 
+  // V218 显示模式切换（VU表 / 彩色光柱），localStorage 记忆偏好
+  landVu.mode = localStorage.getItem('radio_lv_mode') === 'vu' ? 'vu' : 'spectrum';
+  $('lvMode').addEventListener('click', () => {
+    landVu.mode = landVu.mode === 'vu' ? 'spectrum' : 'vu';
+    localStorage.setItem('radio_lv_mode', landVu.mode);
+    applyLvMode();
+  });
+  applyLvMode();
+
   landVu._apply = apply;
   apply();
 }
 
+// V218 应用显示模式：切 .lv-mode-spec 类 + 更新切换按钮图标（图标=将要切去的模式）
+function applyLvMode() {
+  const root = $('landVu');
+  if (!root) return;
+  root.classList.toggle('lv-mode-spec', landVu.mode === 'spectrum');
+  // 首次进入光柱模式时构建 LED 段
+  if (landVu.mode === 'spectrum' && !landVu.segsL.length) {
+    landVu.segsL = buildLvBar('lvBarLeft', 0);
+    landVu.segsR = buildLvBar('lvBarRight', 15);
+    landVu.lastXL = -1; landVu.lastXR = -1;
+  }
+  const icon = $('lvModeIcon');
+  if (icon) {
+    icon.innerHTML = landVu.mode === 'vu'
+      ? '<path d="M5 20v-8M10 20V6M15 20v-5M20 20V9"/>'   // 当前VU → 点击切光柱
+      : '<path d="M12 13.5 16 8.5"/><path d="M5 18.5a8.5 8.5 0 1 1 14 0"/>'; // 当前光柱 → 点击切VU
+  }
+}
+
+// V218 构建 LED 光柱：HSL 彩虹，底部蓝(240°)→顶部红(0°)，移植 PC 版 getLedColor
+function buildLvBar(id, hueShift) {
+  const el = $(id);
+  if (!el) return [];
+  const N = 30;
+  const segs = [];
+  el.innerHTML = '';
+  for (let i = 0; i < N; i++) {
+    const t = i / (N - 1);
+    const hue = 240 - t * 240 + hueShift;
+    const sat = 90 + t * 10;
+    const light = 45 + Math.sin(t * Math.PI) * 15; // 中间亮两头暗
+    const seg = document.createElement('div');
+    seg.className = 'lv-seg';
+    seg.style.background = 'hsl(' + hue + ',' + sat + '%,' + light + '%)';
+    seg.dataset.hue = hue.toFixed(0);
+    seg.dataset.sat = sat.toFixed(0);
+    seg.dataset.light = light.toFixed(0);
+    el.appendChild(seg);
+    segs.push(seg);
+  }
+  return segs;
+}
+
 function showLandVU() {
   landVu.active = true;
-  landVu.smL = 0;
-  landVu.smR = 0;
-  landVu.thetaL = -78;
-  landVu.thetaR = -78;
-  landVu.omegaL = 0;
-  landVu.omegaR = 0;
   landVu.envL = 0;
   landVu.envR = 0;
+  landVu.ksOn = false;  // V222: 强制下一拍 syncLandVUInfo 重评估常亮（Java 竖屏兜底清除后镜像可能失步）
+  landVu.lastXL = -1;
+  landVu.lastXR = -1;
+  landVu.lastFetch = 0; // V225 采样门复位（进场立即采一帧）
+  landVu.cL = 0; landVu.cR = 0; landVu.cPL = 0; landVu.cPR = 0; landVu.cV = 1;
+  landVu.kSpkL = -1; landVu.kSpkR = -1;
+  landVu.lastAL = -999; landVu.lastAR = -999;
   landVu.route = '';
   landVu.routeChk = 0;
   landVu.dq = [];
@@ -5393,6 +5452,11 @@ function showLandVU() {
 
 function hideLandVU() {
   landVu.active = false;
+  // V219: 收起表盘/回竖屏 → 立即释放屏幕常亮
+  if (landVu.ksOn) {
+    landVu.ksOn = false;
+    try { nativeAudioRpc('keepscreenon', { on: '0' }); } catch (e) { /* web 引擎无 RPC */ }
+  }
   if (landVu.timer) { cancelAnimationFrame(landVu.timer); clearInterval(landVu.timer); landVu.timer = 0; }
   const root = $('landVu');
   if (root) root.classList.remove('show');
@@ -5404,20 +5468,40 @@ function landVuTick() {
   // ---- 1. 拉取真实电平（播放暂停时目标归零，指针自然回落 -20 位）----
   //   V200：RMS + 块内峰值双供能 —— 稳态由 RMS 定形，起音由峰值即时抬针
   //   （46ms 块平均会把音节起音稀释到 1/3 高度，是"视觉滞后"的根源）
-  let tl = 0, tr = 0, tpl = 0, tpr = 0;
+  //   V220：Java 随电平返回系统媒体音量 vol(0..1)，信号取自音量控制之前，必须耦合
+  // V223→V226: 降热——电平采样 60Hz→时间门 40ms（60fps 帧网格取整后实际约 20~25Hz，
+  //   间隔可能略超音频块 46ms，极短瞬态偶有漏采，视觉无感；包络/光柱/表针仍 60fps 积分）
+  const nowF = Date.now();
+  const fresh = state.isPlaying && hasNativeAudio() && (nowF - landVu.lastFetch >= 40);
+  if (fresh) landVu.lastFetch = nowF;
+  let tl = 0, tr = 0, tpl = 0, tpr = 0, vol = 1;
   if (state.isPlaying && hasNativeAudio()) {
-    try {
-      const r = nativeAudioRpc('vulevels');
-      if (r) { tl = r.l || 0; tr = r.r || 0; tpl = r.pl || 0; tpr = r.pr || 0; }
-    } catch (e) { /* 取样失败本帧保持 0 */ }
+    if (fresh) {
+      try {
+        const r = nativeAudioRpc('vulevels');
+        if (r) {
+          landVu.cL = r.l || 0; landVu.cR = r.r || 0;
+          landVu.cPL = r.pl || 0; landVu.cPR = r.pr || 0;
+          landVu.cV = (typeof r.vol === 'number' && r.vol >= 0) ? r.vol : 1;
+        }
+      } catch (e) { /* 采样失败沿用缓存 */ }
+    }
+    tl = landVu.cL; tr = landVu.cR; tpl = landVu.cPL; tpr = landVu.cPR; vol = landVu.cV;
   }
 
   // 稳态目标=RMS×增益；起音目标=峰值×0.75（ crest 补偿，取大者）
-  const GAIN = 2.2;
+  // V221: GAIN 2.2→3.2 —— 用户实测最大音量大声段仅到 ~70%（21/30 段），提到 3.2 让大声顶满刻度
+  const GAIN = 3.2;
   if (tr < 0.004 && tl > 0.004) tpr = tpl;
   if (tl < 0.004 && tr > 0.004) tpl = tpr;
   tl = Math.min(1, Math.max(tl * GAIN, tpl * 0.75));
   tr = Math.min(1, Math.max(tr * GAIN, tpr * 0.75));
+  // V220: 系统音量耦合（PC 版 volFactor 等价）—— 调音量时光柱/表针同步变化
+  // V224: 蓝牙路由【不耦合】—— A2DP 绝对音量模式系统不公开读取，实测流音量 95/150(0.63)
+  //   时蓝牙音箱已很响，若仍乘 0.63 光条被整体压小（用户反馈"声音很大光条不跳"）；
+  //   扬声器路由保留耦合（用户明确要求调音量光柱变化）
+  const vf = landVu.route === 'bt' ? 1 : Math.max(0.08, vol);
+  tl *= vf; tr *= vf;
   if (tl < 0.004) tl = 0;
   if (tr < 0.004) tr = 0;
 
@@ -5434,9 +5518,15 @@ function landVuTick() {
       const rr = nativeAudioRpc('hasextaudio');
       landVu.route = (rr && rr.ok && rr.has) ? 'bt' : 'spk';
     } catch (e) { /* 查询失败保持上次路由 */ }
+    // V223/V224: 路由检测块内打日志（原来放在块外条件永不成立，日志从未输出过）
+    const syncMs0 = landVu.route === 'bt' ? 800 : 600;
+    console.log('[V226-VU] route=' + landVu.route + ' syncMs=' + syncMs0 + ' dq=' + landVu.dq.length + ' vol=' + vol.toFixed(2));
   }
-  const syncMs = landVu.route === 'bt' ? 300 : 400;
-  if (nowMs - landVu.routeChk >= 2000) console.log('[V216-VU] route=' + landVu.route + ' syncMs=' + syncMs + ' dq=' + landVu.dq.length);
+  // V221: 两模式统一延迟线；表针去掉弹簧后同样直驱，共用此值
+  // V224: 蓝牙 450→700ms —— A2DP 编解码+传输比扬声器路径多 ~200ms
+  // V225: 蓝牙 700→800ms —— 用户实测仍超前一点，+100ms 档（V225 实测蓝牙 OK）
+  // V226: 扬声器 550→600ms —— 用户实测扬声器路由也"有点超前"，+50ms 档
+  const syncMs = landVu.route === 'bt' ? 800 : 600;
   if (syncMs > 0) {
     landVu.dq.push({ t: nowMs, l: tl, r: tr });
     if (landVu.dq.length > 120) landVu.dq.splice(0, landVu.dq.length - 120); // 卡顿兜底
@@ -5448,42 +5538,116 @@ function landVuTick() {
     landVu.dq.length = 0;
   }
 
-  // ---- 2. 三级弹道（职责正交，V202 定稿结构）----
-  //   ① Java 峰值供能：字头目标即时抬高（不被 46ms 块平均稀释）
-  //   ② 目标包络（本级）：非对称单极点 —— 上升 α0.55（τ≈37ms，峰值供能下字头
-  //      约 1~2 帧冲顶（V203：AUP 0.55→0.7 起音加速），快且带机械加速感）/ 回落 α0.10（τ≈250ms，只摆语句上沿）。
-  //      V201 教训：上升瞬时(α=1)会把块间 25ms 电平小波动全量透传 → 针高频颤。
-  //   ③ 动圈表头（下段）：fn5.0Hz/ζ0.9（V213：回滚 V209 的 α0.9/fn5.6——震颤回归源头，回 V207/V208 已验证稳定点）
-  const AUP = 0.8, ADOWN = 0.10;
-  landVu.envL += (tl > landVu.envL ? AUP : ADOWN) * (tl - landVu.envL);
-  landVu.envR += (tr > landVu.envR ? AUP : ADOWN) * (tr - landVu.envR);
+  // ---- 2. 目标包络（V221 两模式统一：PC 机制 UP0.25/DOWN0.55 快起快落）----
+  //   表针去掉 V197 弹簧（K/C 二阶仿真）改为包络直驱角度 —— 与光柱同一机制，
+  //   信号链现成：块内峰值供能(V200) + 延迟线(V221 统一 550/450)，V192 时代"直驱乱跳"
+  //   的根因（无包络的块级 RMS 阶梯）已被包络本身吸收
+  landVu.envL += (tl > landVu.envL ? 0.25 : 0.55) * (tl - landVu.envL);
+  landVu.envR += (tr > landVu.envR ? 0.25 : 0.55) * (tr - landVu.envR);
   if (landVu.envL < 0.0008) landVu.envL = 0;
   if (landVu.envR < 0.0008) landVu.envR = 0;
-  landVu.smL = landVu.envL;
-  landVu.smR = landVu.envR;
-  const nowT = performance.now();
-  let dt = (nowT - landVu.lastT) / 1000;
-  landVu.lastT = nowT;
-  if (!(dt > 0) || dt > 0.04) dt = 0.04;  // fn6.5Hz: ωn·dt 须 <2（半隐式欧拉稳定域）
-  if (dt < 0.005) dt = 0.005;
-  const K = 987, C = 56.5;  // V213: 回滚 fn5.0Hz/ζ0.9（V209 fn5.6+α0.9 致震颤回归）
-  const tL = -78 + Math.pow(landVu.smL, 0.7) * 156;
-  const tR = -78 + Math.pow(landVu.smR, 0.7) * 156;
-  landVu.omegaL += (K * (tL - landVu.thetaL) - C * landVu.omegaL) * dt;
-  landVu.thetaL += landVu.omegaL * dt;
-  landVu.omegaR += (K * (tR - landVu.thetaR) - C * landVu.omegaR) * dt;
-  landVu.thetaR += landVu.omegaR * dt;
-  if (landVu.thetaL < -80) { landVu.thetaL = -80; landVu.omegaL = 0; }
-  if (landVu.thetaL > 80)  { landVu.thetaL = 80;  landVu.omegaL = 0; }
-  if (landVu.thetaR < -80) { landVu.thetaR = -80; landVu.omegaR = 0; }
-  if (landVu.thetaR > 80)  { landVu.thetaR = 80;  landVu.omegaR = 0; }
-  const aL = landVu.thetaL, aR = landVu.thetaR;
-  const nL = $('vuNeedleLeft'), nR = $('vuNeedleRight');
-  if (nL) nL.style.transform = 'translateX(-50%) rotate(' + aL.toFixed(1) + 'deg)';
-  if (nR) nR.style.transform = 'translateX(-50%) rotate(' + aR.toFixed(1) + 'deg)';
+
+  if (landVu.mode === 'spectrum') {
+    // ---- 3a. 彩色光柱 + 双音箱脉动渲染 ----
+    renderLvBar(landVu.segsL, landVu.envL, $('lvBarLeft'), 'lastXL');
+    renderLvBar(landVu.segsR, landVu.envR, $('lvBarRight'), 'lastXR');
+    // V225: 辉光重绘跟随采样帧（25Hz，box-shadow 是本页最大重绘开销）；
+    //   暂停衰减期退回每帧渲染，直至 env 归零被量化去重自然止住
+    if (fresh || !state.isPlaying) renderLvSpeakers();
+  } else {
+    // ---- 3b. V221 表针直驱（与光柱同机制：包络经 PC 同款 0.7 幂曲线映射到 -78..78°）----
+    const aL = -78 + Math.pow(landVu.envL, 0.7) * 156;
+    const aR = -78 + Math.pow(landVu.envR, 0.7) * 156;
+    if (Math.abs(aL - landVu.lastAL) >= 0.1 || Math.abs(aR - landVu.lastAR) >= 0.1) {
+      landVu.lastAL = aL; landVu.lastAR = aR;
+      const nL = $('vuNeedleLeft'), nR = $('vuNeedleRight');
+      if (nL) nL.style.transform = 'translateX(-50%) rotate(' + aL.toFixed(1) + 'deg)';
+      if (nR) nR.style.transform = 'translateX(-50%) rotate(' + aR.toFixed(1) + 'deg)';
+    }
+  }
 
   // ---- 4. 低频同步电台信息/状态/收藏/播放图标（250ms）----
   syncLandVUInfo(false);
+}
+
+// V218 渲染单侧 LED 光柱：按能量自底向上点亮，顶端半亮平滑过渡（移植 PC 版 renderLedStrip）
+// lastKey：landVu 上的去重键名（1/8 段精度），静默/稳态时跳过全部 DOM 写
+function renderLvBar(segs, level, barEl, lastKey) {
+  if (!segs || !segs.length || !barEl) return;
+  const curved = Math.pow(Math.max(0, Math.min(1, level)), 0.85);
+  const exact = Math.round(curved * segs.length * 8);
+  if (exact === landVu[lastKey]) return;
+  landVu[lastKey] = exact;
+  const lit = Math.floor(exact / 8);
+  const top = (exact - lit * 8) / 8;
+  // V226 发热根因修复：此前每帧对全部 60 段重写 style.background + boxShadow(模糊)，
+  //   音乐时 ~1.4 万次样式写入/秒，GPU+渲染管线烧到 ~90% CPU（top 实测）。
+  //   现按段缓存状态（0=灭 1=半亮 2=全亮），只写状态变化的 1~2 段；hsl 字符串预生成
+  for (let i = 0; i < segs.length; i++) {
+    const seg = segs[i];
+    if (i < lit) {
+      if (seg._st === 2) continue;
+      seg._st = 2;
+      if (seg._cF === undefined) {
+        const g = Math.min(70, parseFloat(seg.dataset.light) + 20);
+        seg._cF = 'hsl(' + seg.dataset.hue + ',' + seg.dataset.sat + '%,' + g + '%)';
+        seg._gF = '0 0 3px ' + seg._cF;
+      }
+      seg.classList.add('on');
+      seg.style.opacity = '1';
+      seg.style.background = seg._cF;
+      seg.style.boxShadow = seg._gF;
+    } else if (i === lit && top > 0.1) {
+      const stv = Math.round((0.3 + top * 0.7) * 20);
+      if (seg._st === 1 && seg._stv === stv) continue;
+      seg._st = 1; seg._stv = stv;
+      if (seg._cH === undefined) {
+        const g = Math.min(70, parseFloat(seg.dataset.light) + 10);
+        seg._cH = 'hsl(' + seg.dataset.hue + ',' + seg.dataset.sat + '%,' + g + '%)';
+        seg._gH = '0 0 2px ' + seg._cH;
+      }
+      seg.classList.add('on');
+      seg.style.opacity = (stv / 20).toFixed(2);
+      seg.style.background = seg._cH;
+      seg.style.boxShadow = seg._gH;
+    } else {
+      if (seg._st === 0) continue;
+      seg._st = 0;
+      if (seg._cD === undefined) {
+        seg._cD = 'hsl(' + seg.dataset.hue + ',' + seg.dataset.sat + '%,' + seg.dataset.light + '%)';
+      }
+      seg.classList.remove('on');
+      seg.style.opacity = '';
+      seg.style.background = seg._cD;
+      seg.style.boxShadow = '';
+    }
+  }
+  barEl.classList.toggle('lv-spec-active', level > 0.015);
+}
+
+// V218~V227 双音箱动态效果：锥盆按声道电平缩放 + 声道色强标识（左橙/右蓝）
+// V227 发热二次修复：辉光不再 JS 直写 box-shadow（240×290px 大元素+大模糊 → GPU 每帧重光栅化，
+//   实测 GPU 线程 54.5%/RenderThread 24%/帧均值 25ms），改用径向渐变辉光层(#lvGlowL/R)，
+//   只驱动 opacity/transform —— 合成器直通零重光栅化；锥盆去掉 boxShadow 只留 transform
+//   （.lv-spk-cone 已 will-change:transform 提升为独立合成层）
+function renderLvSpeakers() {
+  const kL = Math.round(landVu.envL * 48), kR = Math.round(landVu.envR * 48);
+  if (kL === landVu.kSpkL && kR === landVu.kSpkR) return;
+  landVu.kSpkL = kL; landVu.kSpkR = kR;
+  const gl = $('lvGlowL'), gr = $('lvGlowR');
+  const cl = document.querySelector('#lvSpkL .lv-spk-cone');
+  const cr = document.querySelector('#lvSpkR .lv-spk-cone');
+  const eL = kL / 48, eR = kR / 48;
+  if (gl) {
+    gl.style.opacity = (eL * 0.62).toFixed(3);
+    gl.style.transform = 'translate(-50%,-50%) scale(' + (0.92 + eL * 0.30).toFixed(3) + ')';
+  }
+  if (cl) cl.style.transform = 'scale(' + (1 + eL * 0.22).toFixed(3) + ')';
+  if (gr) {
+    gr.style.opacity = (eR * 0.62).toFixed(3);
+    gr.style.transform = 'translate(-50%,-50%) scale(' + (0.92 + eR * 0.30).toFixed(3) + ')';
+  }
+  if (cr) cr.style.transform = 'scale(' + (1 + eR * 0.22).toFixed(3) + ')';
 }
 
 function syncLandVUInfo(force) {
@@ -5510,5 +5674,13 @@ function syncLandVUInfo(force) {
     playBtn.innerHTML = state.isPlaying
       ? '<svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><path d="M6.5 5h4v14h-4zM13.5 5h4v14h-4z"/></svg>'
       : '<svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><path d="M7 5v14l11-7z"/></svg>';
+  }
+
+  // V219: 播放中保持屏幕常亮（仅横屏特效页显示期间；暂停即恢复系统自动锁屏；
+  //   FLAG_KEEP_SCREEN_ON 不拦截手动电源键，夜间后台由窗口不可见自然失效）
+  const wantKs = !!state.isPlaying;
+  if (wantKs !== landVu.ksOn) {
+    landVu.ksOn = wantKs;
+    try { nativeAudioRpc('keepscreenon', { on: wantKs ? '1' : '0' }); } catch (e) { /* web 引擎无 RPC */ }
   }
 }
