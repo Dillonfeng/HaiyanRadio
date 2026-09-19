@@ -22,11 +22,14 @@ import androidx.media3.common.C;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.PlaybackException;
 import androidx.media3.common.Player;
+import androidx.media3.common.audio.AudioProcessor;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.LoadControl;
+import androidx.media3.exoplayer.audio.AudioSink;
+import androidx.media3.exoplayer.audio.DefaultAudioSink;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
@@ -114,6 +117,8 @@ public class NativeAudioPlayer {
     private DefaultDataSource.Factory dataSourceFactory;
     private DefaultTrackSelector trackSel;
     private DefaultBandwidthMeter bwm;
+    // V191: 横屏双声道机械 VU 表电平取样器（透传 AudioProcessor，详见该类头注释）
+    private VuMeterAudioProcessor vuProc;
     private String curUrl = "";
     private String curName = "";
     private String curSub  = "";
@@ -285,9 +290,24 @@ public class NativeAudioPlayer {
                             2_500,    // bufferForPlaybackMs: 2.5s before "ready to start"
                             5_000)    // bufferForPlaybackAfterRebufferMs: 5s for rebuffer
                     .build();
-            DefaultRenderersFactory rf = new DefaultRenderersFactory(appCtx)
-                    .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
-                    .setEnableAudioFloatOutput(true);
+            // V191: 挂接 VU 表透传电平取样器。重写 buildAudioSink（1.3.1 该方法仅 3 行，
+            //   原样复刻并追加 setAudioProcessors），不改变 float output / PlaybackParams 既有行为。
+            vuProc = new VuMeterAudioProcessor();
+            final VuMeterAudioProcessor vuProcRef = vuProc;
+            DefaultRenderersFactory rf = new DefaultRenderersFactory(appCtx) {
+                @Override
+                protected AudioSink buildAudioSink(Context context,
+                                                   boolean enableFloatOutput,
+                                                   boolean enableAudioTrackPlaybackParams) {
+                    return new DefaultAudioSink.Builder(context)
+                            .setEnableFloatOutput(enableFloatOutput)
+                            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                            .setAudioProcessors(new AudioProcessor[]{ vuProcRef })
+                            .build();
+                }
+            };
+            rf.setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER);
+            rf.setEnableAudioFloatOutput(true);
             DefaultHttpDataSource.Factory httpF = new DefaultHttpDataSource.Factory()
                     .setConnectTimeoutMs(12_000)
                     .setReadTimeoutMs(30_000)
@@ -425,6 +445,15 @@ public class NativeAudioPlayer {
     @JavascriptInterface public synchronized boolean isPlayingN() { return exo != null && exo.getPlayWhenReady() && (exo.getPlaybackState() == Player.STATE_READY || exo.getPlaybackState() == Player.STATE_BUFFERING); }
     @JavascriptInterface public synchronized long getCurrentPositionMs() { return exo == null ? 0L : exo.getCurrentPosition(); }
     @JavascriptInterface public synchronized long getBufferedPositionMs() { return exo == null ? 0L : exo.getBufferedPosition(); }
+
+    // V191: 横屏 VU 表轮询左右声道 RMS（0..1 线性）。仅读 volatile（音频线程写），
+    //   shouldInterceptRequest RPC 线程可直读，无需切主线程/锁，30Hz 轮询零阻塞风险。
+    public float[] getVuLevelsSync() {
+        VuMeterAudioProcessor p = vuProc;
+        if (p == null) return new float[]{ 0f, 0f, 0f, 0f };
+        // V200: {rmsL, rmsR, peakL, peakR} —— 峰值供起音即时供能
+        return new float[]{ p.getLevelL(), p.getLevelR(), p.getPeakL(), p.getPeakR() };
+    }
 
     @JavascriptInterface
     public void playUrl(final String url, final String name, final String sub) {

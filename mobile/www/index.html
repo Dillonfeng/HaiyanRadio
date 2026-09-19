@@ -5,10 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#000000">
   <title>海燕收音机</title>
-  <script src="hls.js?v=69"></script>
-  <script src="channels.js?v=69"></script>
-  <script src="app.js?v=190"></script>
-  <link rel="stylesheet" href="styles.css?v=69">
+  <script src="hls.js?v=217"></script>
+  <script src="channels.js?v=217"></script>
+  <script src="app.js?v=217"></script>
+  <link rel="stylesheet" href="styles.css?v=217">
 </head>
 <body>
   <div class="app-container">
@@ -183,6 +183,164 @@
           <input type="range" id="fpVolume" min="0" max="100" value="80" class="fp-volume-slider">
           <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
         </div>
+      </div>
+    </div>
+
+    <!-- V191 横屏双声道模拟机械指针 VU 表（借用 PC 版 classic SD-39 风格） -->
+    <div class="land-vu" id="landVu">
+      <!-- 顶部悬浮信息条 -->
+      <div class="lv-topbar">
+        <button class="lv-icon-btn" id="lvClose" aria-label="收起表盘">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </button>
+        <div class="lv-meta">
+          <span class="lv-live"><i class="lv-dot"></i><b id="lvStatus">正在直播</b></span>
+          <span class="lv-name" id="lvName">--</span>
+          <span class="lv-sub" id="lvSub">--</span>
+        </div>
+        <button class="lv-icon-btn" id="lvTimerTop" aria-label="定时关闭">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        </button>
+      </div>
+
+      <!-- 双表盘 -->
+      <div class="lv-meters">
+
+        <!-- 左声道 VU 表 -->
+        <div class="vu-meter">
+          <div class="vu-case">
+            <div class="vu-face">
+              <span class="vu-sign-minus">-</span>
+              <span class="vu-sign-plus">+</span>
+              <div class="vu-arc">
+                <span class="vu-num" style="--ang:-78deg">20</span>
+                <span class="vu-num" style="--ang:-54deg">7</span>
+                <span class="vu-num" style="--ang:-32deg">3</span>
+                <span class="vu-num" style="--ang:-10deg">1</span>
+                <span class="vu-num vu-num-red" style="--ang:16deg">0</span>
+                <span class="vu-num vu-num-red" style="--ang:40deg">3</span>
+                <span class="vu-num vu-num-red" style="--ang:70deg">5+</span>
+              </div>
+              <div class="vu-ticks">
+                <span style="--ang:-78deg;--h:14px"></span>
+                <span style="--ang:-70deg;--h:6px"></span>
+                <span style="--ang:-62deg;--h:8px"></span>
+                <span style="--ang:-54deg;--h:14px"></span>
+                <span style="--ang:-46deg;--h:6px"></span>
+                <span style="--ang:-38deg;--h:8px"></span>
+                <span style="--ang:-32deg;--h:14px"></span>
+                <span style="--ang:-26deg;--h:6px"></span>
+                <span style="--ang:-20deg;--h:8px"></span>
+                <span style="--ang:-10deg;--h:14px"></span>
+                <span style="--ang:-4deg;--h:6px"></span>
+                <span style="--ang:2deg;--h:8px"></span>
+                <span style="--ang:10deg;--h:14px"></span>
+                <span style="--ang:22deg;--h:8px"></span>
+                <span style="--ang:34deg;--h:6px"></span>
+                <span style="--ang:46deg;--h:14px"></span>
+                <span style="--ang:58deg;--h:8px"></span>
+                <span style="--ang:70deg;--h:14px"></span>
+              </div>
+              <div class="vu-brand">VU</div>
+              <div class="vu-percents">
+                <span style="--ang:-48deg">0</span>
+                <span style="--ang:-20deg">20</span>
+                <span style="--ang:4deg">40</span>
+                <span style="--ang:28deg">60</span>
+                <span style="--ang:52deg">80</span>
+                <span style="--ang:72deg">100%</span>
+              </div>
+              <div class="vu-needle" id="vuNeedleLeft">
+                <div class="vu-needle-shaft"></div>
+              </div>
+              <div class="vu-pivot"></div>
+              <div class="vu-coil"></div>
+              <div class="vu-channel">L</div>
+            </div>
+            <div class="vu-screw vu-screw-tl"></div>
+            <div class="vu-screw vu-screw-tr"></div>
+            <div class="vu-screw vu-screw-bl"></div>
+            <div class="vu-screw vu-screw-br"></div>
+          </div>
+        </div>
+
+        <!-- 右声道 VU 表 -->
+        <div class="vu-meter">
+          <div class="vu-case">
+            <div class="vu-face">
+              <span class="vu-sign-minus">-</span>
+              <span class="vu-sign-plus">+</span>
+              <div class="vu-arc">
+                <span class="vu-num" style="--ang:-78deg">20</span>
+                <span class="vu-num" style="--ang:-54deg">7</span>
+                <span class="vu-num" style="--ang:-32deg">3</span>
+                <span class="vu-num" style="--ang:-10deg">1</span>
+                <span class="vu-num vu-num-red" style="--ang:16deg">0</span>
+                <span class="vu-num vu-num-red" style="--ang:40deg">3</span>
+                <span class="vu-num vu-num-red" style="--ang:70deg">5+</span>
+              </div>
+              <div class="vu-ticks">
+                <span style="--ang:-78deg;--h:14px"></span>
+                <span style="--ang:-70deg;--h:6px"></span>
+                <span style="--ang:-62deg;--h:8px"></span>
+                <span style="--ang:-54deg;--h:14px"></span>
+                <span style="--ang:-46deg;--h:6px"></span>
+                <span style="--ang:-38deg;--h:8px"></span>
+                <span style="--ang:-32deg;--h:14px"></span>
+                <span style="--ang:-26deg;--h:6px"></span>
+                <span style="--ang:-20deg;--h:8px"></span>
+                <span style="--ang:-10deg;--h:14px"></span>
+                <span style="--ang:-4deg;--h:6px"></span>
+                <span style="--ang:2deg;--h:8px"></span>
+                <span style="--ang:10deg;--h:14px"></span>
+                <span style="--ang:22deg;--h:8px"></span>
+                <span style="--ang:34deg;--h:6px"></span>
+                <span style="--ang:46deg;--h:14px"></span>
+                <span style="--ang:58deg;--h:8px"></span>
+                <span style="--ang:70deg;--h:14px"></span>
+              </div>
+              <div class="vu-brand">VU</div>
+              <div class="vu-percents">
+                <span style="--ang:-48deg">0</span>
+                <span style="--ang:-20deg">20</span>
+                <span style="--ang:4deg">40</span>
+                <span style="--ang:28deg">60</span>
+                <span style="--ang:52deg">80</span>
+                <span style="--ang:72deg">100%</span>
+              </div>
+              <div class="vu-needle" id="vuNeedleRight">
+                <div class="vu-needle-shaft"></div>
+              </div>
+              <div class="vu-pivot"></div>
+              <div class="vu-coil"></div>
+              <div class="vu-channel">R</div>
+            </div>
+            <div class="vu-screw vu-screw-tl"></div>
+            <div class="vu-screw vu-screw-tr"></div>
+            <div class="vu-screw vu-screw-bl"></div>
+            <div class="vu-screw vu-screw-br"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- 底部悬浮控制条 -->
+      <div class="lv-bottombar">
+        <button class="lv-ctrl" id="lvFav" aria-label="收藏">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+        </button>
+        <button class="lv-ctrl" id="lvPrev" aria-label="上一个">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+        </button>
+        <button class="lv-ctrl lv-playbig" id="lvPlay" aria-label="播放">
+          <svg id="lvPlayIcon" viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><path d="M7 5v14l11-7z"/></svg>
+        </button>
+        <button class="lv-ctrl" id="lvNext" aria-label="下一个">
+          <svg viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M6 18 14.5 12 6 6zM16 6h2v12h-2z"/></svg>
+        </button>
+        <button class="lv-ctrl" id="lvList" aria-label="电台列表">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+        </button>
       </div>
     </div>
 

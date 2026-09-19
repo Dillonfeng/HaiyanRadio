@@ -22,8 +22,8 @@ const state = {
 };
 
 const DATA_VERSION = '20260902-V157-USER-EDIT-MERGE-SAFE';  // V158 未涉及频道数据结构，DATA_VERSION 保持 V157 以避免触发 forceReset
-const APP_VERSION = 'v1.3.190 (V190 等待轨双时段延迟:白天息屏45分钟内零运行[实测63分钟无轨回调直达]夜间2分钟保证deepSleep前在轨,傍晚跨窗自动取短;恢复播放不再重建等待轨消除开箱嘶嘶声;V189:±16LSB随机弱噪声骗过静音检测夜间不断网;90秒闹钟兜底)';
-const VERSION_DISPLAY = 'V190';
+const APP_VERSION = 'v1.3.217 (V217 横屏VU:扬声器补偿320→400ms(320仍超前;日志实证route=spk延迟线生效,ColorOS深缓冲400ms级);若400仍超前则转入回落速度假设(慢回落尾音残留被读作超前);弹道α0.8/fn5.0/ζ0.9;V210真相=处理器在AudioTrack深缓冲前需延迟线;V207分段刷新512帧+rAF;Java峰值供能+非对称包络+动圈表头仿真;V193浅色主题;V191原生RMS)';
+const VERSION_DISPLAY = 'V217';
 
 
 const DATA_VERSION_KEY = 'radio_data_version';
@@ -530,6 +530,7 @@ function init() {
     updateTopRegion();
     updatePlayerUI();
     setupEventListeners();
+    initLandscapeVU(); // V191 横屏双声道机械 VU 表
     setupThemeSwitcher();
     setupFontSwitcher();
     setupLocateBtn();
@@ -5311,3 +5312,203 @@ function showToast(msg) {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+/* ============================================================================
+   V191 横屏双声道模拟机械指针 VU 表
+   ----------------------------------------------------------------------------
+   - 横屏且已选电台时自动全屏显示米黄色 classic 双表盘（L/R），竖屏自动收起
+   - 电平来源：原生 ExoPlayer 透传 AudioProcessor 统计真实左右声道 RMS
+     （WebAudio 无法接入原生播放链路），经 /__nativeaudio__/vulevels 30Hz 轮询
+   - JS 做机械 VU 弹道（一阶低通：上升≈300ms 标准，回落更慢）+ 幂曲线角度映射
+   - 手动"收起"仅本次横屏有效，回竖屏复位；切台/暂停由 250ms 信息轮询同步
+   ============================================================================ */
+const landVu = {
+  active: false,       // 表盘当前是否显示
+  dismissed: false,    // 本次横屏被手动收起
+  timer: 0,
+  smL: 0, smR: 0,      // 目标能量 0..1（块 RMS×增益，mono 镜像后）
+  thetaL: -78, thetaR: -78,  // V197 表头物理仿真：当前角度
+  omegaL: 0, omegaR: 0,      // 角速度
+  envL: 0, envR: 0,          // V201 目标包络：起音瞬时/回落 τ250ms，针只摆语句上沿
+  route: '', routeChk: 0,    // V208 音频路由：'bt'蓝牙 / 'spk'扬声器（2s 查一次）
+  dq: [],                    // V208 电平延迟线（蓝牙补偿：元素 {t,l,r}）
+  lastT: 0,
+  lastInfo: 0
+};
+
+function initLandscapeVU() {
+  const root = $('landVu');
+  if (!root) return;
+  const mq = window.matchMedia('(orientation: landscape)');
+
+  const apply = function() {
+    const land = mq.matches;
+    if (!land) landVu.dismissed = false; // 回竖屏复位手动收起标志
+    const shouldShow = land && !!state.currentChannel && !landVu.dismissed;
+    if (shouldShow && !landVu.active) showLandVU();
+    else if (!shouldShow && landVu.active) hideLandVU();
+  };
+
+  if (mq.addEventListener) mq.addEventListener('change', apply);
+  else if (mq.addListener) mq.addListener(apply); // 旧 WebView 兼容
+
+  $('lvClose').addEventListener('click', () => { landVu.dismissed = true; hideLandVU(); });
+  $('lvPlay').addEventListener('click', () => { togglePlay(); });
+  $('lvPrev').addEventListener('click', () => { prevChannel(); });
+  $('lvNext').addEventListener('click', () => { nextChannel(); });
+  $('lvFav').addEventListener('click', () => {
+    if (state.currentChannel) toggleFavorite(state.currentChannel.id);
+  });
+  $('lvTimerTop').addEventListener('click', openTimer);
+  $('lvList').addEventListener('click', openManage);
+
+  landVu._apply = apply;
+  apply();
+}
+
+function showLandVU() {
+  landVu.active = true;
+  landVu.smL = 0;
+  landVu.smR = 0;
+  landVu.thetaL = -78;
+  landVu.thetaR = -78;
+  landVu.omegaL = 0;
+  landVu.omegaR = 0;
+  landVu.envL = 0;
+  landVu.envR = 0;
+  landVu.route = '';
+  landVu.routeChk = 0;
+  landVu.dq = [];
+  landVu.lastT = 0;
+  landVu.lastInfo = 0;
+  $('landVu').classList.add('show');
+  syncLandVUInfo(true);
+  // 40Hz：与 PC 版 rAF 手感对齐，CSS 0.08s 过渡负责补间
+  // V209: setInterval→rAF 驱动——与屏幕 vsync 相位对齐（interval 平均有 ~8ms 相位差白等），
+  //   合成器拿到的是刚算完的最新角度；dt 本就用真实帧间隔，无缝切换
+  const loop = () => { if (!landVu.active) return; landVuTick(); landVu.timer = requestAnimationFrame(loop); };
+  landVu.timer = requestAnimationFrame(loop);
+  console.log('[V192-VU] 横屏表盘显示，40Hz 电平轮询启动');
+}
+
+function hideLandVU() {
+  landVu.active = false;
+  if (landVu.timer) { cancelAnimationFrame(landVu.timer); clearInterval(landVu.timer); landVu.timer = 0; }
+  const root = $('landVu');
+  if (root) root.classList.remove('show');
+}
+
+function landVuTick() {
+  if (!landVu.active) return;
+
+  // ---- 1. 拉取真实电平（播放暂停时目标归零，指针自然回落 -20 位）----
+  //   V200：RMS + 块内峰值双供能 —— 稳态由 RMS 定形，起音由峰值即时抬针
+  //   （46ms 块平均会把音节起音稀释到 1/3 高度，是"视觉滞后"的根源）
+  let tl = 0, tr = 0, tpl = 0, tpr = 0;
+  if (state.isPlaying && hasNativeAudio()) {
+    try {
+      const r = nativeAudioRpc('vulevels');
+      if (r) { tl = r.l || 0; tr = r.r || 0; tpl = r.pl || 0; tpr = r.pr || 0; }
+    } catch (e) { /* 取样失败本帧保持 0 */ }
+  }
+
+  // 稳态目标=RMS×增益；起音目标=峰值×0.75（ crest 补偿，取大者）
+  const GAIN = 2.2;
+  if (tr < 0.004 && tl > 0.004) tpr = tpl;
+  if (tl < 0.004 && tr > 0.004) tpl = tpr;
+  tl = Math.min(1, Math.max(tl * GAIN, tpl * 0.75));
+  tr = Math.min(1, Math.max(tr * GAIN, tpr * 0.75));
+  if (tl < 0.004) tl = 0;
+  if (tr < 0.004) tr = 0;
+
+  // ---- 1.5 音频路由延迟补偿（V208→V210）----
+  //   关键事实：AudioProcessor 位于 ExoPlayer/AudioTrack 深缓冲【之前】，音频要
+  //   在输出缓冲排队 150~250ms 才出声 —— 针看到的电平比耳朵早一大截（超前）。
+  //   V207~V209 把针链路压到 ~70ms 后超前感反而放大（"越调越不同步"的真相）。
+  //   补偿 = 出声总延迟 − 针链路(~70ms)：扬声器 sink~200+30−70 ≈ 150ms；
+  //   蓝牙再叠加 A2DP 编解码 150~250ms ≈ 300ms。电平延迟线让针"等"声音。
+  const nowMs = Date.now();
+  if (nowMs - landVu.routeChk > 2000) {
+    landVu.routeChk = nowMs;
+    try {
+      const rr = nativeAudioRpc('hasextaudio');
+      landVu.route = (rr && rr.ok && rr.has) ? 'bt' : 'spk';
+    } catch (e) { /* 查询失败保持上次路由 */ }
+  }
+  const syncMs = landVu.route === 'bt' ? 300 : 400;
+  if (nowMs - landVu.routeChk >= 2000) console.log('[V216-VU] route=' + landVu.route + ' syncMs=' + syncMs + ' dq=' + landVu.dq.length);
+  if (syncMs > 0) {
+    landVu.dq.push({ t: nowMs, l: tl, r: tr });
+    if (landVu.dq.length > 120) landVu.dq.splice(0, landVu.dq.length - 120); // 卡顿兜底
+    while (landVu.dq.length && nowMs - landVu.dq[0].t > syncMs) {
+      const d = landVu.dq.shift();
+      tl = d.l; tr = d.r;
+    }
+  } else if (landVu.dq.length) {
+    landVu.dq.length = 0;
+  }
+
+  // ---- 2. 三级弹道（职责正交，V202 定稿结构）----
+  //   ① Java 峰值供能：字头目标即时抬高（不被 46ms 块平均稀释）
+  //   ② 目标包络（本级）：非对称单极点 —— 上升 α0.55（τ≈37ms，峰值供能下字头
+  //      约 1~2 帧冲顶（V203：AUP 0.55→0.7 起音加速），快且带机械加速感）/ 回落 α0.10（τ≈250ms，只摆语句上沿）。
+  //      V201 教训：上升瞬时(α=1)会把块间 25ms 电平小波动全量透传 → 针高频颤。
+  //   ③ 动圈表头（下段）：fn5.0Hz/ζ0.9（V213：回滚 V209 的 α0.9/fn5.6——震颤回归源头，回 V207/V208 已验证稳定点）
+  const AUP = 0.8, ADOWN = 0.10;
+  landVu.envL += (tl > landVu.envL ? AUP : ADOWN) * (tl - landVu.envL);
+  landVu.envR += (tr > landVu.envR ? AUP : ADOWN) * (tr - landVu.envR);
+  if (landVu.envL < 0.0008) landVu.envL = 0;
+  if (landVu.envR < 0.0008) landVu.envR = 0;
+  landVu.smL = landVu.envL;
+  landVu.smR = landVu.envR;
+  const nowT = performance.now();
+  let dt = (nowT - landVu.lastT) / 1000;
+  landVu.lastT = nowT;
+  if (!(dt > 0) || dt > 0.04) dt = 0.04;  // fn6.5Hz: ωn·dt 须 <2（半隐式欧拉稳定域）
+  if (dt < 0.005) dt = 0.005;
+  const K = 987, C = 56.5;  // V213: 回滚 fn5.0Hz/ζ0.9（V209 fn5.6+α0.9 致震颤回归）
+  const tL = -78 + Math.pow(landVu.smL, 0.7) * 156;
+  const tR = -78 + Math.pow(landVu.smR, 0.7) * 156;
+  landVu.omegaL += (K * (tL - landVu.thetaL) - C * landVu.omegaL) * dt;
+  landVu.thetaL += landVu.omegaL * dt;
+  landVu.omegaR += (K * (tR - landVu.thetaR) - C * landVu.omegaR) * dt;
+  landVu.thetaR += landVu.omegaR * dt;
+  if (landVu.thetaL < -80) { landVu.thetaL = -80; landVu.omegaL = 0; }
+  if (landVu.thetaL > 80)  { landVu.thetaL = 80;  landVu.omegaL = 0; }
+  if (landVu.thetaR < -80) { landVu.thetaR = -80; landVu.omegaR = 0; }
+  if (landVu.thetaR > 80)  { landVu.thetaR = 80;  landVu.omegaR = 0; }
+  const aL = landVu.thetaL, aR = landVu.thetaR;
+  const nL = $('vuNeedleLeft'), nR = $('vuNeedleRight');
+  if (nL) nL.style.transform = 'translateX(-50%) rotate(' + aL.toFixed(1) + 'deg)';
+  if (nR) nR.style.transform = 'translateX(-50%) rotate(' + aR.toFixed(1) + 'deg)';
+
+  // ---- 4. 低频同步电台信息/状态/收藏/播放图标（250ms）----
+  syncLandVUInfo(false);
+}
+
+function syncLandVUInfo(force) {
+  const now = Date.now();
+  if (!force && now - landVu.lastInfo < 250) return;
+  landVu.lastInfo = now;
+
+  const ch = state.currentChannel;
+  if (!ch) { hideLandVU(); return; }
+
+  const nameEl = $('lvName'), subEl = $('lvSub'), statusEl = $('lvStatus');
+  if (nameEl) nameEl.textContent = ch.name || '';
+  if (subEl) {
+    const sub = ch.category
+      ? ch.category
+      : ((ch.frequency || '') + (ch.description ? ' · ' + ch.description : ''));
+    subEl.textContent = sub || '正在直播';
+  }
+  if (statusEl) statusEl.textContent = state.isPlaying ? '正在直播' : '已暂停';
+  const fav = $('lvFav');
+  if (fav) fav.classList.toggle('active', state.favorites.includes(ch.id));
+  const playBtn = $('lvPlay');
+  if (playBtn) {
+    playBtn.innerHTML = state.isPlaying
+      ? '<svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><path d="M6.5 5h4v14h-4zM13.5 5h4v14h-4z"/></svg>'
+      : '<svg viewBox="0 0 24 24" width="34" height="34" fill="currentColor"><path d="M7 5v14l11-7z"/></svg>';
+  }
+}

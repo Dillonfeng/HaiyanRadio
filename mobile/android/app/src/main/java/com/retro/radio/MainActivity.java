@@ -21,6 +21,9 @@ import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
 import android.net.Uri;
+import android.content.res.Configuration;
+import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -30,6 +33,11 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.provider.Settings;
+import android.view.Window;
+import android.view.WindowManager;
+import androidx.core.view.WindowCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import android.webkit.JavascriptInterface;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
@@ -136,7 +144,13 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.i(TAG, "onCreate BEGIN app=v1.3.190 / buildV190 / dual-phase silence delay / no rebuild on restore / androidScheme=http / badge=about / no-play-toast");
+        // V192: 按当前方向应用系统栏/刘海策略（横屏沉浸，消除 VU 表盘右侧白色系统留边）
+        applyOrientationBars(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE);
+        try {
+            Window w = getWindow();
+            if (w != null) w.setBackgroundDrawable(new ColorDrawable(Color.BLACK));
+        } catch (Throwable t) { Log.d(TAG, "window bg: " + t); }
+        Log.i(TAG, "onCreate BEGIN app=v1.3.192 / buildV192 / landscape VU immersive / no rebuild on restore / androidScheme=http / badge=about / no-play-toast");
 
         // V156: SAF - 注册 ActivityResultLauncher（必须在 onCreate 完成 STARTED 前注册）
         //   1) CreateDocument: 导出 / 备份 → 让用户选保存路径+文件名
@@ -859,6 +873,21 @@ public class MainActivity extends BridgeActivity {
                 h2.put("Content-Type", "application/json;charset=utf-8");
                 Log.i(TAG, "V137-RPC status -> isPlaying=" + isPlaying + " hasSource=" + hasSrc);
                 return new WebResourceResponse("application/json", "utf-8", 200, "OK", h2, in2);
+            } else if ("vulevels".equals(action)) {
+                // V191: 横屏双声道机械 VU 表电平轮询（30Hz，本地拦截，<1ms）
+                // V200: 追加块内峰值 pl/pr —— 起音不被 46ms 块平均稀释，表头"跟手"
+                float[] vu = new float[]{0f, 0f, 0f, 0f};
+                if (nativeAudioPlayer != null) {
+                    try { vu = nativeAudioPlayer.getVuLevelsSync(); } catch (Throwable t) { Log.w(TAG, "V191 vulevels err: " + t); }
+                }
+                String respVu = "{\"ok\":true,\"l\":" + vu[0] + ",\"r\":" + vu[1]
+                        + ",\"pl\":" + vu[2] + ",\"pr\":" + vu[3] + "}";
+                java.io.InputStream inVu = new java.io.ByteArrayInputStream(respVu.getBytes());
+                java.util.Map<String, String> hVu = new java.util.HashMap<>();
+                hVu.put("Access-Control-Allow-Origin", "*");
+                hVu.put("Cache-Control", "no-store");
+                hVu.put("Content-Type", "application/json;charset=utf-8");
+                return new WebResourceResponse("application/json", "utf-8", 200, "OK", hVu, inVu);
             } else if ("hasextaudio".equals(action)) {
                 // V183: 冷启动续播门控 —— JS查询当前是否有外部音频输出(蓝牙A2DP/有线/USB)。
                 //   必须走RPC通道：ColorOS上addJavascriptInterface失效(window.NativeRadio=undefined)，
@@ -1494,8 +1523,43 @@ public class MainActivity extends BridgeActivity {
         try { if (in != null) in.close(); } catch (Throwable t) { Log.d(TAG, "closeStream: " + t); }
     }
 
+    // V192: 旋转不重建 Activity（manifest configChanges），方向变化时即时切换系统栏策略。
+    //   横屏：内容铺入刘海区(shortEdges)+隐藏系统栏(沉浸sticky)，VU 表盘全屏无白边；
+    //   竖屏：恢复出厂 DEFAULT 刘海策略并显示系统栏，竖屏界面零改动。
     @Override
-    public void onStart() { super.onStart(); }
+    public void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        applyOrientationBars(newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE);
+    }
+
+    private void applyOrientationBars(boolean landscape) {
+        try {
+            final Window window = getWindow();
+            if (window == null) return;
+            if (Build.VERSION.SDK_INT >= 28) {
+                WindowManager.LayoutParams lp = window.getAttributes();
+                lp.layoutInDisplayCutoutMode = landscape
+                        ? WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                        : WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT;
+                window.setAttributes(lp);
+            }
+            WindowCompat.setDecorFitsSystemWindows(window, !landscape);
+            WindowInsetsControllerCompat ctl =
+                    WindowCompat.getInsetsController(window, window.getDecorView());
+            if (landscape) {
+                ctl.hide(WindowInsetsCompat.Type.systemBars());
+                ctl.setSystemBarsBehavior(
+                        WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            } else {
+                ctl.show(WindowInsetsCompat.Type.systemBars());
+            }
+        } catch (Throwable t) {
+            Log.d(TAG, "V192 applyOrientationBars landscape=" + landscape + ": " + t);
+        }
+    }
+
+    @Override
+    public void onStart() { super.onStart(); applyOrientationBars(getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE); }
 
     @Override
     public void onResume() {

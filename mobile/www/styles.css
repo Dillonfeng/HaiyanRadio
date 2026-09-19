@@ -2073,3 +2073,444 @@ body, .app-container, button, input, textarea, select {
   min-height: 20px;
 }
 
+/* ============================================================
+   V191 横屏双声道模拟机械指针 VU 表
+   （借用 PC Electron 版 classic / SD-39 风格表盘，
+    指针角度 -78deg~+78deg，真实左右声道 RMS 经弹道平滑驱动）
+   仅横屏且已选电台时由 JS 加 .show 显示
+   ============================================================ */
+.land-vu {
+  /* V193: 颜色变量化，浅色主题下由下方覆盖，与收音机主题同步 */
+  --lv-bg-a: #2c2110;
+  --lv-bg-b: #1a1308;
+  --lv-bg-c: #0b0703;
+  --lv-fg: #f6ead0;
+  --lv-sub: #b39a63;
+  --lv-gold: #e8c878;
+  --lv-icon-bg: rgba(255,235,180,0.08);
+  --lv-icon-active: rgba(255,235,180,0.22);
+  --lv-bar-bg: rgba(16,11,4,0.62);
+  --lv-bar-border: rgba(210,178,98,0.35);
+  --lv-top-grad: linear-gradient(180deg, rgba(0,0,0,0.66) 0%, rgba(0,0,0,0) 100%);
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  display: none;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  background:
+    radial-gradient(ellipse at 50% -20%, var(--lv-bg-a) 0%, var(--lv-bg-b) 45%, var(--lv-bg-c) 100%);
+}
+/* 浅色主题（强制）：暖米色复古背景，与浅色收音机一致 */
+:root[data-theme="light"] .land-vu {
+  --lv-bg-a: #f3ecdb;
+  --lv-bg-b: #e9dfc8;
+  --lv-bg-c: #d8cbb0;
+  --lv-fg: #2b2113;
+  --lv-sub: #8a7345;
+  --lv-gold: #8a6d1f;
+  --lv-icon-bg: rgba(60,45,20,0.08);
+  --lv-icon-active: rgba(60,45,20,0.2);
+  --lv-bar-bg: rgba(255,252,244,0.75);
+  --lv-bar-border: rgba(138,109,31,0.38);
+  --lv-top-grad: linear-gradient(180deg, rgba(255,250,238,0.75) 0%, rgba(255,250,238,0) 100%);
+}
+/* 浅色主题（自动跟随系统） */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]):not([data-theme="light"]) .land-vu {
+    --lv-bg-a: #f3ecdb;
+    --lv-bg-b: #e9dfc8;
+    --lv-bg-c: #d8cbb0;
+    --lv-fg: #2b2113;
+    --lv-sub: #8a7345;
+    --lv-gold: #8a6d1f;
+    --lv-icon-bg: rgba(60,45,20,0.08);
+    --lv-icon-active: rgba(60,45,20,0.2);
+    --lv-bar-bg: rgba(255,252,244,0.75);
+    --lv-bar-border: rgba(138,109,31,0.38);
+    --lv-top-grad: linear-gradient(180deg, rgba(255,250,238,0.75) 0%, rgba(255,250,238,0) 100%);
+  }
+}
+@media (orientation: landscape) {
+  .land-vu.show { display: block; }
+}
+
+/* 双表盘区：留出顶部信息条与底部控制条 */
+.lv-meters {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(6px, 1.2vw, 18px);
+  padding: 44px calc(6px + env(safe-area-inset-left)) 58px calc(6px + env(safe-area-inset-right));
+  box-sizing: border-box;
+}
+
+/* 表盘尺寸：以高度为基准，同时受两表并排的宽度上限钳制。
+   V192：宽高比 1.34→1.45，给外圈数字留出横向空间（PC 8px 字号下拥挤不可见，手机放大后必须放宽） */
+.land-vu .vu-meter {
+  --vu-h: min(calc(100vh - 108px), calc((100vw - 28px) / 2 / 1.45));
+  --vu-w: calc(var(--vu-h) * 1.45);
+  width: var(--vu-w);
+  height: var(--vu-h);
+  flex: 0 0 auto;
+  font-size: calc(var(--vu-h) / 7);
+}
+
+/* ---- 顶部悬浮信息条 ---- */
+.lv-topbar {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 calc(10px + env(safe-area-inset-left)) 0 calc(10px + env(safe-area-inset-right));
+  box-sizing: border-box;
+  z-index: 30;
+  background: var(--lv-top-grad);
+}
+.lv-icon-btn {
+  flex: 0 0 auto;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: var(--lv-icon-bg);
+  color: var(--lv-gold);
+  cursor: pointer;
+}
+.lv-icon-btn:active { background: var(--lv-icon-active); }
+.lv-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  justify-content: center;
+  font-family: inherit;
+}
+.lv-live {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--lv-gold);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+.lv-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #e23b3b;
+  box-shadow: 0 0 6px rgba(226,59,59,0.9);
+  animation: lvBlink 1.6s infinite;
+}
+@keyframes lvBlink { 0%,100% { opacity:1; } 50% { opacity:0.25; } }
+.lv-name {
+  color: var(--lv-fg);
+  font-size: clamp(15px, 2.4vh, 19px);
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 46vw;
+}
+.lv-sub {
+  flex: 0 1 auto;
+  color: var(--lv-sub);
+  font-size: clamp(11px, 1.8vh, 13px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 24vw;
+}
+
+/* ---- 底部悬浮控制条 ---- */
+.lv-bottombar {
+  position: absolute;
+  left: 50%;
+  bottom: calc(6px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: clamp(10px, 2.6vw, 26px);
+  padding: 5px 16px;
+  border-radius: 999px;
+  background: var(--lv-bar-bg);
+  border: 1px solid var(--lv-bar-border);
+  box-shadow: 0 4px 18px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,230,160,0.12);
+  backdrop-filter: blur(4px);
+  z-index: 30;
+}
+.lv-ctrl {
+  width: clamp(34px, 5.4vh, 42px);
+  height: clamp(34px, 5.4vh, 42px);
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--lv-gold);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  padding: 0;
+}
+.lv-ctrl:active { background: var(--lv-icon-active); }
+.lv-ctrl.active { color: #e23b3b; }
+.lv-playbig {
+  width: clamp(46px, 7.6vh, 60px);
+  height: clamp(46px, 7.6vh, 60px);
+  background: radial-gradient(circle at 35% 30%, #f0584f 0%, #c62828 60%, #8e1b1b 100%);
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.6), inset 0 1px 1px rgba(255,255,255,0.35);
+}
+.lv-playbig:active { filter: brightness(1.15); }
+
+/* ============================================
+   classic SD-39 风格机械表盘（移植 PC 版）
+   ============================================ */
+.land-vu .vu-case {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, #2a2010 0%, #18100a 100%);
+  border: 2px solid #000;
+  border-radius: 8px 8px 6px 6px;
+  padding: 0.33em;
+  box-sizing: border-box;
+  box-shadow:
+    inset 0 2px 4px rgba(255,220,150,0.08),
+    inset 0 -2px 6px rgba(0,0,0,0.6),
+    0 4px 10px rgba(0,0,0,0.7);
+}
+.land-vu .vu-face {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(ellipse at 50% 30%, #f3d988 0%, #e8c77a 40%, #d1a85c 80%, #b8924a 100%);
+  border: 2px solid #2a1a05;
+  border-radius: 10px 10px 8px 8px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.4),
+    inset 0 -1px 3px rgba(80,50,20,0.4);
+  overflow: hidden;
+}
+.land-vu .vu-face::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(115deg, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 35%, rgba(0,0,0,0.08) 100%);
+  pointer-events: none;
+}
+.land-vu .vu-sign-minus {
+  position: absolute;
+  top: 0.4em;
+  left: 0.85em;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.72em;
+  font-weight: 900;
+  color: #1a0a00;
+}
+.land-vu .vu-sign-plus {
+  position: absolute;
+  top: 0.4em;
+  right: 0.85em;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.72em;
+  font-weight: 900;
+  color: #b02020;
+}
+.land-vu .vu-arc {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--vu-h) * 0.22);
+  width: 1px;
+  height: 1px;
+}
+.land-vu .vu-num {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: 'Courier New', Courier, monospace;
+  /* V192：字号 0.75→0.62em，弧半径 0.55→0.66h，数字落到刻度尖外侧且互不重叠 */
+  font-size: 0.62em;
+  font-weight: 700;
+  color: #1a0a00;
+  transform-origin: 0 0;
+  transform: rotate(var(--ang)) translateY(calc(-1 * var(--vu-h) * 0.66));
+  white-space: nowrap;
+  pointer-events: none;
+}
+.land-vu .vu-num.vu-num-red { color: #c02020; }
+.land-vu .vu-ticks {
+  position: absolute;
+  left: 50%;
+  bottom: 1.2em;
+  width: 1px;
+  height: 1px;
+}
+.land-vu .vu-ticks span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2px;
+  /* V192：刻度略收短（0.15→0.11h），与外移后的数字脱开 */
+  height: calc(var(--vu-h) * 0.11);
+  background: #1a0a00;
+  transform-origin: center 0;
+  transform: translate(-50%, 0) rotate(var(--ang)) translateY(calc(-1 * var(--vu-h) * 0.51));
+  border-radius: 1px;
+}
+.land-vu .vu-brand {
+  position: absolute;
+  bottom: 1.42em;
+  left: 0; right: 0;
+  text-align: center;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.66em;
+  font-weight: 900;
+  color: #1a0a00;
+  letter-spacing: 2px;
+}
+.land-vu .vu-percents {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--vu-h) * 0.22);
+  width: 1px;
+  height: 1px;
+}
+.land-vu .vu-percents span {
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-family: 'Courier New', Courier, monospace;
+  /* V192：字号 0.55→0.44em，内圈弧半径 0.30→0.38h，60/80/100% 不再堆叠 */
+  font-size: 0.44em;
+  font-weight: 700;
+  color: #2a1500;
+  transform-origin: 0 0;
+  transform: rotate(var(--ang)) translateY(calc(-1 * var(--vu-h) * 0.38));
+  white-space: nowrap;
+}
+/* 指针：40Hz 瞬时电平直驱，0.08s bezier 过渡为唯一平滑层（V192 与 PC 版一致，针随声动） */
+.land-vu .vu-needle {
+  position: absolute;
+  left: 50%;
+  bottom: 1.2em;
+  width: 2px;
+  height: calc(var(--vu-h) * 0.5);
+  transform-origin: center bottom;
+  transform: translateX(-50%) rotate(-78deg);
+  z-index: 10;
+  /* V197: 弹道由 JS 表头物理仿真逐帧计算，不加 CSS 过渡（避免双重平滑） */
+  will-change: transform;
+}
+.land-vu .vu-needle-shaft {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: calc(var(--vu-h) * 0.46);
+  background: linear-gradient(180deg, #b02020 0%, #700 100%);
+  transform: translateX(-50%);
+  box-shadow: 0 0 4px rgba(180,30,30,0.5);
+  border-radius: 1px;
+}
+.land-vu .vu-pivot {
+  position: absolute;
+  left: 50%;
+  bottom: 1.2em;
+  width: calc(var(--vu-h) * 0.14);
+  height: calc(var(--vu-h) * 0.14);
+  transform: translate(-50%, 50%);
+  border-radius: 50%;
+  z-index: 11;
+}
+.land-vu .vu-pivot::before {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: radial-gradient(circle at 35% 30%, #c8c8c8 0%, #888 30%, #444 70%, #222 100%);
+  border-radius: 50%;
+  box-shadow:
+    inset 0 1px 2px rgba(255,255,255,0.5),
+    inset 0 -2px 3px rgba(0,0,0,0.6);
+}
+.land-vu .vu-pivot::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 4px;
+  height: 4px;
+  background: radial-gradient(circle, #2a2a2a 0%, #000 100%);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+.land-vu .vu-coil {
+  position: absolute;
+  left: 50%;
+  bottom: 0.93em;
+  width: 1.87em;
+  height: 1.33em;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.land-vu .vu-coil::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(0deg, #3a2a1a 0px, #3a2a1a 1px, #5a4a3a 1px, #5a4a3a 2px);
+  border-radius: 4px;
+  opacity: 0.7;
+}
+.land-vu .vu-coil::after {
+  content: '';
+  position: absolute;
+  left: 2px; top: 2px; right: 2px; bottom: 2px;
+  background: repeating-linear-gradient(90deg, transparent 0px, transparent 3px, rgba(180,30,30,0.3) 3px, rgba(180,30,30,0.3) 4px);
+  border-radius: 3px;
+}
+.land-vu .vu-channel {
+  position: absolute;
+  bottom: 0.27em;
+  left: 0; right: 0;
+  text-align: center;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.66em;
+  font-weight: 900;
+  color: #1a0a00;
+  letter-spacing: 2px;
+}
+.land-vu .vu-screw {
+  position: absolute;
+  width: 0.6em;
+  height: 0.6em;
+  background: radial-gradient(circle at 35% 30%, #a8a8a8 0%, #707070 40%, #3a3a3a 100%);
+  border-radius: 50%;
+  box-shadow: inset 0 -1px 2px rgba(0,0,0,0.7), 0 1px 1px rgba(0,0,0,0.5);
+}
+.land-vu .vu-screw::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 15%;
+  width: 70%;
+  height: 1.5px;
+  background: #1a1a1a;
+  transform: translateY(-50%) rotate(-30deg);
+}
+.land-vu .vu-screw-tl { left: 0.27em; top: 0.27em; }
+.land-vu .vu-screw-tr { right: 0.27em; top: 0.27em; }
+.land-vu .vu-screw-bl { left: 0.27em; bottom: 0.27em; }
+.land-vu .vu-screw-br { right: 0.27em; bottom: 0.27em; }
+/* V192 刻度长度（按新基准 0.11h=长，中/短等比）：14px→0.77em，8px→0.44em，6px→0.33em */
+.land-vu .vu-ticks span[style*="--h:14px"] { height: 0.77em !important; }
+.land-vu .vu-ticks span[style*="--h:8px"]  { height: 0.44em !important; }
+.land-vu .vu-ticks span[style*="--h:6px"]  { height: 0.33em !important; }
+
