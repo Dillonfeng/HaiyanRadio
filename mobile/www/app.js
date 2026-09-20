@@ -22,8 +22,8 @@ const state = {
 };
 
 const DATA_VERSION = '20260902-V157-USER-EDIT-MERGE-SAFE';  // V158 未涉及频道数据结构，DATA_VERSION 保持 V157 以避免触发 forceReset
-const APP_VERSION = 'v1.3.191 (V191 任何外部音箱接入即自动恢复最后播放的台:睡前手动暂停过夜,早上开音箱同样续播;冷启动/开机自启同步支持;蓝牙自动恢复全程外部sink双重确认,手机喇叭绝不自动响;V190双时段等待轨+V189±16LSB夜间保网+90秒闹钟兜底)';
-const VERSION_DISPLAY = 'V191';
+const APP_VERSION = 'v1.3.192 (V192 修复两问题:①划掉退出后进程被重启不再幽灵自启——退出态持久化+isMusicActive拦截第三方出声时不自动播/不打断;②其他音视频App抢焦点时收音机真暂停(ExoPlayer不管焦点旧坑),视频结束自动续,手机喇叭红线不变;V191任意音箱接入续播保留)';
+const VERSION_DISPLAY = 'V192';
 
 
 const DATA_VERSION_KEY = 'radio_data_version';

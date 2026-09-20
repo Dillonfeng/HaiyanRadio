@@ -14,9 +14,11 @@ import android.util.Log;
  *
  * 行为：等待意图为 true，或持久化存在最后播放电台(V191：手动暂停后开机也允许音箱接入
  * 自动续播)时，startForegroundService 拉起 RadioPlaybackService（ACTION_BT_WAIT_REARM）。
- * Service 冷启动 onCreate→registerBtAudioMonitor 完成布防：无外部输出→安静等待（等待意图
- * 在时加近静音轨+闹钟）；音箱已连回→3秒确认自动恢复。从未播放过 → 不开机自动放声音。
- * 安全：所有自动播放都有外部 sink 二次确认，手机喇叭绝不自动响。
+ * V192 例外：用户上次是"划掉退出"的（user_exited_v192=true）且无等待意图 → 开机保持安静，
+ * 绝不在用户没打开过 App 的情况下自动响起。Service 冷启动 onCreate→registerBtAudioMonitor
+ * 完成布防：无外部输出→安静等待（等待意图在时加近静音轨+闹钟）；音箱已连回→3秒确认自动
+ * 恢复。从未播放过 → 不开机自动放声音。安全：所有自动播放都有外部 sink 二次确认，
+ * 手机喇叭绝不自动响。
  *
  * 注意：ColorOS 需要用户在 设置→应用管理→海燕收音机→自启动 授权后才会投递
  * BOOT_COMPLETED；未授权时本接收器收不到（系统行为，非代码问题）。
@@ -35,14 +37,20 @@ public class BootReceiver extends BroadcastReceiver {
         try {
             wait = RadioPlaybackService.peekBtWaitIntent(context);
         } catch (Throwable ignore) {}
+        boolean userExited = false;
+        try {
+            userExited = RadioPlaybackService.peekUserExited(context);
+        } catch (Throwable ignore) {}
         boolean hasLastChannel = false;
         try {
             String url = context.getSharedPreferences(NativeAudioPlayer.LAST_CH_SP, Context.MODE_PRIVATE)
                     .getString(NativeAudioPlayer.LC_URL, "");
             hasLastChannel = url != null && !url.isEmpty();
         } catch (Throwable ignore) {}
-        Log.i(TAG, "BOOT_COMPLETED received, btWaitIntent=" + wait + ", hasLastChannel=" + hasLastChannel);
-        if (!wait && !hasLastChannel) return;  // 无等待意图且从未播放 → 开机保持安静
+        Log.i(TAG, "BOOT_COMPLETED received, btWaitIntent=" + wait + ", hasLastChannel=" + hasLastChannel
+                + ", userExited=" + userExited);
+        // V192: 用户划掉退出后重启 → 保持安静（无等待意图时退出态一票否决）
+        if (!wait && (!hasLastChannel || userExited)) return;
         try {
             Intent svc = new Intent(context, RadioPlaybackService.class);
             svc.setAction(RadioPlaybackService.ACTION_BT_WAIT_REARM);

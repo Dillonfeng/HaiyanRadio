@@ -71,6 +71,12 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
     private NotificationManager notificationManager;
     private AudioManager audioManager;
     private AudioFocusRequest focusRequest;
+    // V192: 焦点被动丢失时真正暂停 ExoPlayer（旧版只改 MediaSession 状态、不控播放器，
+    //   微信视频号/其他音视频 App 播放时收音机照响）。lastOwnFocusRequestMs 过滤 OPPO 上
+    //   自己 requestAudioFocus 诱发的假 loss→gain（V57"播一个字就停"竞态）。
+    private long lastOwnFocusRequestMs = 0L;
+    private boolean pausedByTransientFocusLoss = false;   // 被短暂抢焦点而暂停（视频/导航）→ GAIN 可自动续
+    private boolean externalSinkAtTransientPause = false; // 暂停瞬间是否在外部 sink（耳机/音箱）
     private PowerManager.WakeLock wakeLock;
     private WifiManager.WifiLock wifiLock;
     private WifiManager.WifiLock wifiLockFull; // V102 ADD: WIFI_MODE_FULL (不可剥夺基础锁，HIGH_PERF可被系统剥夺，2把锁双保险)
@@ -220,6 +226,24 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         try {
             return ctx.getSharedPreferences(STABILITY_SP, MODE_PRIVATE)
                     .getBoolean(KEY_BT_WAIT_INTENT, false);
+        } catch (Throwable t) { return false; }
+    }
+
+    // V192: 持久化"用户已退出"（最近任务划掉）。必须与"暂停"区分：退出后即使进程被
+    //   START_STICKY 重启/开机，也不允许创建即自动播放（实测20260920中午：划掉App后进程
+    //   被重启，V191创建路径在蓝牙耳机上自动响起，而用户正在看微信视频号）。用户重新打开
+    //   App（MainActivity.onResume）即清除，恢复"音箱回来可续播"语义。
+    private static final String KEY_USER_EXITED = "user_exited_v192";
+    public static void setUserExited(Context ctx, boolean exited) {
+        try {
+            ctx.getSharedPreferences(STABILITY_SP, MODE_PRIVATE)
+                    .edit().putBoolean(KEY_USER_EXITED, exited).apply();
+        } catch (Throwable ignore) {}
+    }
+    public static boolean peekUserExited(Context ctx) {
+        try {
+            return ctx.getSharedPreferences(STABILITY_SP, MODE_PRIVATE)
+                    .getBoolean(KEY_USER_EXITED, false);
         } catch (Throwable t) { return false; }
     }
     private void setBtWaitIntent(boolean on) {
@@ -623,6 +647,7 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
     private boolean requestAudioFocus() {
         if (hasFocus) return true;
         try {
+            lastOwnFocusRequestMs = android.os.SystemClock.elapsedRealtime();  // V192: 过滤自家请求诱发的假回调
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 focusRequest = new AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN)
                         .setAudioAttributes(new AudioAttributes.Builder()
@@ -763,6 +788,7 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         if (!requestAudioFocus()) {
             Log.w(TAG, "handlePlay: AudioFocus request FAIL");
         }
+        pausedByTransientFocusLoss = false;  // V192: 用户/系统主动播放 → 取消"短暂丢失待恢复"记忆
         // V177 FIX(切台卡顿/播放栏失效回环): direct resume 只允许"外部入口"(notifyUi=true：
         //   媒体键 onPlay / ACTION_PLAY / ACTION_TOGGLE / 通知栏)调用 —— 这些场景 Activity 可能已死、
         //   JS 链路断裂，需要 Java 直连 ExoPlayer。
@@ -839,8 +865,10 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
             }
         } else Log.d(TAG, "handleStop: internal state update only (skip broadcast to UI)");
         cancelSilenceAutoStop();
+        cancelScheduledBtRestore();  // V192: 用户停止同时撤掉挂起的3秒蓝牙恢复，防 stopSelf 竞态窗口漏播
         stopBtWaitSilence();       // V186: 用户主动停止 → 撤整夜等待静音
         setBtWaitIntent(false);    // V186: 清除等待意愿（耳机再连也不自动续）
+        pausedByTransientFocusLoss = false;  // V192
         btAudioDisconnected = false;
         stopSelf();
     }
@@ -912,54 +940,84 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
 
     @Override
     public void onAudioFocusChange(int focusChange) {
-        // NOTE (v57): This service now operates in MediaSession/Notification-only
-        // mode — actual audio playback is 100% inside Chromium Web Audio /
-        // HTMLAudioElement, which MANAGES ITS OWN internal audio focus per
-        // AudioTrack (Android O+). Therefore we MUST NOT broadcast ACTION_PAUSE
-        // back to JS on transient focus changes — these events are often
-        // SPOOFED "loss-then-regain" during our own requestAudioFocus() call
-        // (especially on OPPO/ColorOS). Doing so causes the EXACT "play one
-        // word then stop" the user reported: JS audio.onplaying fires ->
-        // reportMeta -> handlePlay -> requestAudioFocus -> fake LOSS_TRANSIENT
-        // callback HERE -> sendBroadcastToUI(ACTION_PAUSE) -> JS audio.pause()
-        // -> SOUND STOPS IMMEDIATELY. Bottom button worked because on a SECOND
-        // play() click, hasFocus was already true so requestAudioFocus() became
-        // a no-op and no fake LOSS was generated.
+        // V192: ExoPlayer 的 setAudioAttributes(..., false) 不自动管焦点，旧版回调也啥都不做
+        //   → 用户反馈"播放收音机时开微信视频号/其他音视频，收音机不暂停"。现在由 Service 真正
+        //   暂停/恢复 ExoPlayer 单例（V177 directPause/directResume，Activity 死了也生效）。
+        // V57 历史竞态防护仍保留：OPPO 上自己 requestAudioFocus() 可能同步诱发假的
+        //   LOSS_TRANSIENT→GAIN（requestAudioFocus 已记录时间戳，500ms 内的回调一律忽略）。
+        long sinceOwnReq = android.os.SystemClock.elapsedRealtime() - lastOwnFocusRequestMs;
+        if (lastOwnFocusRequestMs > 0 && sinceOwnReq < 500L) {
+            Log.d(TAG, "V192 focus: ignore spoof callback " + focusChange + " within " + sinceOwnReq + "ms of own request");
+            return;
+        }
         switch (focusChange) {
-            case AudioManager.AUDIOFOCUS_LOSS:
-                // V153 FIX: 不再立即释放锁！锁屏期间其他应用抢焦点后锁被释放
-                //   → 160秒后系统杀音频输出 → 冷启动crash
-                //   改为只更新状态，保持锁和前台服务
+            case AudioManager.AUDIOFOCUS_LOSS: {
+                // 永久丢失（其他App长期播放）：暂停并保持暂停，必须用户手动恢复。
+                Log.i(TAG, "V192 focus: AUDIOFOCUS_LOSS → pause radio, stay paused (manual resume only)");
+                pausedByTransientFocusLoss = false;
+                boolean wasPlaying = isPlaying;
+                directPausePlayer();
                 isPlaying = false;
                 stateBuilder.setState(PlaybackStateCompat.STATE_PAUSED, 0, 1.0f);
                 try { mediaSession.setPlaybackState(stateBuilder.build()); } catch (Throwable ignore) {}
                 updateNotification();
+                if (wasPlaying) sendBroadcastToUI(ACTION_PAUSE);  // 同步JS/UI状态
                 break;
-            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT:
-                // Transient loss (short notification ding, map voice nav, etc.)
-                // Do NOTHING that touches the JS/Web engine. Chromium will
-                // handle ducking/short-pause internally and resume when focus
-                // returns. This avoids the "1 word then stop" race entirely.
-                // We optionally dim the MediaSession state to BUFFERING so the
-                // system UI reflects a possible short pause, but no broadcast.
+            }
+            case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT: {
+                // 短暂丢失（微信视频号/抖音/导航语音等）：真暂停；焦点回来可自动续。
+                boolean reallyPlaying = isPlaying;
                 try {
-                    stateBuilder.setState(PlaybackStateCompat.STATE_BUFFERING, 0, 1.0f);
-                    mediaSession.setPlaybackState(stateBuilder.build());
+                    NativeAudioPlayer _p = NativeAudioPlayer.peekInstance();
+                    reallyPlaying = isPlaying || (_p != null && _p.isPlayingN());
                 } catch (Throwable ignore) {}
+                if (!reallyPlaying) break;
+                Log.i(TAG, "V192 focus: LOSS_TRANSIENT (other media started) → pause radio, auto-resume on GAIN");
+                pausedByTransientFocusLoss = true;
+                externalSinkAtTransientPause = hasExternalAudioOutput();
+                directPausePlayer();
+                isPlaying = false;
+                stateBuilder.setState(PlaybackStateCompat.STATE_PAUSED, 0, 1.0f);
+                try { mediaSession.setPlaybackState(stateBuilder.build()); } catch (Throwable ignore) {}
+                updateNotification();
+                sendBroadcastToUI(ACTION_PAUSE);
                 break;
+            }
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT_CAN_DUCK:
-                // Chromium ducks AudioTrack volume on its own; nothing to do.
+                // 短暂提示音（通知声）：不暂停（避免频繁打断电台），系统会自行混音。
                 break;
-            case AudioManager.AUDIOFOCUS_GAIN:
-                // Focus regained — refresh media session state only.
-                try {
-                    int st = isPlaying ? PlaybackStateCompat.STATE_PLAYING
-                                       : PlaybackStateCompat.STATE_PAUSED;
-                    stateBuilder.setState(st, 0, 1.0f);
-                    mediaSession.setPlaybackState(stateBuilder.build());
-                } catch (Throwable ignore) {}
+            case AudioManager.AUDIOFOCUS_GAIN: {
+                if (!pausedByTransientFocusLoss) {
+                    // 非我方主动暂停场景的 GAIN：只刷新会话状态
+                    try {
+                        int st = isPlaying ? PlaybackStateCompat.STATE_PLAYING
+                                           : PlaybackStateCompat.STATE_PAUSED;
+                        stateBuilder.setState(st, 0, 1.0f);
+                        mediaSession.setPlaybackState(stateBuilder.build());
+                    } catch (Throwable ignore) {}
+                    updateNotification();
+                    break;
+                }
+                pausedByTransientFocusLoss = false;
+                // 安全红线：被抢焦点前声音在外部 sink，恢复时 sink 必须还在，绝不能漏到手机喇叭。
+                if (externalSinkAtTransientPause && !hasExternalAudioOutput()) {
+                    Log.i(TAG, "V192 focus: GAIN but external sink gone → stay paused (never use speaker)");
+                    break;
+                }
+                // 其他App可能仍在出声（异常双 GAIN）→ 不抢
+                if (isOtherMusicAppActive()) {
+                    Log.i(TAG, "V192 focus: GAIN but another app still active → stay paused");
+                    break;
+                }
+                Log.i(TAG, "V192 focus: GAIN after transient loss → resume radio");
+                directResumePlayerIfHasSource(false);  // 用户原本就在听 → 等同用户语义恢复
+                isPlaying = true;
+                stateBuilder.setState(PlaybackStateCompat.STATE_PLAYING, 0, 1.0f);
+                try { mediaSession.setPlaybackState(stateBuilder.build()); } catch (Throwable ignore) {}
+                sendBroadcastToUI(ACTION_BT_RECONNECTED);  // JS 侧清暂停标志并同步UI
                 updateNotification();
                 break;
+            }
         }
     }
 
@@ -1078,7 +1136,14 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                         startBtWaitSilence();
                     }
                 } else if (hasPlayableChannelForAutoResume()) {
-                    if (hasExternalAudioOutput()) {
+                    // V192: 用户已主动退出（划掉App）或其他App正在出声（微信视频号等）→
+                    //   绝不创建即播放，只安静驻留等待"用户在场"的后续 sink 接入事件。
+                    boolean userExited = peekUserExited(getApplicationContext());
+                    boolean otherPlaying = isOtherMusicAppActive();
+                    if (userExited || otherPlaying) {
+                        Log.i(TAG, "V192: last channel at create but userExited=" + userExited
+                                + " otherMusicActive=" + otherPlaying + " → idle, no phantom autoplay");
+                    } else if (hasExternalAudioOutput()) {
                         Log.i(TAG, "V191: last channel at create + external sink present → restore directly");
                         scheduleBtRestore();
                     } else {
@@ -1463,12 +1528,32 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         }
     }
 
+    // V192: 自动恢复决策点调用：是否有"别的"App 正在出声（微信视频号/抖音/音乐/导航）。
+    //   自身暂停态下 ExoPlayer 不占活跃音轨，isMusicActive=true 即来自第三方 → 不得打断。
+    private boolean isOtherMusicAppActive() {
+        try {
+            NativeAudioPlayer self = NativeAudioPlayer.peekInstance();
+            boolean selfActive = self != null && self.isPlayingN();
+            boolean anyActive = audioManager != null && audioManager.isMusicActive();
+            return anyActive && !selfActive;
+        } catch (Throwable t) { return false; }
+    }
+
     private void scheduleBtRestore() {
         try {
             if (!btAudioDisconnected) {
                 // V191: 用户策略"任何外部音箱接入都自动恢复最后播放的台"。旧版仅
                 //   NOISY/V183 布防态(btAudioDisconnected=true)才恢复 → 睡前手动暂停过夜，
                 //   早上开音箱被此门控挡掉（实测20260920，日志仅有"延迟确认"无恢复）。
+                // V192: 用户已划掉退出、或第三方 App 正在出声 → 不布防（防幽灵自启/打断）。
+                if (peekUserExited(getApplicationContext())) {
+                    Log.i(TAG, "V192: sink added but user exited app → skip auto-resume");
+                    return;
+                }
+                if (isOtherMusicAppActive()) {
+                    Log.i(TAG, "V192: sink added but another app is playing → skip auto-resume");
+                    return;
+                }
                 NativeAudioPlayer _qp = NativeAudioPlayer.peekInstance();
                 if (isPlaying && _qp != null && _qp.isPlayingN()) {
                     // 正在播放（手机喇叭/旧设备）时新 sink 加入：系统会自动 reroute 音频，
@@ -1497,10 +1582,26 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                             stopBtSilenceKeepalive();
                             return;
                         }
+                        // V192: 确认窗口内用户已退出App → 放弃（不打断原则优先）
+                        if (peekUserExited(getApplicationContext())) {
+                            Log.i(TAG, "V192: user exited during confirm window → abort auto-resume");
+                            cancelScheduledBtRestore();
+                            stopBtSilenceKeepalive();
+                            return;
+                        }
                         if (!hasExternalAudioOutput()) {
                             Log.i(TAG, "[V180-BT] 延迟" + delay + "ms后外部输出已不在（抖动），放弃恢复");
                             cancelSilenceAutoStop();
                             // V186: 等待态下设备确认时又消失 → 回整夜等待，不撤静音防冻结
+                            if (peekBtWaitIntent(getApplicationContext())) startBtWaitSilence();
+                            else stopBtSilenceKeepalive();
+                            return;
+                        }
+                        // V192: 第三方App此刻正在出声（视频号/导航等）→ 不打断，保持安静。
+                        //   等待态回整夜轨；非等待态直接撤防，等用户自己按播放。
+                        if (isOtherMusicAppActive()) {
+                            Log.i(TAG, "V192: another app playing at restore fire → abort, do not interrupt");
+                            cancelScheduledBtRestore();
                             if (peekBtWaitIntent(getApplicationContext())) startBtWaitSilence();
                             else stopBtSilenceKeepalive();
                             return;
@@ -1661,6 +1762,7 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         // 用户从最近任务列表划掉应用时：停止播放并清理，避免残留进程
         try {
             Log.i(TAG, "onTaskRemoved: user swiped away, stopping playback");
+            setUserExited(getApplicationContext(), true);  // V192: 标记"已退出"，进程被重启也不许自动响
             handleStop(true);
             stopForeground(true);
             stopSelf();
