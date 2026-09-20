@@ -22,8 +22,8 @@ const state = {
 };
 
 const DATA_VERSION = '20260902-V157-USER-EDIT-MERGE-SAFE';  // V158 未涉及频道数据结构，DATA_VERSION 保持 V157 以避免触发 forceReset
-const APP_VERSION = 'v1.3.192 (V192 修复两问题:①划掉退出后进程被重启不再幽灵自启——退出态持久化+isMusicActive拦截第三方出声时不自动播/不打断;②其他音视频App抢焦点时收音机真暂停(ExoPlayer不管焦点旧坑),视频结束自动续,手机喇叭红线不变;V191任意音箱接入续播保留)';
-const VERSION_DISPLAY = 'V192';
+const APP_VERSION = 'v1.3.193 (V193 修复:云听/阿基米德类App用GAIN级抢焦点且退出不归还焦点→收音机永久LOSS后死等手动恢复;现改为暂停后自动探测对方停止出声(4秒一轮/30分钟上限)即重新请求焦点自动续播,手机喇叭红线不变;V192两修复(划掉退出不幽灵自启+焦点抢占真暂停/视频号GAIN自动续)保留)';
+const VERSION_DISPLAY = 'V193';
 
 
 const DATA_VERSION_KEY = 'radio_data_version';
@@ -440,8 +440,12 @@ function init() {
               try { updatePlayerUI(); } catch(ign){}
               console.log('[V170-BOOT] 原生播放器存活且正在播放(Activity重建/锁屏恢复)，保留播放不打断 hasSource=' + _bst.hasSource);
             } else {
-              nativeAudioRpc('stop');
-              console.log('[V168-BOOT] 原生未在播放，执行stop清理残留(reload防双声)');
+              // V193: 不再发原生stop！实锤(20260920 21:16:44日志)：原生引擎是进程级单例，
+              //   WebView reload 无双声可能；而 Service create 刚布防的 V191 自动恢复(3秒确认)
+              //   会被此stop的handleStop→cancelScheduledBtRestore撤销，且暂停态拉起时清源
+              //   (curUrl="")导致恢复时hasSource=false失败——表现为"拉起App不自动续播"。
+              //   原生未播放时只需JS侧状态归位（上面else已在isPlaying=false分支）。
+              console.log('[V193-BOOT] 原生未在播放，跳过stop清理(保护V191自动恢复布防防双声竞态)');
             }
           } catch(ign){}
         }, 300);

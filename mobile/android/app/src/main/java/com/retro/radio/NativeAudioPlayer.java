@@ -423,6 +423,10 @@ public class NativeAudioPlayer {
     // ------------------------------------------------------------------
     @JavascriptInterface public boolean isSupported() { return true; }
     @JavascriptInterface public synchronized boolean isPlayingN() { return exo != null && exo.getPlayWhenReady() && (exo.getPlaybackState() == Player.STATE_READY || exo.getPlaybackState() == Player.STATE_BUFFERING); }
+
+    // V193: 线程安全读"是否还有可恢复的源"（Service 主线程 lossWatcher 用；
+    //   hasSourceSync() 会等主线程 latch，主线程调用会死锁，不可用）。
+    @JavascriptInterface public synchronized boolean hasSourceN() { return curUrl != null && !curUrl.isEmpty(); }
     @JavascriptInterface public synchronized long getCurrentPositionMs() { return exo == null ? 0L : exo.getCurrentPosition(); }
     @JavascriptInterface public synchronized long getBufferedPositionMs() { return exo == null ? 0L : exo.getBufferedPosition(); }
 

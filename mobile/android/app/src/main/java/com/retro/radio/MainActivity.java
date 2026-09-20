@@ -136,7 +136,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.i(TAG, "onCreate BEGIN app=v1.3.192 / buildV192 / audio-focus loss really pauses player + user-exited flag blocks phantom auto-start / androidScheme=http / badge=about / no-play-toast");
+        Log.i(TAG, "onCreate BEGIN app=v1.3.193 / buildV193 / permanent-LOSS idle watcher auto-resumes after 云听-like apps exit (GAIN-grab no abandon) / audio-focus loss really pauses player + user-exited flag blocks phantom auto-start / androidScheme=http / badge=about / no-play-toast");
 
         // V156: SAF - 注册 ActivityResultLauncher（必须在 onCreate 完成 STARTED 前注册）
         //   1) CreateDocument: 导出 / 备份 → 让用户选保存路径+文件名
@@ -1533,6 +1533,24 @@ public class MainActivity extends BridgeActivity {
                 Log.i(TAG, "[V180-BT] onResume 从Service同步蓝牙断开态=" + btDisc);
             }
         } catch (Throwable t) { Log.d(TAG, "onResume bt state sync: " + t); }
+        // V193: 补创建门控空档——若拉起App时其他App正在出声（create被V192门控挡成idle），
+        //   用户在场即布防"对方停止后自动续播"watcher（内部强制外部sink红线）。
+        try {
+            RadioPlaybackService svcW = RadioPlaybackService.sLastInstance;
+            if (svcW != null) {
+                svcW.armLossWatcherForPendingResume();
+            } else {
+                // bindService异步，sLastInstance可能尚未赋值，延迟重试一次
+                new Handler(Looper.getMainLooper()).postDelayed(new Runnable() {
+                    @Override public void run() {
+                        try {
+                            RadioPlaybackService s = RadioPlaybackService.sLastInstance;
+                            if (s != null) s.armLossWatcherForPendingResume();
+                        } catch (Throwable ignore) {}
+                    }
+                }, 800L);
+            }
+        } catch (Throwable t) { Log.d(TAG, "V193 armLossWatcher onResume: " + t); }
     }
 
     @Override public void onPause() {

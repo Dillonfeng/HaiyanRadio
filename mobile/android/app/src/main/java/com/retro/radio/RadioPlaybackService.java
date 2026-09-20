@@ -77,6 +77,23 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
     private long lastOwnFocusRequestMs = 0L;
     private boolean pausedByTransientFocusLoss = false;   // 被短暂抢焦点而暂停（视频/导航）→ GAIN 可自动续
     private boolean externalSinkAtTransientPause = false; // 暂停瞬间是否在外部 sink（耳机/音箱）
+    private final Handler focusHandler = new Handler(Looper.getMainLooper());  // V192fix: GAIN 延迟恢复
+    private Runnable focusResumeRunnable = null;
+
+    // V193: 永久 LOSS 后的"对方停了就自动回来"探测器。实测20260920 20:44:43 云听(阿基米德
+    //   插件 org.ajmd)以 GAIN 级(req=1)抢焦点 → 收音机收到 AUDIOFOCUS_LOSS（永久），且该类
+    //   App 退出时不 abandonAudioFocus（日志全程无 abandon 记录）→ 焦点栈不释放，收音机
+    //   永远等不到 GAIN。解法：暂停后周期性探测系统活跃播放列表，对方停止出声即重新请求
+    //   焦点并自动续播。用户手动暂停/停止/恢复、App 退出均会撤销探测。
+    private boolean lossWatcherActive = false;
+    private boolean lossWatcherSinkRequired = false;   // 被抢焦点时是否在外部 sink（恢复红线）
+    private long lossWatcherStartedElapsed = 0L;
+    private static final long LOSS_WATCHER_INTERVAL_MS = 4000L;          // 4秒一轮（亮屏轻轮询，息屏Doze自动节流更省电）
+    private static final long LOSS_WATCHER_MAX_MS   = 30 * 60_000L;      // 30分钟上限：超时放弃，防整夜空转
+    private final Runnable lossWatcherRunnable = new Runnable() {
+        @Override public void run() { lossWatcherTick(); }
+    };
+
     private PowerManager.WakeLock wakeLock;
     private WifiManager.WifiLock wifiLock;
     private WifiManager.WifiLock wifiLockFull; // V102 ADD: WIFI_MODE_FULL (不可剥夺基础锁，HIGH_PERF可被系统剥夺，2把锁双保险)
@@ -789,6 +806,7 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
             Log.w(TAG, "handlePlay: AudioFocus request FAIL");
         }
         pausedByTransientFocusLoss = false;  // V192: 用户/系统主动播放 → 取消"短暂丢失待恢复"记忆
+        stopLossWatcher("user play");  // V193: 用户手动恢复 → 撤销 LOSS 空闲探测
         // V177 FIX(切台卡顿/播放栏失效回环): direct resume 只允许"外部入口"(notifyUi=true：
         //   媒体键 onPlay / ACTION_PLAY / ACTION_TOGGLE / 通知栏)调用 —— 这些场景 Activity 可能已死、
         //   JS 链路断裂，需要 Java 直连 ExoPlayer。
@@ -811,6 +829,13 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
     }
 
     private void handlePause(boolean notifyUi) {
+        // V192fix: 仅用户主动暂停(notifyUi=true)才撤焦点恢复；notifyUi=false 是 ExoPlayer 状态
+        //   镜像(apiMetaFromBinder)，焦点回调自己触发的暂停绝不能在此清掉"待GAIN恢复"标志。
+        if (notifyUi) {
+            focusHandler.removeCallbacks(focusResumeRunnable);
+            pausedByTransientFocusLoss = false;
+            stopLossWatcher("user pause");  // V193: 用户手动暂停 → 不自动恢复（撤销 LOSS 空闲探测）
+        }
         // V177: 仅外部入口(notifyUi=true：媒体键/通知栏/ACTION_PAUSE/TOGGLE)才直连 ExoPlayer 暂停，
         //   覆盖锁屏后 Activity 死亡、JS 广播链路断裂的场景。
         //   notifyUi=false 是 ACTION_META 的内部状态镜像，不能反控 ExoPlayer（否则切台自激振荡卡顿，
@@ -866,6 +891,8 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         } else Log.d(TAG, "handleStop: internal state update only (skip broadcast to UI)");
         cancelSilenceAutoStop();
         cancelScheduledBtRestore();  // V192: 用户停止同时撤掉挂起的3秒蓝牙恢复，防 stopSelf 竞态窗口漏播
+        focusHandler.removeCallbacks(focusResumeRunnable);  // V192fix: 撤掉挂起的焦点恢复
+        stopLossWatcher("user stop");  // V193: 用户停止/划掉退出 → 撤销 LOSS 空闲探测
         stopBtWaitSilence();       // V186: 用户主动停止 → 撤整夜等待静音
         setBtWaitIntent(false);    // V186: 清除等待意愿（耳机再连也不自动续）
         pausedByTransientFocusLoss = false;  // V192
@@ -952,16 +979,23 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         }
         switch (focusChange) {
             case AudioManager.AUDIOFOCUS_LOSS: {
-                // 永久丢失（其他App长期播放）：暂停并保持暂停，必须用户手动恢复。
-                Log.i(TAG, "V192 focus: AUDIOFOCUS_LOSS → pause radio, stay paused (manual resume only)");
+                // 永久丢失（云听/阿基米德等App用GAIN级抢焦点）：暂停。V193起不再"死等手动恢复"——
+                //   此类App退出时不abandon焦点，永远没有GAIN回来，改由 lossWatcher 探测对方
+                //   停止出声后自动续播（手动暂停/停止会撤销探测，语义不冲突）。
+                Log.i(TAG, "V193 focus: AUDIOFOCUS_LOSS → pause radio + start idle watcher (auto-resume when other media stops)");
+                focusHandler.removeCallbacks(focusResumeRunnable);  // V192fix
                 pausedByTransientFocusLoss = false;
+                hasFocus = false;  // V193: 焦点已被系统移出我方（否则后续 requestAudioFocus 被快路径短路 → 无焦点播放 → 下次被抢收不到回调 → 双声）
                 boolean wasPlaying = isPlaying;
                 directPausePlayer();
                 isPlaying = false;
                 stateBuilder.setState(PlaybackStateCompat.STATE_PAUSED, 0, 1.0f);
                 try { mediaSession.setPlaybackState(stateBuilder.build()); } catch (Throwable ignore) {}
                 updateNotification();
-                if (wasPlaying) sendBroadcastToUI(ACTION_PAUSE);  // 同步JS/UI状态
+                if (wasPlaying) {
+                    sendBroadcastToUI(ACTION_PAUSE);  // 同步JS/UI状态
+                    startLossWatcher();               // V193: 对方停止后自动续播
+                }
                 break;
             }
             case AudioManager.AUDIOFOCUS_LOSS_TRANSIENT: {
@@ -974,6 +1008,7 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                 if (!reallyPlaying) break;
                 Log.i(TAG, "V192 focus: LOSS_TRANSIENT (other media started) → pause radio, auto-resume on GAIN");
                 pausedByTransientFocusLoss = true;
+                hasFocus = false;  // V193: 焦点被抢占（栈顶易主），必须清标志否则恢复时 requestAudioFocus 被快路径短路
                 externalSinkAtTransientPause = hasExternalAudioOutput();
                 directPausePlayer();
                 isPlaying = false;
@@ -989,6 +1024,7 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
             case AudioManager.AUDIOFOCUS_GAIN: {
                 if (!pausedByTransientFocusLoss) {
                     // 非我方主动暂停场景的 GAIN：只刷新会话状态
+                    hasFocus = true;  // V193: 系统发GAIN=焦点归还我方（我方listener仍在栈中）
                     try {
                         int st = isPlaying ? PlaybackStateCompat.STATE_PLAYING
                                            : PlaybackStateCompat.STATE_PAUSED;
@@ -1004,18 +1040,28 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                     Log.i(TAG, "V192 focus: GAIN but external sink gone → stay paused (never use speaker)");
                     break;
                 }
-                // 其他App可能仍在出声（异常双 GAIN）→ 不抢
-                if (isOtherMusicAppActive()) {
-                    Log.i(TAG, "V192 focus: GAIN but another app still active → stay paused");
-                    break;
-                }
-                Log.i(TAG, "V192 focus: GAIN after transient loss → resume radio");
-                directResumePlayerIfHasSource(false);  // 用户原本就在听 → 等同用户语义恢复
-                isPlaying = true;
-                stateBuilder.setState(PlaybackStateCompat.STATE_PLAYING, 0, 1.0f);
-                try { mediaSession.setPlaybackState(stateBuilder.build()); } catch (Throwable ignore) {}
-                sendBroadcastToUI(ACTION_BT_RECONNECTED);  // JS 侧清暂停标志并同步UI
-                updateNotification();
+                // V192fix: 系统把 GAIN 发回来 = 焦点已合法归还，此时必须恢复。
+                //   实测微信视频号关闭后其 AudioTrack 短暂残留，isMusicActive() 在 GAIN 当刻
+                //   仍可能返回 true（20260920 19:45:05），以焦点归属为准，不再用它一票否决。
+                //   延迟400ms再恢复：等对端残留音轨释放，避免半秒叠音；执行前再查一次sink红线。
+                final boolean sinkRequired = externalSinkAtTransientPause;
+                focusHandler.removeCallbacks(focusResumeRunnable);
+                focusHandler.postDelayed(focusResumeRunnable = new Runnable() {
+                    @Override public void run() {
+                        if (sinkRequired && !hasExternalAudioOutput()) {
+                            Log.i(TAG, "V192 focus: delayed resume aborted — sink gone");
+                            return;
+                        }
+                        Log.i(TAG, "V192 focus: GAIN after transient loss → resume radio");
+                        hasFocus = true;  // V193: GAIN=焦点已归还我方（栈顶），与requestAudioFocus()后的状态一致
+                        directResumePlayerIfHasSource(false);
+                        isPlaying = true;
+                        stateBuilder.setState(PlaybackStateCompat.STATE_PLAYING, 0, 1.0f);
+                        try { mediaSession.setPlaybackState(stateBuilder.build()); } catch (Throwable ignore) {}
+                        sendBroadcastToUI(ACTION_BT_RECONNECTED);
+                        updateNotification();
+                    }
+                }, 400L);
                 break;
             }
         }
@@ -1538,6 +1584,108 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
             return anyActive && !selfActive;
         } catch (Throwable t) { return false; }
     }
+
+    // =========================================================
+    // V193 LOSS 空闲探测器：云听/阿基米德类App抢GAIN焦点且退出不abandon →
+    //   收音机永久LOSS后自动探测对方停止并续播。
+    // =========================================================
+    private void startLossWatcher() {
+        lossWatcherActive = true;
+        lossWatcherSinkRequired = hasExternalAudioOutput();
+        lossWatcherStartedElapsed = android.os.SystemClock.elapsedRealtime();
+        focusHandler.removeCallbacks(lossWatcherRunnable);
+        focusHandler.postDelayed(lossWatcherRunnable, LOSS_WATCHER_INTERVAL_MS);
+        Log.i(TAG, "V193 focus: loss watcher armed (sinkRequired=" + lossWatcherSinkRequired + ")");
+    }
+
+    private void stopLossWatcher(String reason) {
+        if (!lossWatcherActive) return;
+        lossWatcherActive = false;
+        focusHandler.removeCallbacks(lossWatcherRunnable);
+        Log.i(TAG, "V193 focus: loss watcher disarmed (" + reason + ")");
+    }
+
+    /**
+     * V193: 创建门控空档补漏。Service create 时若对方App正在出声（V192门控 → idle），
+     *   对方停止后没有任何机制叫醒收音机（焦点栈里没有我们、watcher也未布防）——
+     *   实测20260920 21:37：拉起App时阿基米德在播 → idle → 用户暂停阿基米德 → 收音机沉默。
+     *   由 MainActivity.onResume（用户在场信号）调用：有可恢复电台即布防 watcher，
+     *   对方停止出声后自动续播（coldStart重载最后电台）。
+     *   红线：强制 sinkRequired=true——只有外部输出在线才自动恢复，手机喇叭绝不自动响。
+     *   系统重启Service（无Activity无onResume）不会走到这里 → 不破坏V192幽灵自启防护。
+     */
+    public void armLossWatcherForPendingResume() {
+        try {
+            if (isPlaying || lossWatcherActive) return;
+            if (!hasPlayableChannelForAutoResume()) return;
+            if (!isOtherMusicAppActive()) return;  // 对方没在播：无需等待，交给正常链路
+            lossWatcherActive = true;
+            lossWatcherSinkRequired = true;  // 强制红线：外部输出在线才自动恢复
+            lossWatcherStartedElapsed = android.os.SystemClock.elapsedRealtime();
+            focusHandler.removeCallbacks(lossWatcherRunnable);
+            focusHandler.postDelayed(lossWatcherRunnable, LOSS_WATCHER_INTERVAL_MS);
+            Log.i(TAG, "V193 focus: pending-resume watcher armed (other app playing + user in foreground)");
+        } catch (Throwable t) { Log.w(TAG, "V193 armLossWatcher FAIL: " + t); }
+    }
+
+    private void lossWatcherTick() {
+        if (!lossWatcherActive) return;
+        try {
+            // 超时保护：30分钟没等到对方停止就放弃（防整夜空转）
+            if (android.os.SystemClock.elapsedRealtime() - lossWatcherStartedElapsed > LOSS_WATCHER_MAX_MS) {
+                stopLossWatcher("timeout 30min");
+                return;
+            }
+            // 期间用户已手动恢复播放 → 探测自然结束
+            if (isPlaying) { stopLossWatcher("self playing"); return; }
+
+            if (isOtherMusicAppActive()) {
+                // 对方还在出声（或残留音轨未释放，4秒轮询天然躲过数百毫秒残留）→ 等下一轮
+                focusHandler.postDelayed(lossWatcherRunnable, LOSS_WATCHER_INTERVAL_MS);
+                return;
+            }
+            // 红线：被抢焦点前声音在外部 sink，恢复时 sink 必须还在，绝不能漏到手机喇叭
+            if (lossWatcherSinkRequired && !hasExternalAudioOutput()) {
+                stopLossWatcher("sink gone (never use speaker)");
+                return;
+            }
+            // 自身有源 → 直连resume；无源（进程重建后单例无源）→ coldStart从retro_last_channel重载
+            //   （coldStartPlayLastChannel(true) 内部子线程playUrl前再查一次外部sink红线）
+            NativeAudioPlayer p = NativeAudioPlayer.peekInstance();
+            if (p == null || !p.hasSourceN()) {
+                stopLossWatcher("no source → coldStart last channel");
+                coldStartPlayLastChannel(true);
+                return;
+            }
+            stopLossWatcher("other media stopped");
+            resumeRadioAfterFocusReturn("V193 focus: other media stopped after permanent LOSS → resume radio");
+        } catch (Throwable t) {
+            Log.w(TAG, "V193 lossWatcherTick FAIL: " + t);
+            lossWatcherActive = false;
+        }
+    }
+
+    // V193: 恢复动作（重新请求焦点→直连ExoPlayer续播→刷状态广播UI）。
+    //   LOSS 后我方已不在焦点栈，必须先重新 requestAudioFocus（对方已停，不会打断任何人）。
+    private void resumeRadioAfterFocusReturn(String logLine) {
+        Log.i(TAG, logLine);
+        if (!requestAudioFocus()) {
+            Log.w(TAG, "V193 focus: re-request focus FAIL → stay paused");
+            return;
+        }
+        pausedByTransientFocusLoss = false;
+        directResumePlayerIfHasSource(false);
+        isPlaying = true;
+        stateBuilder.setState(PlaybackStateCompat.STATE_PLAYING, 0, 1.0f);
+        try { mediaSession.setPlaybackState(stateBuilder.build()); } catch (Throwable ignore) {}
+        try { mediaSession.setActive(true); } catch (Throwable ignore) {}
+        sendBroadcastToUI(ACTION_BT_RECONNECTED);
+        updateNotification();
+    }
+
+    // V193: 系统活跃播放列表第二道确认已放弃——AudioPlaybackConfiguration 的
+    //   getPlayerState()/getAudioAttributes()/PLAYER_STATE_STARTED 全是 hidden API，
+    //   公开SDK编译不过；isMusicActive() 单判据 + 4秒轮询已足够（残留窗口仅数百毫秒）。
 
     private void scheduleBtRestore() {
         try {
