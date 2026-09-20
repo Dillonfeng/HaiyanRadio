@@ -684,7 +684,11 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         } catch (Throwable t) { Log.w(TAG, "V177 directPausePlayer FAIL: " + t); }
     }
 
-    private void directResumePlayerIfHasSource() {
+    private void directResumePlayerIfHasSource() { directResumePlayerIfHasSource(false); }
+
+    // V191: btAuto=true 表示由蓝牙设备接入自动恢复（非用户按键）。此路径在真正让 ExoPlayer
+    //   出声前必须确认外部 sink 仍在 —— 手机喇叭绝不允许自动播放（用户安全红线/V183门控初衷）。
+    private void directResumePlayerIfHasSource(boolean btAuto) {
         try {
             NativeAudioPlayer p = NativeAudioPlayer.peekInstance();
             if (p == null) {
@@ -692,7 +696,7 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                 //   旧逻辑直接return + 广播给JS，但Activity/WebView都没起 → 死路无声。
                 //   改为读持久化的最后电台URL，在Java层直起ExoPlayer播放；之后用户点开app，
                 //   JS init 的 status 检查会发现isPlaying=true并同步UI（V170 BOOT路径）。
-                coldStartPlayLastChannel();
+                coldStartPlayLastChannel(btAuto);
                 return;
             }
             // V185: 防重复恢复。实测蓝牙耳机A2DP重连后会自动补发AVCRP PLAY键(约重连后20秒)，
@@ -705,17 +709,24 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
             // 有源(暂停/锁屏期间ExoPlayer保留media item) → V184蓝牙恢复一律重建直播流(resumeLive)；
             //   无源 → 同样尝试最后电台URL直连
             if (p.hasSourceSync()) {
+                if (btAuto && !hasExternalAudioOutput()) {
+                    Log.i(TAG, "V191 directResume: sink gone before resumeLive → abort (never use speaker)");
+                    return;
+                }
                 Log.i(TAG, "V184 directResume: resumeLive (seekTo live edge+prepare, never resume stale conn)");
                 p.resumeLive();
             } else {
                 Log.d(TAG, "V177 directResume: no source, try V183 cold-start last channel");
-                coldStartPlayLastChannel();
+                coldStartPlayLastChannel(btAuto);
             }
         } catch (Throwable t) { Log.w(TAG, "V177 directResume FAIL: " + t); }
     }
 
     // V183: 用持久化的最后电台直连播放（媒体键冷启动唯一可靠路径，不依赖JS）
-    private void coldStartPlayLastChannel() {
+    private void coldStartPlayLastChannel() { coldStartPlayLastChannel(false); }
+
+    // V191: requireExternalOutput=true（蓝牙自动恢复）时，playUrl 前必须再次确认外部 sink 在线。
+    private void coldStartPlayLastChannel(final boolean requireExternalOutput) {
         try {
             android.content.SharedPreferences sp =
                     getSharedPreferences(NativeAudioPlayer.LAST_CH_SP, MODE_PRIVATE);
@@ -731,6 +742,12 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
             new Thread(new Runnable() {
                 @Override public void run() {
                     try {
+                        // V191: 蓝牙自动恢复（非用户按键）冷路径 —— playUrl 前再次确认外部 sink 在线，
+                        //   子线程与 Runnable 之间有窗口，设备可能已消失；绝不允许漏到手机喇叭。
+                        if (requireExternalOutput && !hasExternalAudioOutputStatic(appCtx0)) {
+                            Log.i(TAG, "V191 coldStart: external sink gone before playUrl → abort (never play on speaker)");
+                            return;
+                        }
                         // 先peek：单例已存在说明Activity可能已注册JS回调，绝不能用getShared(ctx,null)
                         //   把回调清空（setEvents(null)）；仅进程冷启动真无单例时才以cb=null创建。
                         NativeAudioPlayer p = NativeAudioPlayer.peekInstance();
@@ -1046,6 +1063,9 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
             } catch (Throwable ignore) {}
             // V186: 进程被杀后重启(START_STICKY等)，若断连等待意愿仍在：无输出→重新进入整夜等待静音；
             //   已有输出(耳机在进程死亡期间已连回)→直接走3秒确认恢复。
+            // V191: 等待意图不在（睡前手动暂停/停止）但持久化有最后电台：同样允许外部 sink 接入即
+            //   自动续播。有输出→直接恢复；无输出→不启动等待轨/闹钟（低耗电），onAudioDevicesAdded
+            //   事件到来时 scheduleBtRestore 的 V191 门控会放行（回调靠 deviceidle 白名单直达）。
             try {
                 if (peekBtWaitIntent(getApplicationContext())) {
                     if (hasExternalAudioOutput()) {
@@ -1056,6 +1076,13 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                         btAudioDisconnected = true;
                         Log.i(TAG, "V186: wait-intent found at create, no output → re-arm wait-silence");
                         startBtWaitSilence();
+                    }
+                } else if (hasPlayableChannelForAutoResume()) {
+                    if (hasExternalAudioOutput()) {
+                        Log.i(TAG, "V191: last channel at create + external sink present → restore directly");
+                        scheduleBtRestore();
+                    } else {
+                        Log.i(TAG, "V191: last channel at create, no external sink → idle, auto-resume when any sink added");
                     }
                 }
             } catch (Throwable t) { Log.w(TAG, "V186 create re-arm FAIL: " + t); }
@@ -1416,9 +1443,42 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         } catch (Throwable t) { Log.w(TAG, "V182 FGS repromote FAIL: " + t); }
     }
 
+    /**
+     * V191: 是否存在"可被外部设备接入自动唤起"的播放源。
+     *   热路径：ExoPlayer 单例还在且保留 media item（睡前手动暂停、进程未死）；
+     *   冷路径：进程重建后单例无源/不存在，但 retro_last_channel 里有最后播放的电台 URL。
+     *   从未播放过（无持久化电台）→ false，任何情况下都不自动响。
+     */
+    private boolean hasPlayableChannelForAutoResume() {
+        try {
+            NativeAudioPlayer p = NativeAudioPlayer.peekInstance();
+            if (p != null && p.hasSourceSync()) return true;
+            android.content.SharedPreferences sp =
+                    getSharedPreferences(NativeAudioPlayer.LAST_CH_SP, MODE_PRIVATE);
+            String url = sp.getString(NativeAudioPlayer.LC_URL, "");
+            return url != null && !url.isEmpty();
+        } catch (Throwable t) {
+            Log.w(TAG, "V191 hasPlayableChannel FAIL: " + t);
+            return false;
+        }
+    }
+
     private void scheduleBtRestore() {
         try {
-            if (!btAudioDisconnected) return;
+            if (!btAudioDisconnected) {
+                // V191: 用户策略"任何外部音箱接入都自动恢复最后播放的台"。旧版仅
+                //   NOISY/V183 布防态(btAudioDisconnected=true)才恢复 → 睡前手动暂停过夜，
+                //   早上开音箱被此门控挡掉（实测20260920，日志仅有"延迟确认"无恢复）。
+                NativeAudioPlayer _qp = NativeAudioPlayer.peekInstance();
+                if (isPlaying && _qp != null && _qp.isPlayingN()) {
+                    // 正在播放（手机喇叭/旧设备）时新 sink 加入：系统会自动 reroute 音频，
+                    //   我们什么都不用做，避免无谓的确认锁/FGS提升和二次 resumeLive。
+                    Log.i(TAG, "V191: sink added while already playing → system auto-routes, skip");
+                    return;
+                }
+                if (!hasPlayableChannelForAutoResume()) return;
+                Log.i(TAG, "V191: sink added in paused state with playable channel → auto-resume armed");
+            }
             cancelScheduledBtRestore();  // 清掉旧任务并释放旧锁
             // V190: 不再在此重建等待轨。V187 零音量时代需要 fresh noteAudio 抢解冻窗口身份；
             //   V189 起 ±16LSB 轨在轨即被系统认作音乐(mIsPlayMusic=true)，重建纯属多余且产生开箱
@@ -1432,7 +1492,11 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                     btRestoreRunnable = null;
                     boolean restored = false;
                     try {
-                        if (!btAudioDisconnected) { stopBtSilenceKeepalive(); return; }
+                        // V191: 非蓝牙断开态也允许恢复（手动暂停后外部 sink 接入），前提是仍有可播源
+                        if (!btAudioDisconnected && !hasPlayableChannelForAutoResume()) {
+                            stopBtSilenceKeepalive();
+                            return;
+                        }
                         if (!hasExternalAudioOutput()) {
                             Log.i(TAG, "[V180-BT] 延迟" + delay + "ms后外部输出已不在（抖动），放弃恢复");
                             cancelSilenceAutoStop();
@@ -1443,7 +1507,9 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
                         }
                         Log.i(TAG, "[V180-BT] 设备稳定在线 " + delay + "ms → FGS直连恢复播放");
                         btAudioDisconnected = false;
-                        directResumePlayerIfHasSource();  // 内部含V179长暂停重新prepare
+                        // V191: btAuto=true —— 蓝牙自动恢复路径，冷启动子线程 playUrl 前再次
+                        //   确认外部 sink 仍在，防止确认窗口后设备消失导致声音从手机喇叭漏出。
+                        directResumePlayerIfHasSource(true);  // 内部含V179长暂停重新prepare
                         sendBroadcastToUI(ACTION_BT_RECONNECTED);
                         restored = true;
                         // 静音轨继续保留直到 ExoPlayer 真实流 STATE_READY（prepare 建连期间仍可能被HANS判定不可感知）

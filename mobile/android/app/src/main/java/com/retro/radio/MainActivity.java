@@ -136,7 +136,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        Log.i(TAG, "onCreate BEGIN app=v1.3.190 / buildV190 / dual-phase silence delay / no rebuild on restore / androidScheme=http / badge=about / no-play-toast");
+        Log.i(TAG, "onCreate BEGIN app=v1.3.191 / buildV191 / any external sink auto-resume last channel (manual-pause overnight covered) / speaker never auto-plays / androidScheme=http / badge=about / no-play-toast");
 
         // V156: SAF - 注册 ActivityResultLauncher（必须在 onCreate 完成 STARTED 前注册）
         //   1) CreateDocument: 导出 / 备份 → 让用户选保存路径+文件名

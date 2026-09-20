@@ -22,8 +22,8 @@ const state = {
 };
 
 const DATA_VERSION = '20260902-V157-USER-EDIT-MERGE-SAFE';  // V158 未涉及频道数据结构，DATA_VERSION 保持 V157 以避免触发 forceReset
-const APP_VERSION = 'v1.3.190 (V190 等待轨双时段延迟:白天息屏45分钟内零运行[实测63分钟无轨回调直达]夜间2分钟保证deepSleep前在轨,傍晚跨窗自动取短;恢复播放不再重建等待轨消除开箱嘶嘶声;V189:±16LSB随机弱噪声骗过静音检测夜间不断网;90秒闹钟兜底)';
-const VERSION_DISPLAY = 'V190';
+const APP_VERSION = 'v1.3.191 (V191 任何外部音箱接入即自动恢复最后播放的台:睡前手动暂停过夜,早上开音箱同样续播;冷启动/开机自启同步支持;蓝牙自动恢复全程外部sink双重确认,手机喇叭绝不自动响;V190双时段等待轨+V189±16LSB夜间保网+90秒闹钟兜底)';
+const VERSION_DISPLAY = 'V191';
 
 
 const DATA_VERSION_KEY = 'radio_data_version';
