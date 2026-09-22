@@ -110,6 +110,14 @@ public class NativeAudioPlayer {
 
     public void setEvents(NativeAudioEvents events) { this.cb = events; }
 
+    // V194: 在类继承链上查找声明字段
+    private static java.lang.reflect.Field findField(Class<?> cls, String name) {
+        while (cls != null) {
+            try { return cls.getDeclaredField(name); } catch (NoSuchFieldException e) { cls = cls.getSuperclass(); }
+        }
+        return null;
+    }
+
     private ExoPlayer exo;
     private DefaultDataSource.Factory dataSourceFactory;
     private DefaultTrackSelector trackSel;
@@ -129,6 +137,11 @@ public class NativeAudioPlayer {
     // V186: 蓝牙断开超过此时长，resumeLive 直接全量 setMediaItem 重建（而非seekTo+prepare），
     //   彻底丢弃 ExoPlayer 内存中的旧 HLS 分片，消灭"先播昨晚旧声几秒才切实时"的现象。
     private static final long BT_FRESH_RELOAD_MS = 180 * 1000L;
+    // V194fix: 焦点短暂抢占（阿基米德/云听切走十几秒又切回）后恢复，若 <30s 直接续接现有
+    //   管线（READY态缓冲仍有效），省掉 seekTo live edge+prepare 全量重建的约1秒等待，近乎即时
+    //   出声；代价是直播延迟等于暂停时长（电台广播无感）。分片真失效时看门狗 forceReLive 兜底。
+    //   ≥30s 仍走重建，保证回到 live edge（旧分片可能已滑出 HLS 窗口）。
+    private static final long FOCUS_FAST_RESUME_MS = 30 * 1000L;
     private long pausedAtElapsedMs = 0L;
 
     // V184: 播放卡死看门狗。实测数据网 onLost 后旧TCP连接静默挂死：ExoPlayer 状态长期
@@ -285,7 +298,25 @@ public class NativeAudioPlayer {
                             2_500,    // bufferForPlaybackMs: 2.5s before "ready to start"
                             5_000)    // bufferForPlaybackAfterRebufferMs: 5s for rebuffer
                     .build();
-            DefaultRenderersFactory rf = new DefaultRenderersFactory(appCtx)
+            // V194: 自定义AudioSink —— 加大AudioTrack PCM缓冲到≥1秒。
+            //   实测相机上滑退后台时ColorOS压制本进程音频线程约1秒(prepareTracks_l里
+            //   framesReady长期<minFrames=2050→mixerStatus1写静音), 默认缓冲仅~85ms瞬间
+            //   underrun; 阿基米德ijkplayer挂DEEP_BUFFER且用系统大缓冲所以不卡。
+            //   DEEP_BUFFER flag仍靠build()后的反射注入(见下方), 这里解决缓冲深度问题。
+            DefaultRenderersFactory rf = new DefaultRenderersFactory(appCtx) {
+                @Override
+                protected androidx.media3.exoplayer.audio.AudioSink buildAudioSink(
+                        Context ctx, boolean enableFloatOutput, boolean enableAudioTrackPlaybackParams) {
+                    return new androidx.media3.exoplayer.audio.DefaultAudioSink.Builder(ctx)
+                            .setEnableFloatOutput(enableFloatOutput)
+                            .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                            .setAudioTrackBufferSizeProvider((int minBufferSizeInBytes, int encoding, int outputMode,
+                                                               int frameCount, int sampleRate, int bitrate,
+                                                               double maxSpeed) ->
+                                    Math.max(minBufferSizeInBytes, sampleRate * 2 * 4)) // ≥1s stereo float32
+                            .build();
+                }
+            }
                     .setExtensionRendererMode(DefaultRenderersFactory.EXTENSION_RENDERER_MODE_PREFER)
                     .setEnableAudioFloatOutput(true);
             DefaultHttpDataSource.Factory httpF = new DefaultHttpDataSource.Factory()
@@ -309,10 +340,49 @@ public class NativeAudioPlayer {
                     .setAudioAttributes(new AudioAttributes.Builder()
                             .setContentType(androidx.media3.common.C.AUDIO_CONTENT_TYPE_MUSIC)
                             .setUsage(androidx.media3.common.C.USAGE_MEDIA)
-                            .build(), false)  // V132 FIX: false = ExoPlayer不自动管理音频焦点，由RadioPlaybackService统一requestAudioFocus，避免冷启动双重焦点冲突导致首次播放无声
+                            .build(), false)  // V132/V194: false=不由ExoPlayer管理焦点(true会导致双重焦点冲突→点击播放无声). 焦点由Service统一管理; 防相机mute靠自定义AudioSink加DEEP_BUFFER
                     .setHandleAudioBecomingNoisy(true)
                     .setWakeMode(androidx.media3.common.C.WAKE_MODE_NETWORK)  // <---- THE KILLER FIX: holds PARTIAL_WAKE_LOCK + WifiLock via AudioSystem (bypasses all ColorOS ActivityRecord freezer / WifiLock priority-decay)
                     .build();
+            // V194: 反射给ExoPlayer的AudioSink注入FLAG_DEEP_BUFFER(0x8),对齐阿基米德ijkplayer.
+            //   相机重路由时系统不flush DEEP_BUFFER音轨的大缓冲→不被mute→不卡顿.
+            try {
+                java.lang.reflect.Field renderersField = exo.getClass().getDeclaredField("renderers");
+                renderersField.setAccessible(true);
+                Object[] renderers = (Object[]) renderersField.get(exo);
+                boolean injected = false;
+                for (Object renderer : renderers) {
+                    if (renderer == null) continue;
+                    try {
+                        java.lang.reflect.Field sinkField = findField(renderer.getClass(), "audioSink");
+                        if (sinkField != null) {
+                            sinkField.setAccessible(true);
+                            Object audioSink = sinkField.get(renderer);
+                            if (audioSink != null) {
+                                // DefaultAudioSink 的 flags 来自 audioAttributes.flags
+                                java.lang.reflect.Field attrsField = findField(audioSink.getClass(), "audioAttributes");
+                                if (attrsField != null) {
+                                    attrsField.setAccessible(true);
+                                    Object audioAttributes = attrsField.get(audioSink);
+                                    if (audioAttributes != null) {
+                                        java.lang.reflect.Field flagsField = findField(audioAttributes.getClass(), "flags");
+                                        if (flagsField != null) {
+                                            flagsField.setAccessible(true);
+                                            int oldFlags = flagsField.getInt(audioAttributes);
+                                            flagsField.setInt(audioAttributes, oldFlags | 0x8); // FLAG_DEEP_BUFFER
+                                            Log.i(TAG, "V194: set audioAttributes flags " + oldFlags + " -> " + (oldFlags | 0x8));
+                                            injected = true;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } catch (Throwable t) { Log.w(TAG, "V194 renderer err: " + t); }
+                }
+                if (!injected) Log.w(TAG, "V194: DEEP_BUFFER not injected (no audioSink found)");
+            } catch (Throwable t) {
+                Log.w(TAG, "V194: inject DEEP_BUFFER failed: " + t);
+            }
             exo.addListener(new Player.Listener() {
                 long lastPosReportAt = 0L;
                 @Override public void onPlaybackStateChanged(int st) {
@@ -473,6 +543,14 @@ public class NativeAudioPlayer {
                     exo.setPlayWhenReady(true);
                     Log.i(TAG, "V186 resumeLive: pausedFor=" + pausedFor + "ms > " + BT_FRESH_RELOAD_MS
                             + "ms → FULL reload (drop stale overnight buffer)");
+                } else if (pausedFor > 0L && pausedFor < FOCUS_FAST_RESUME_MS
+                        && exo.getMediaItemCount() > 0
+                        && exo.getPlaybackState() != Player.STATE_IDLE) {
+                    // V194fix: 短时间焦点抢占/蓝牙秒断 → 直接续接现有管线，不 seekTo/prepare。
+                    //   READY态下缓冲仍有效，近乎即时出声；分片失效由看门狗 forceReLive 兜底重建。
+                    exo.setPlayWhenReady(true);
+                    Log.i(TAG, "V194fix resumeLive FAST: setPlayWhenReady(true), pausedFor=" + pausedFor
+                            + "ms < " + FOCUS_FAST_RESUME_MS + "ms (no rebuild, watchdog backstop)");
                 } else {
                     if (exo.getMediaItemCount() > 0) { try { exo.seekToDefaultPosition(); } catch (Throwable ignore) {} }
                     exo.prepare();

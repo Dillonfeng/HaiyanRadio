@@ -88,10 +88,17 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
     private boolean lossWatcherActive = false;
     private boolean lossWatcherSinkRequired = false;   // 被抢焦点时是否在外部 sink（恢复红线）
     private long lossWatcherStartedElapsed = 0L;
-    private static final long LOSS_WATCHER_INTERVAL_MS = 4000L;          // 4秒一轮（亮屏轻轮询，息屏Doze自动节流更省电）
+    // V194fix: 4s→500ms 快轮询（isMusicActive 是轻量 binder 调用，亮屏开销可忽略；息屏 Doze 自动节流）。
+    //   发现对方停声后不立即恢复，追加 LOSS_WATCHER_CONFIRM_MS 二次确认，躲过对方音轨数百 ms
+    //   残留窗口（原 4s 轮询是"天然躲过"，快轮询必须显式确认，否则可能叠音）。
+    private static final long LOSS_WATCHER_INTERVAL_MS = 500L;
+    private static final long LOSS_WATCHER_CONFIRM_MS  = 250L;
     private static final long LOSS_WATCHER_MAX_MS   = 30 * 60_000L;      // 30分钟上限：超时放弃，防整夜空转
     private final Runnable lossWatcherRunnable = new Runnable() {
-        @Override public void run() { lossWatcherTick(); }
+        @Override public void run() { lossWatcherTick(false); }
+    };
+    private final Runnable lossWatcherConfirmRunnable = new Runnable() {
+        @Override public void run() { lossWatcherTick(true); }
     };
 
     private PowerManager.WakeLock wakeLock;
@@ -1602,6 +1609,7 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         if (!lossWatcherActive) return;
         lossWatcherActive = false;
         focusHandler.removeCallbacks(lossWatcherRunnable);
+        focusHandler.removeCallbacks(lossWatcherConfirmRunnable);
         Log.i(TAG, "V193 focus: loss watcher disarmed (" + reason + ")");
     }
 
@@ -1628,7 +1636,7 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
         } catch (Throwable t) { Log.w(TAG, "V193 armLossWatcher FAIL: " + t); }
     }
 
-    private void lossWatcherTick() {
+    private void lossWatcherTick(boolean confirmPass) {
         if (!lossWatcherActive) return;
         try {
             // 超时保护：30分钟没等到对方停止就放弃（防整夜空转）
@@ -1640,8 +1648,14 @@ public class RadioPlaybackService extends Service implements AudioManager.OnAudi
             if (isPlaying) { stopLossWatcher("self playing"); return; }
 
             if (isOtherMusicAppActive()) {
-                // 对方还在出声（或残留音轨未释放，4秒轮询天然躲过数百毫秒残留）→ 等下一轮
+                // 对方还在出声（或二次确认时发现音轨仍残留）→ 回到正常1秒轮询
+                focusHandler.removeCallbacks(lossWatcherConfirmRunnable);
                 focusHandler.postDelayed(lossWatcherRunnable, LOSS_WATCHER_INTERVAL_MS);
+                return;
+            }
+            // V194fix: 首次发现对方停声 → 400ms后二次确认，躲过对方音轨残留窗口，避免叠音
+            if (!confirmPass) {
+                focusHandler.postDelayed(lossWatcherConfirmRunnable, LOSS_WATCHER_CONFIRM_MS);
                 return;
             }
             // 红线：被抢焦点前声音在外部 sink，恢复时 sink 必须还在，绝不能漏到手机喇叭
